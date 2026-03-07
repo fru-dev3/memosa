@@ -18,6 +18,7 @@ import { SearchView } from './views/SearchView'
 import { SettingsView } from './views/SettingsView'
 import { TemplatesView } from './views/TemplatesView'
 import { TodayView } from './views/TodayView'
+import { SetupView } from './views/SetupView'
 
 type PrimaryView = 'today' | 'calendar' | 'library' | 'projects' | 'search'
 
@@ -176,6 +177,12 @@ export default function App() {
   const primaryView: PrimaryView = primaryViews.has(activeView as PrimaryView)
     ? activeView as PrimaryView
     : 'today'
+
+  // Show setup screen for new installs. Existing users always have
+  // has_completed_setup = true (set at load time in settings.rs).
+  if (settings != null && !settings.has_completed_setup) {
+    return <SetupView />
+  }
 
   return (
     <div style={{

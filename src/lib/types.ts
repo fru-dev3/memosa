@@ -219,6 +219,7 @@ export interface AppSettings {
     detail: string
     prompt: string
   }>
+  has_completed_setup: boolean
 }
 
 export type AppView =

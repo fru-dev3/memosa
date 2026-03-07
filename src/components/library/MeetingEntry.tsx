@@ -32,7 +32,7 @@ function IconLocalOnly() {
 
 // ─── Status icon ──────────────────────────────────────────────────
 
-function StatusIcon({ status, progress }: { status: Meeting['transcription_status']; progress?: number }) {
+export function StatusIcon({ status, progress }: { status: Meeting['transcription_status']; progress?: number }) {
   if (status === 'complete') {
     return (
       <span title="Transcribed" style={{ display: 'inline-flex', color: 'var(--accent)' }}>

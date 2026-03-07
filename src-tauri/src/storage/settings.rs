@@ -19,7 +19,10 @@ impl SettingsManager {
         let path = Self::settings_path();
         if path.exists() {
             if let Ok(json) = std::fs::read_to_string(&path) {
-                if let Ok(settings) = serde_json::from_str::<AppSettings>(&json) {
+                if let Ok(mut settings) = serde_json::from_str::<AppSettings>(&json) {
+                    // Existing install: always treat as setup-complete even if the
+                    // field is absent in an older settings.json (serde default = false).
+                    settings.has_completed_setup = true;
                     return settings;
                 }
             }
@@ -130,6 +133,7 @@ impl Default for AppSettings {
                 ),
             ]),
             custom_summary_templates: Vec::new(),
+            has_completed_setup: false,
         }
     }
 }

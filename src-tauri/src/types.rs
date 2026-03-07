@@ -349,6 +349,8 @@ pub struct AppSettings {
     pub summary_template_prompts: HashMap<String, String>,
     #[serde(default)]
     pub custom_summary_templates: Vec<CustomSummaryTemplate>,
+    #[serde(default)]
+    pub has_completed_setup: bool,
 }
 
 fn default_appearance_mode() -> AppearanceMode {

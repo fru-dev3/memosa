@@ -191,8 +191,9 @@ export function TranscriptViewer({
   onDelete?: (meeting: Meeting) => void
   onRetranscribe?: (meeting: Meeting) => void
 }) {
-  const { audioLevel, recordingStatus, setActiveView, setSearchSeed, transcriptionErrors } = useMemosaStore()
+  const { audioLevel, recordingStatus, setActiveView, setSearchSeed, transcriptionErrors, availableModels } = useMemosaStore()
   const transcriptionFailureError = transcriptionErrors.get(meeting.id)
+  const hasDownloadedModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
   const isThisMeetingRecording = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
   const [transcriptContent, setTranscriptContent] = useState<string | null>(null)
   const [draftContent, setDraftContent] = useState('')
@@ -210,6 +211,7 @@ export function TranscriptViewer({
   const [titleDraft, setTitleDraft] = useState(meeting.title)
   const [menuOpen, setMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+  const [transcriptSearch, setTranscriptSearch] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const audioSrc = meeting.audio_path ? convertFileSrc(meeting.audio_path) : null
@@ -277,6 +279,7 @@ export function TranscriptViewer({
     setMenuOpen(false)
     setViewMode('transcript')
     setTextMode('clean')
+    setTranscriptSearch('')
   }, [meeting.id, meeting.title])
 
   useEffect(() => {
@@ -399,10 +402,51 @@ export function TranscriptViewer({
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* Left: main scrollable content */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {/* Transcript search bar — only shown when transcript is ready */}
+        {meeting.transcription_status === 'complete' && transcriptContent && (
+          <div style={{ padding: '8px 16px 0', flexShrink: 0, position: 'relative' }}>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M10 10l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search transcript…"
+              value={transcriptSearch}
+              onChange={e => setTranscriptSearch(e.target.value)}
+              style={{ width: '100%', paddingLeft: 28, paddingRight: transcriptSearch ? 26 : 10, paddingTop: 6, paddingBottom: 6, fontSize: 12, borderRadius: 7, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
+            />
+            {transcriptSearch && (
+              <button onClick={() => setTranscriptSearch('')} style={{ position: 'absolute', right: 22, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+            )}
+          </div>
+        )}
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
           {loadingTranscript ? (
             <div className="space-y-3">
               {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-4 rounded" style={{ width: `${60 + i * 8}%` }} />)}
+            </div>
+          ) : (meeting.transcription_status === 'not_started' || meeting.transcription_status === 'failed') && !hasDownloadedModel ? (
+            // No model available — show download prompt regardless of status
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 32 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, maxWidth: 280, textAlign: 'center' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M10 3.5L13.5 7H11V13H9V7H6.5L10 3.5Z" fill="var(--accent)" />
+                    <rect x="4" y="15" width="12" height="1.5" rx="0.75" fill="var(--accent)" />
+                  </svg>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>No model downloaded</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                    Go to <strong style={{ color: 'var(--text-secondary)' }}>Settings → Models</strong> and download Whisper to transcribe locally.
+                  </div>
+                </div>
+                <button className="ghost-pill is-selected-pill" onClick={() => setActiveView('settings')}>
+                  Download a model
+                </button>
+              </div>
             </div>
           ) : meeting.transcription_status === 'not_started' ? (
             <div className="search-empty-state" style={{ gap: 12 }}>
@@ -414,7 +458,12 @@ export function TranscriptViewer({
           ) : meeting.transcription_status === 'failed' ? (
             <div className="empty-panel">
               <div className="empty-title">Transcription failed</div>
-              <div className="empty-copy">{transcriptionFailureError ?? 'Try the local transcript job again.'}</div>
+              <div className="empty-copy">{transcriptionFailureError ?? 'Something went wrong. Try again.'}</div>
+              {onRetranscribe && (
+                <button className="ghost-pill" style={{ marginTop: 12 }} onClick={() => onRetranscribe(meeting)}>
+                  Try again
+                </button>
+              )}
             </div>
           ) : editing ? (
             <textarea
@@ -424,41 +473,51 @@ export function TranscriptViewer({
               style={{ width: '100%', minHeight: '60vh', resize: 'vertical', lineHeight: 1.65 }}
             />
           ) : transcriptContent ? (
-            <div className="space-y-4">
-              {/* Content */}
-              {viewMode === 'transcript' ? (
-                <div className="surface-panel" style={{ padding: 16 }}>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)', fontSize: textMode === 'clean' ? 13 : 12, lineHeight: 1.8, color: textMode === 'clean' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                    {textMode === 'clean' ? cleanTranscript : transcriptContent}
-                  </pre>
+            (() => {
+              const sq = transcriptSearch.trim().toLowerCase()
+              const filteredLines = sq ? lines.filter(l => l.text.toLowerCase().includes(sq)) : lines
+              const displayText = sq
+                ? filteredLines.map(l => l.timestamp ? `[${l.timestamp}] ${l.text}` : l.text).join('\n')
+                : (textMode === 'clean' ? cleanTranscript : transcriptContent)
+              return (
+                <div className="space-y-4">
+                  {sq && filteredLines.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>No matches for "{transcriptSearch}"</div>
+                  ) : viewMode === 'transcript' ? (
+                    <div className="surface-panel" style={{ padding: 16 }}>
+                      <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)', fontSize: textMode === 'clean' ? 13 : 12, lineHeight: 1.8, color: textMode === 'clean' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                        {displayText}
+                      </pre>
+                    </div>
+                  ) : (
+                    filteredLines.map((line, i) => (
+                      <div key={i} className="flex gap-4 transcript-line-row">
+                        {line.timestamp && (
+                          <button
+                            className="text-xs font-bold flex-shrink-0 pt-0.5 tabular-nums"
+                            style={{ color: 'var(--accent)', minWidth: 56, opacity: 0.8 }}
+                            onClick={() => seekToTimestamp(line.timestamp)}
+                            title="Jump playback to this moment"
+                          >
+                            [{line.timestamp}]
+                          </button>
+                        )}
+                        <p style={{ color: 'var(--text-primary)', maxWidth: '74ch', margin: 0, fontSize: 13, lineHeight: 1.75 }}>
+                          {line.text.replace(/\*\*|__|`/g, '').replace(/^#{1,6}\s+/, '')}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ) : (
-                /* Timeline */
-                lines.map((line, i) => (
-                  <div key={i} className="flex gap-4 transcript-line-row">
-                    {line.timestamp && (
-                      <button
-                        className="text-xs font-bold flex-shrink-0 pt-0.5 tabular-nums"
-                        style={{ color: 'var(--accent)', minWidth: 56, opacity: 0.8 }}
-                        onClick={() => seekToTimestamp(line.timestamp)}
-                        title="Jump playback to this moment"
-                      >
-                        [{line.timestamp}]
-                      </button>
-                    )}
-                    <p style={{ color: 'var(--text-primary)', maxWidth: '74ch', margin: 0, fontSize: 13, lineHeight: 1.75 }}>
-                      {line.text.replace(/\*\*|__|`/g, '').replace(/^#{1,6}\s+/, '')}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
+              )
+            })()
           ) : (
             <div className="empty-panel">
               <div className="empty-title">Transcript unavailable</div>
               <div className="empty-copy">{transcriptError ?? 'Transcript file not found.'}</div>
             </div>
           )}
+        </div>
         </div>
 
         {/* Right: sidebar (collapsible) */}

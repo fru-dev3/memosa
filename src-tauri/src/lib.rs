@@ -129,6 +129,7 @@ pub fn run() {
             audio::ambient::save_last_ambient_segment,
             transcription::get_available_models,
             transcription::download_model,
+            transcription::delete_model,
             transcription::transcribe_audio,
             transcription::get_transcription_status,
             transcription::cancel_transcription,

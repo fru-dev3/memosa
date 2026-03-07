@@ -234,17 +234,6 @@ function RailAppIcon() {
     </svg>
   )
 }
-function RailIntegrationsIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M4 5.5h3.2M8.8 10.5H12M8 3v3M8 10v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-      <circle cx="3" cy="5.5" r="1.3" stroke="currentColor" strokeWidth="1.3"/>
-      <circle cx="13" cy="10.5" r="1.3" stroke="currentColor" strokeWidth="1.3"/>
-      <circle cx="8" cy="8" r="1.55" stroke="currentColor" strokeWidth="1.3"/>
-    </svg>
-  )
-}
-
 const SECTION_ORDER = [
   'calendar',
   'recording',
@@ -253,7 +242,6 @@ const SECTION_ORDER = [
   'storage',
   'shortcuts',
   'app',
-  'integrations',
 ] as const
 
 type SettingsSectionId = (typeof SECTION_ORDER)[number]
@@ -391,7 +379,8 @@ export function SettingsView() {
   } = useMemosaStore()
   const { downloadModel, modelProgress } = useTranscription()
 
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('calendar')
+  const hasDownloadedModel = availableModels.some((m) => m.downloaded)
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(hasDownloadedModel ? 'calendar' : 'models')
   const [draft, setDraft] = useState<AppSettings>(settings ?? DEFAULT_SETTINGS)
   const [audioDiagnostics, setAudioDiagnostics] = useState<AudioDiagnostics | null>(null)
   const [inputDevices, setInputDevices] = useState<string[]>([])
@@ -486,7 +475,6 @@ export function SettingsView() {
     storage: { label: 'Storage', detail: 'Where data is written.' },
     shortcuts: { label: 'Shortcuts', detail: 'Global keyboard shortcuts.' },
     app: { label: 'App', detail: 'Appearance and launch.' },
-    integrations: { label: 'Integrations', detail: 'Coming soon.' },
   }
 
   const sectionIcons: Record<SettingsSectionId, ReactNode> = {
@@ -497,7 +485,6 @@ export function SettingsView() {
     storage: <RailStorageIcon />,
     shortcuts: <RailShortcutIcon />,
     app: <RailAppIcon />,
-    integrations: <RailIntegrationsIcon />,
   }
 
   const updateDraft = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
@@ -779,133 +766,137 @@ export function SettingsView() {
                 />
               </Field>
 
-              <div className="settings-grid-three">
-                <Field label="Buffer minutes">
-                  <select
-                    value={draft.ambient_mode.buffer_minutes}
-                    onChange={(e) =>
-                      updateDraft('ambient_mode', {
-                        ...draft.ambient_mode,
-                        buffer_minutes: Number(e.target.value) as 15 | 30 | 60,
-                      })
-                    }
-                    className="settings-input"
-                    style={inputStyles()}
-                  >
-                    <option value={15}>15</option>
-                    <option value={30}>30</option>
-                    <option value={60}>60</option>
-                  </select>
-                </Field>
-                <Field label="Active from">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={draft.ambient_mode.active_start_hour}
-                    onChange={(e) =>
-                      updateDraft('ambient_mode', {
-                        ...draft.ambient_mode,
-                        active_start_hour: Number(e.target.value) || 0,
-                      })
-                    }
-                    className="settings-input"
-                    style={inputStyles()}
-                  />
-                </Field>
-                <Field label="Active until">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={draft.ambient_mode.active_end_hour}
-                    onChange={(e) =>
-                      updateDraft('ambient_mode', {
-                        ...draft.ambient_mode,
-                        active_end_hour: Number(e.target.value) || 0,
-                      })
-                    }
-                    className="settings-input"
-                    style={inputStyles()}
-                  />
-                </Field>
-              </div>
+              {draft.ambient_mode.enabled && (
+                <>
+                  <div className="settings-grid-three">
+                    <Field label="Buffer minutes">
+                      <select
+                        value={draft.ambient_mode.buffer_minutes}
+                        onChange={(e) =>
+                          updateDraft('ambient_mode', {
+                            ...draft.ambient_mode,
+                            buffer_minutes: Number(e.target.value) as 15 | 30 | 60,
+                          })
+                        }
+                        className="settings-input"
+                        style={inputStyles()}
+                      >
+                        <option value={15}>15</option>
+                        <option value={30}>30</option>
+                        <option value={60}>60</option>
+                      </select>
+                    </Field>
+                    <Field label="Active from">
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={draft.ambient_mode.active_start_hour}
+                        onChange={(e) =>
+                          updateDraft('ambient_mode', {
+                            ...draft.ambient_mode,
+                            active_start_hour: Number(e.target.value) || 0,
+                          })
+                        }
+                        className="settings-input"
+                        style={inputStyles()}
+                      />
+                    </Field>
+                    <Field label="Active until">
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={draft.ambient_mode.active_end_hour}
+                        onChange={(e) =>
+                          updateDraft('ambient_mode', {
+                            ...draft.ambient_mode,
+                            active_end_hour: Number(e.target.value) || 0,
+                          })
+                        }
+                        className="settings-input"
+                        style={inputStyles()}
+                      />
+                    </Field>
+                  </div>
 
-              <Field label="Ambient inputs">
-                <div className="settings-grid-two">
-                  <ToggleButton
-                    value={draft.ambient_mode.capture_microphone}
-                    onClick={() =>
-                      updateDraft('ambient_mode', {
-                        ...draft.ambient_mode,
-                        capture_microphone: !draft.ambient_mode.capture_microphone,
-                      })
-                    }
-                    onLabel="Microphone on"
-                    offLabel="Microphone off"
-                    description="Use the microphone path during ambient capture."
-                  />
-                  <ToggleButton
-                    value={draft.ambient_mode.capture_system_audio}
-                    onClick={() =>
-                      updateDraft('ambient_mode', {
-                        ...draft.ambient_mode,
-                        capture_system_audio: !draft.ambient_mode.capture_system_audio,
-                      })
-                    }
-                    onLabel="System audio on"
-                    offLabel="System audio off"
-                    description="Prepare loopback capture for a later ambient iteration."
-                  />
-                </div>
-              </Field>
+                  <Field label="Ambient inputs">
+                    <div className="settings-grid-two">
+                      <ToggleButton
+                        value={draft.ambient_mode.capture_microphone}
+                        onClick={() =>
+                          updateDraft('ambient_mode', {
+                            ...draft.ambient_mode,
+                            capture_microphone: !draft.ambient_mode.capture_microphone,
+                          })
+                        }
+                        onLabel="Microphone on"
+                        offLabel="Microphone off"
+                        description="Use the microphone path during ambient capture."
+                      />
+                      <ToggleButton
+                        value={draft.ambient_mode.capture_system_audio}
+                        onClick={() =>
+                          updateDraft('ambient_mode', {
+                            ...draft.ambient_mode,
+                            capture_system_audio: !draft.ambient_mode.capture_system_audio,
+                          })
+                        }
+                        onLabel="System audio on"
+                        offLabel="System audio off"
+                        description="Prepare loopback capture for a later ambient iteration."
+                      />
+                    </div>
+                  </Field>
 
-              <div className="settings-grid-two">
-                <Field label="Max daily storage (MB)">
-                  <input
-                    type="number"
-                    min={128}
-                    value={draft.ambient_mode.max_daily_storage_mb}
-                    onChange={(e) =>
-                      updateDraft('ambient_mode', {
-                        ...draft.ambient_mode,
-                        max_daily_storage_mb: Number(e.target.value) || 128,
-                      })
-                    }
-                    className="settings-input"
-                    style={inputStyles()}
-                  />
-                </Field>
-                <Field label="Save last hotkey">
-                  <input
-                    type="text"
-                    value={draft.ambient_mode.save_hotkey}
-                    onChange={(e) =>
-                      updateDraft('ambient_mode', {
-                        ...draft.ambient_mode,
-                        save_hotkey: e.target.value,
-                      })
-                    }
-                    className="settings-input"
-                    style={inputStyles()}
-                  />
-                </Field>
-              </div>
+                  <div className="settings-grid-two">
+                    <Field label="Max daily storage (MB)">
+                      <input
+                        type="number"
+                        min={128}
+                        value={draft.ambient_mode.max_daily_storage_mb}
+                        onChange={(e) =>
+                          updateDraft('ambient_mode', {
+                            ...draft.ambient_mode,
+                            max_daily_storage_mb: Number(e.target.value) || 128,
+                          })
+                        }
+                        className="settings-input"
+                        style={inputStyles()}
+                      />
+                    </Field>
+                    <Field label="Save last hotkey">
+                      <input
+                        type="text"
+                        value={draft.ambient_mode.save_hotkey}
+                        onChange={(e) =>
+                          updateDraft('ambient_mode', {
+                            ...draft.ambient_mode,
+                            save_hotkey: e.target.value,
+                          })
+                        }
+                        className="settings-input"
+                        style={inputStyles()}
+                      />
+                    </Field>
+                  </div>
 
-              <Field label="Excluded apps" hint="Comma-separated app names">
-                <input
-                  type="text"
-                  value={draft.ambient_mode.excluded_apps.join(', ')}
-                  onChange={(e) =>
-                    updateDraft('ambient_mode', {
-                      ...draft.ambient_mode,
-                      excluded_apps: e.target.value.split(',').map((value) => value.trim()).filter(Boolean),
-                    })
-                  }
-                  className="settings-input"
-                  style={inputStyles()}
-                />
-              </Field>
+                  <Field label="Excluded apps" hint="Comma-separated app names">
+                    <input
+                      type="text"
+                      value={draft.ambient_mode.excluded_apps.join(', ')}
+                      onChange={(e) =>
+                        updateDraft('ambient_mode', {
+                          ...draft.ambient_mode,
+                          excluded_apps: e.target.value.split(',').map((value) => value.trim()).filter(Boolean),
+                        })
+                      }
+                      className="settings-input"
+                      style={inputStyles()}
+                    />
+                  </Field>
+                </>
+              )}
 
               <Field label="Speaker test">
                 <div className="settings-note-card">
@@ -1080,7 +1071,7 @@ export function SettingsView() {
           <>
             <SettingsBlock title="Transcription — Whisper" detail="Converts your recordings to text on this Mac. No audio is sent to the cloud.">
               <div className="settings-card-stack">
-                <Field label="Default model" hint="Applied to new recordings">
+                <Field label="Default model" hint="Used for all transcriptions. If multiple models are downloaded, Memosa always uses this one — Medium gives the best accuracy, Tiny is fastest.">
                   <select
                     value={draft.default_model}
                     onChange={(e) => updateDraft('default_model', e.target.value as WhisperModel)}
@@ -1105,13 +1096,29 @@ export function SettingsView() {
                             <div className="settings-model-title">{model.name}</div>
                             <div className="settings-model-copy">{model.size_mb} MB · {LOCAL_MODEL_NOTES[model.name]}</div>
                           </div>
-                          <button
-                            onClick={() => downloadModel(model.name)}
-                            disabled={model.downloaded || progress != null}
-                            className={`ghost-pill ${model.downloaded ? 'is-success-pill' : 'is-selected-pill'}`}
-                          >
-                            {model.downloaded ? <><CheckIcon />Local Ready</> : progress != null ? 'Downloading…' : 'Download'}
-                          </button>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            {model.downloaded && (
+                              <button
+                                className="ghost-pill"
+                                title="Delete model"
+                                onClick={() => {
+                                  void api.deleteModel(model.name).then(async () => {
+                                    const models = await api.getAvailableModels()
+                                    setAvailableModels(models)
+                                  })
+                                }}
+                              >
+                                Delete
+                              </button>
+                            )}
+                            <button
+                              onClick={() => downloadModel(model.name)}
+                              disabled={model.downloaded || progress != null}
+                              className={`ghost-pill ${model.downloaded ? 'is-success-pill' : 'is-selected-pill'}`}
+                            >
+                              {model.downloaded ? <><CheckIcon />Local Ready</> : progress != null ? 'Downloading…' : 'Download'}
+                            </button>
+                          </div>
                         </div>
                         {progress != null && (
                           <div className="settings-progress-wrap">
@@ -1166,6 +1173,24 @@ export function SettingsView() {
                   >
                     {pickingStoragePath ? 'Browsing...' : 'Browse'}
                   </button>
+                </div>
+                <div style={{ marginTop: 10, padding: '12px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Before you change this</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {[
+                      { label: 'Files stay put', note: 'Existing recordings are not moved or deleted. They remain at the old path.' },
+                      { label: 'New path scanned', note: 'Memosa will read recordings from the new folder after you save.' },
+                      { label: 'Folder mappings are logical', note: 'Your folders are stored separately. They may not match recordings in the new path until you reassign them.' },
+                    ].map(({ label, note }) => (
+                      <div key={label} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <div style={{ marginTop: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+                        <div>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{label} — </span>
+                          <span style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{note}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </Field>
 
@@ -1373,37 +1398,6 @@ export function SettingsView() {
           </SettingsBlock>
         )
 
-      case 'integrations':
-        return (
-          <SettingsBlock title="Integrations">
-            <div className="settings-note-card" style={{ marginBottom: 20 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)' }}>Coming Soon</span>
-              <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Integrations are in development. Export recordings to your tools automatically once enabled.
-              </p>
-            </div>
-            <div className="settings-card-stack" style={{ opacity: 0.45, pointerEvents: 'none' }}>
-              {[
-                { name: 'Google Drive', detail: 'Export audio and transcripts to Drive' },
-                { name: 'Notion', detail: 'Push summaries and notes to Notion pages' },
-                { name: 'Obsidian', detail: 'Write markdown notes to your vault' },
-                { name: 'Dropbox', detail: 'Sync recordings to Dropbox' },
-                { name: 'Webhook', detail: 'Send events to any HTTP endpoint' },
-                { name: 'NotebookLM', detail: 'Feed transcripts to Google NotebookLM' },
-              ].map((item) => (
-                <div key={item.name} className="settings-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{item.detail}</div>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap' }}>
-                    Soon
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SettingsBlock>
-        )
     }
   }
 
