@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { TranscriptViewer } from '../components/library/TranscriptViewer'
+import { StatusIcon } from '../components/library/MeetingEntry'
 import { Waveform } from '../components/recording/Waveform'
 import * as api from '../lib/tauri'
 import type { Folder, Meeting } from '../lib/types'
@@ -296,7 +297,7 @@ interface DragState {
 export function ProjectsView() {
   const {
     meetings, folders, meetingFolderAssignments,
-    currentMeeting, recordingStatus,
+    currentMeeting, recordingStatus, transcriptionProgress,
     setMeetings, createFolder, deleteFolder,
     assignMeetingToProject, removeMeetingFromProject,
     setActiveFolderId, moveFolder,
@@ -314,6 +315,8 @@ export function ProjectsView() {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null)
   const [showFolderPanel, setShowFolderPanel] = useState(true)
   const [showMeetingPanel, setShowMeetingPanel] = useState(true)
+  const [folderSearch, setFolderSearch] = useState('')
+  const [meetingSearch, setMeetingSearch] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [dragType, setDragType] = useState<'meeting' | 'folder' | null>(null)
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
@@ -419,11 +422,22 @@ export function ProjectsView() {
   const meetingCount = (folderId: string) =>
     Object.values(meetingFolderAssignments).filter((fids) => fids.includes(folderId)).length
 
-  const rootFolders = folders.filter((f) => f.parentId === null)
+  const rootFolders = useMemo(() => folders.filter((f) => f.parentId === null), [folders])
 
-  const visibleMeetings = selectedFolderId === null
+  const matchedFolders = useMemo(() => {
+    const q = folderSearch.trim().toLowerCase()
+    if (!q) return null
+    return folders.filter((f) => f.name.toLowerCase().includes(q))
+  }, [folders, folderSearch])
+
+  const baseMeetings = selectedFolderId === null
     ? meetings
     : meetings.filter((m) => (meetingFolderAssignments[m.id] ?? []).includes(selectedFolderId))
+
+  const visibleMeetings = useMemo(() => {
+    const q = meetingSearch.trim().toLowerCase()
+    return q ? baseMeetings.filter(m => m.title.toLowerCase().includes(q)) : baseMeetings
+  }, [baseMeetings, meetingSearch])
 
   const handleAddRoot = () => {
     createFolder('New Folder')
@@ -464,27 +478,68 @@ export function ProjectsView() {
           </div>
           <button className="proj-icon-btn" title="Collapse" onClick={() => setShowFolderPanel(false)} style={{ fontSize: 13, lineHeight: 1 }}>‹</button>
         </div>
+        <div style={{ padding: '0 8px 6px', flexShrink: 0, position: 'relative' }}>
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
+            <path d="M10 10l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          <input type="text" placeholder="Filter folders…" value={folderSearch} onChange={e => setFolderSearch(e.target.value)}
+            style={{ width: '100%', paddingLeft: 24, paddingRight: folderSearch ? 22 : 8, paddingTop: 5, paddingBottom: 5, fontSize: 11, borderRadius: 6, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
+          />
+          {folderSearch && <button onClick={() => setFolderSearch('')} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>}
+        </div>
         <div className="proj-folder-tree">
-          <button
-            data-root-drop="true"
-            className={`proj-all-row${selectedFolderId === null ? ' is-selected' : ''}${rootDropHover ? ' is-drag-over' : ''}`}
-            onClick={() => setSelectedFolderId(null)}
-          >
-            <span style={{ display: 'inline-flex', color: selectedFolderId === null ? 'var(--accent)' : 'var(--text-muted)' }}><AllIcon /></span>
-            <span className="proj-folder-name">{dragType === 'folder' ? 'Move to top level' : 'All Memos'}</span>
-            <span className="proj-folder-count">{meetings.length}</span>
-          </button>
-          <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 10px' }} />
-          {rootFolders.map((folder) => (
-            <FolderNode key={folder.id} folder={folder} depth={0} allFolders={folders}
-              selectedId={selectedFolderId} dragOverId={dragOverFolderId}
-              onSelect={setSelectedFolderId}
-              onDelete={(id) => { deleteFolder(id); if (selectedFolderId === id) setSelectedFolderId(null) }}
-              onAddChild={(parentId) => createFolder('New Folder', parentId)}
-              meetingCount={meetingCount} expandedSet={expandedFolders} onToggleExpand={handleToggleExpand}
-              onFolderMouseDown={handleFolderMouseDown}
-              isLive={liveFolderIds.includes(folder.id)} />
-          ))}
+          {!matchedFolders && (
+            <>
+              <button
+                data-root-drop="true"
+                className={`proj-all-row${selectedFolderId === null ? ' is-selected' : ''}${rootDropHover ? ' is-drag-over' : ''}`}
+                onClick={() => setSelectedFolderId(null)}
+              >
+                <span style={{ display: 'inline-flex', color: selectedFolderId === null ? 'var(--accent)' : 'var(--text-muted)' }}><AllIcon /></span>
+                <span className="proj-folder-name">{dragType === 'folder' ? 'Move to top level' : 'All Memos'}</span>
+                <span className="proj-folder-count">{meetings.length}</span>
+              </button>
+              <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 10px' }} />
+              {rootFolders.map((folder) => (
+                <FolderNode key={folder.id} folder={folder} depth={0} allFolders={folders}
+                  selectedId={selectedFolderId} dragOverId={dragOverFolderId}
+                  onSelect={setSelectedFolderId}
+                  onDelete={(id) => { deleteFolder(id); if (selectedFolderId === id) setSelectedFolderId(null) }}
+                  onAddChild={(parentId) => createFolder('New Folder', parentId)}
+                  meetingCount={meetingCount} expandedSet={expandedFolders} onToggleExpand={handleToggleExpand}
+                  onFolderMouseDown={handleFolderMouseDown}
+                  isLive={liveFolderIds.includes(folder.id)} />
+              ))}
+            </>
+          )}
+          {matchedFolders && (
+            matchedFolders.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-muted)' }}>No folders match</div>
+            ) : (
+              matchedFolders.map((folder) => {
+                const isSelected = selectedFolderId === folder.id
+                const parentName = folder.parentId ? folders.find(f => f.id === folder.parentId)?.name : null
+                return (
+                  <div
+                    key={folder.id}
+                    className={`proj-folder-row${isSelected ? ' is-selected' : ''}`}
+                    style={{ paddingLeft: 8 }}
+                    onClick={() => setSelectedFolderId(folder.id)}
+                  >
+                    <span style={{ color: folder.color || 'var(--accent)', flexShrink: 0, display: 'inline-flex' }}>
+                      <FolderIcon />
+                    </span>
+                    <span className="proj-folder-name">{folder.name}</span>
+                    {parentName && (
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 4, flexShrink: 0 }}>in {parentName}</span>
+                    )}
+                    <span className="proj-folder-count">{meetingCount(folder.id)}</span>
+                  </div>
+                )
+              })
+            )
+          )}
         </div>
 
         {isDragging && (
@@ -517,6 +572,16 @@ export function ProjectsView() {
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{visibleMeetings.length}</span>
             <button className="proj-icon-btn" title="Collapse" onClick={() => setShowMeetingPanel(false)} style={{ fontSize: 13, lineHeight: 1 }}>‹</button>
           </div>
+        </div>
+        <div style={{ padding: '0 8px 6px', flexShrink: 0, position: 'relative' }}>
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
+            <path d="M10 10l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          <input type="text" placeholder="Filter memos…" value={meetingSearch} onChange={e => setMeetingSearch(e.target.value)}
+            style={{ width: '100%', paddingLeft: 24, paddingRight: meetingSearch ? 22 : 8, paddingTop: 5, paddingBottom: 5, fontSize: 11, borderRadius: 6, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
+          />
+          {meetingSearch && <button onClick={() => setMeetingSearch('')} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>}
         </div>
 
         {visibleMeetings.length === 0 ? (
@@ -552,18 +617,8 @@ export function ProjectsView() {
                 >
                   <span className="proj-grab-handle" title="Drag to assign to a folder"><GrabIcon /></span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="proj-meeting-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <div className="proj-meeting-title">
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meeting.title || 'Untitled'}</span>
-                      {isLiveMeeting ? (
-                        <div style={{ width: 40, height: 14, flexShrink: 0, overflow: 'hidden' }}>
-                          <Waveform color="var(--live)" height={14} />
-                        </div>
-                      ) : (meeting.transcription_status === 'processing') && (
-                        <span className="proj-transcribing-badge" title="Transcribing…">
-                          <span className="proj-transcribing-spinner" />
-                          <span>Transcribing</span>
-                        </span>
-                      )}
                     </div>
                     <div className="proj-meeting-meta">
                       <span>{meeting.date}</span>
@@ -572,6 +627,18 @@ export function ProjectsView() {
                         <span key={name} className="proj-meeting-tag-count">{name}</span>
                       ))}
                     </div>
+                  </div>
+                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
+                    {isLiveMeeting ? (
+                      <div style={{ width: 36, height: 14, overflow: 'hidden' }}>
+                        <Waveform color="var(--live)" height={14} />
+                      </div>
+                    ) : (
+                      <StatusIcon
+                        status={meeting.transcription_status}
+                        progress={transcriptionProgress.get(meeting.id)?.progress}
+                      />
+                    )}
                   </div>
                   {selectedFolderId !== null && (
                     <button

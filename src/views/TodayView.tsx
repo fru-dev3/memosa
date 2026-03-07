@@ -3,6 +3,33 @@ import { RecordButton } from '../components/today/RecordButton'
 import { useCalendar } from '../hooks/useCalendar'
 import { useMemosaStore } from '../store'
 
+// Waveform bar heights — natural audio spectrum shape, mirrored
+const WAVE_HEIGHTS = [4,6,10,16,24,36,52,64,72,80,86,82,74,64,52,40,30,22,16,12,8,6,10,18,28,40,56,68,78,84,88,82,72,60,48,36,24,16,10,6]
+
+function WaveformDecoration() {
+  const W = 600, H = 160
+  return (
+    <svg
+      className="today-wave-art"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
+      {WAVE_HEIGHTS.map((h, i) => (
+        <rect
+          key={i}
+          x={i * (W / WAVE_HEIGHTS.length) + 2}
+          y={(H - h) / 2}
+          width={Math.max(4, W / WAVE_HEIGHTS.length - 5)}
+          height={h}
+          rx={Math.min(6, h / 2)}
+          fill="currentColor"
+        />
+      ))}
+    </svg>
+  )
+}
+
 const LIVING_QUOTES = [
   'Small progress compounds into a body of work.',
   'Clarity arrives when the noise has somewhere to go.',
@@ -151,6 +178,8 @@ export function TodayView() {
       )}
 
       <section className="today-stage">
+        <div className="today-stage-dot-grid" aria-hidden="true" />
+        <WaveformDecoration />
         <div className="today-stage-main">
           <div className="today-stage-copy">
             <div className="eyebrow">Today</div>
@@ -181,6 +210,9 @@ export function TodayView() {
           <div className="today-stage-recorder-wrap">
             <div className="today-stage-orbit today-stage-orbit-a" aria-hidden="true" />
             <div className="today-stage-orbit today-stage-orbit-b" aria-hidden="true" />
+            <div className="today-stage-node today-stage-node-a" aria-hidden="true" />
+            <div className="today-stage-node today-stage-node-b" aria-hidden="true" />
+            <div className="today-stage-node today-stage-node-c" aria-hidden="true" />
             <div className="today-stage-recorder">
               <RecordButton />
             </div>

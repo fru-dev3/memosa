@@ -68,6 +68,7 @@ export function LibraryView() {
   const {
     currentMeeting, profiles, recordingStatus, selectedProfileId,
     toggleFavorite, meetings: storeMeetings, setCurrentMeeting,
+    availableModels, settings, upsertMeeting,
   } = useMemosaStore()
 
   const [filterByProfile, setFilterByProfile] = useState(false)
@@ -85,12 +86,17 @@ export function LibraryView() {
   const [selectMode, setSelectMode] = useState(false)
   const [showMonthRail, setShowMonthRail] = useState(true)
   const [showMeetingList, setShowMeetingList] = useState(true)
+  const [listSearch, setListSearch] = useState('')
 
   const meetings = storeMeetings
   const monthGroups = useMemo(() => groupByMonth(meetings), [meetings])
   const activeMonthKey = selectedMonthKey ?? monthGroups[0]?.key ?? null
   const activeMeetings = monthGroups.find(g => g.key === activeMonthKey)?.meetings ?? []
-  const dayGroups = useMemo(() => groupByDay(activeMeetings), [activeMeetings])
+  const searchedMeetings = useMemo(() => {
+    const q = listSearch.trim().toLowerCase()
+    return q ? activeMeetings.filter(m => m.title.toLowerCase().includes(q)) : activeMeetings
+  }, [activeMeetings, listSearch])
+  const dayGroups = useMemo(() => groupByDay(searchedMeetings), [searchedMeetings])
 
   const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set())
 
@@ -151,7 +157,20 @@ export function LibraryView() {
   }, [currentMeeting, loading, meetings, selectedMeetingId, setCurrentMeeting])
 
   const handleRetranscribe = async (meeting: Meeting) => {
-    await startTranscription(meeting.audio_path, meeting.id, meeting.whisper_model ?? 'small' as WhisperModel)
+    // Use the default model if downloaded, then the meeting's stored model,
+    // then the most powerful downloaded model (medium > small > base > tiny).
+    const powerRank: WhisperModel[] = ['medium', 'small', 'base', 'tiny']
+    const downloaded = availableModels.filter(m => m.downloaded).map(m => m.name as WhisperModel)
+    const defaultModel = settings?.default_model as WhisperModel | undefined
+    const model =
+      (defaultModel && downloaded.includes(defaultModel) ? defaultModel : null) ??
+      (meeting.whisper_model && downloaded.includes(meeting.whisper_model as WhisperModel) ? meeting.whisper_model as WhisperModel : null) ??
+      powerRank.find(m => downloaded.includes(m)) ??
+      defaultModel ??
+      'small'
+    // Optimistically show processing state immediately so the UI responds at once.
+    upsertMeeting({ ...meeting, transcription_status: 'processing' })
+    await startTranscription(meeting.audio_path, meeting.id, model)
   }
   const handleSelectMeeting = (meeting: Meeting) => { setSelectedMeetingId(meeting.id); setCurrentMeeting(meeting) }
   const handleDeleteMeeting = async (id: string) => {
@@ -277,14 +296,32 @@ export function LibraryView() {
         {/* Meeting list */}
         {showMeetingList && (
           <div style={{ width: 252, flexShrink: 0, borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', overflowY: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '10px 8px 4px', flexShrink: 0 }}>
-              <button onClick={() => setShowMeetingList(false)} style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', borderRadius: 5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, color: 'var(--text-secondary)', fontSize: 13 }}>‹</button>
+            <div style={{ padding: '8px 8px 4px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowMeetingList(false)} style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', borderRadius: 5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, color: 'var(--text-secondary)', fontSize: 13 }}>‹</button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                  <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
+                  <path d="M10 10l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Filter memos…"
+                  value={listSearch}
+                  onChange={e => setListSearch(e.target.value)}
+                  style={{ width: '100%', paddingLeft: 26, paddingRight: listSearch ? 24 : 8, paddingTop: 5, paddingBottom: 5, fontSize: 11, borderRadius: 6, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
+                />
+                {listSearch && (
+                  <button onClick={() => setListSearch('')} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: 13 }}>×</button>
+                )}
+              </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {loading ? (
                 <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
-              ) : activeMeetings.length === 0 ? (
-                <EmptyPanel message={meetings.length === 0 ? 'No memos yet' : 'No memos in this month'} />
+              ) : searchedMeetings.length === 0 ? (
+                <EmptyPanel message={listSearch ? 'No matches' : meetings.length === 0 ? 'No memos yet' : 'No memos in this month'} />
               ) : (
                 <div>
                   {dayGroups.map(dayGroup => {

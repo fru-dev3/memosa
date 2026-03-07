@@ -47,6 +47,16 @@ pub async fn get_transcription_status(
 }
 
 #[tauri::command]
+pub async fn delete_model(model: WhisperModel) -> Result<(), String> {
+    let path = models::model_path(&model);
+    if path.exists() {
+        std::fs::remove_file(&path)
+            .map_err(|e| format!("Failed to delete model: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn cancel_transcription(
     meeting_id: String,
     state: State<'_, TranscriptionManager>,

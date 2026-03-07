@@ -1972,6 +1972,71 @@ button.chip {
   opacity: 0.65;
 }
 
+/* ── Today stage decorative elements ───────────────────────── */
+
+.today-wave-art {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--accent);
+  opacity: 0.045;
+  overflow: visible;
+}
+
+.today-stage-node {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.today-stage-node-a {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  opacity: 0.22;
+  top: 38px;
+  left: 52px;
+  box-shadow: 0 0 10px 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.today-stage-node-b {
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  opacity: 0.16;
+  bottom: 58px;
+  left: 88px;
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.today-stage-node-c {
+  width: 6px;
+  height: 6px;
+  background: rgba(194,65,12,0.55);
+  opacity: 0.28;
+  top: 68px;
+  right: 38px;
+  box-shadow: 0 0 10px 3px rgba(194,65,12,0.15);
+}
+
+.today-stage-dot-grid {
+  position: absolute;
+  inset: 0;
+  border-radius: 32px;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.55;
+  background-image: radial-gradient(circle, rgba(33,128,72,0.13) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, black 100%);
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, black 100%);
+}
+
 .today-stage-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

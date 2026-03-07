@@ -107,6 +107,9 @@ export const getAvailableModels = () =>
 export const downloadModel = (model: WhisperModel) =>
   invoke<void>('download_model', { model })
 
+export const deleteModel = (model: WhisperModel) =>
+  invoke<void>('delete_model', { model })
+
 export const transcribeAudio = (audioPath: string, meetingId: string, model: WhisperModel) =>
   invoke<void>('transcribe_audio', { audioPath, meetingId, model })
 
