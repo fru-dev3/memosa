@@ -1,0 +1,38 @@
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── Frontend build output ─────────────────────────────────────────────────────
+dist/
+
+# ── Rust / Cargo build artifacts (large — rebuild with `cargo build`) ─────────
+target/
+src-tauri/target/
+
+# ── Tauri generated files (auto-recreated by `tauri build`) ──────────────────
+src-tauri/gen/
+
+# ── Secrets and environment variables ────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── macOS system files ────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+/tmp/
+
+# ── Editor / IDE ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Internal planning docs (not part of the shipped product) ─────────────────
+tasks/
+PLAN.md
+.soul/
