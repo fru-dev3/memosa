@@ -297,3 +297,21 @@ export const onGlobalHotkeyProfile = (cb: () => void): Promise<UnlistenFn> =>
 
 export const onTrayToggleRecording = (cb: () => void): Promise<UnlistenFn> =>
   listen('tray-toggle-recording', () => cb())
+
+// Live transcription
+interface LiveTranscriptChunkPayload {
+  meeting_id: string
+  text: string
+  offset_ms: number
+}
+
+export const startLiveTranscription = (meetingId: string) =>
+  invoke<void>('start_live_transcription', { meetingId })
+
+export const stopLiveTranscription = () =>
+  invoke<void>('stop_live_transcription')
+
+export const onLiveTranscriptChunk = (
+  cb: (data: LiveTranscriptChunkPayload) => void
+): Promise<UnlistenFn> =>
+  listen<LiveTranscriptChunkPayload>('live-transcript-chunk', (e) => cb(e.payload))

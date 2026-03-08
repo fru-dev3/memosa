@@ -14,7 +14,7 @@ use calendar::{scheduler::AutoRecordScheduler, CalendarState};
 use std::sync::atomic::{AtomicBool, Ordering};
 use storage::{Database, SettingsManager};
 use tauri::Manager;
-use transcription::TranscriptionManager;
+use transcription::{LiveTranscriber, TranscriptionManager};
 
 #[tauri::command]
 fn get_app_version() -> &'static str {
@@ -58,6 +58,8 @@ pub fn run() {
     diagnostics::log("run: database initialized");
     let scheduler = AutoRecordScheduler::new();
     diagnostics::log("run: scheduler created");
+    let live_transcriber = LiveTranscriber::new();
+    diagnostics::log("run: live transcriber created");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -69,6 +71,7 @@ pub fn run() {
         .manage(transcription_manager.clone())
         .manage(calendar_state.clone())
         .manage(scheduler)
+        .manage(live_transcriber)
         .manage(database.clone())
         .manage(ShutdownState::default())
         .setup(move |app| {
@@ -155,6 +158,8 @@ pub fn run() {
             transcription::transcribe_audio,
             transcription::get_transcription_status,
             transcription::cancel_transcription,
+            transcription::start_live_transcription,
+            transcription::stop_live_transcription,
             calendar::get_auth_status,
             calendar::get_today_events,
             calendar::get_upcoming_events,

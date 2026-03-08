@@ -31,9 +31,12 @@ interface MemosaStore {
   recordingStatus: RecordingStatus
   audioLevel: number
   recordingGuardMessage: string | null
+  liveTranscriptLines: string[]
   setRecordingStatus: (status: RecordingStatus) => void
   setAudioLevel: (level: number) => void
   setRecordingGuardMessage: (message: string | null) => void
+  appendLiveTranscriptLine: (text: string) => void
+  clearLiveTranscript: () => void
 
   // Calendar
   todayEvents: CalendarEvent[]
@@ -224,9 +227,12 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
   recordingStatus: { is_recording: false },
   audioLevel: 0,
   recordingGuardMessage: null,
+  liveTranscriptLines: [],
   setRecordingStatus: (status) => set({ recordingStatus: status }),
   setAudioLevel: (level) => set({ audioLevel: level }),
   setRecordingGuardMessage: (message) => set({ recordingGuardMessage: message }),
+  appendLiveTranscriptLine: (text) => set((s) => ({ liveTranscriptLines: [...s.liveTranscriptLines, text] })),
+  clearLiveTranscript: () => set({ liveTranscriptLines: [] }),
 
   todayEvents: [],
   authStatus: { connected: false },

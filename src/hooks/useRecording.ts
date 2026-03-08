@@ -3,12 +3,13 @@ import { useMemosaStore } from '../store'
 import * as api from '../lib/tauri'
 
 export function useRecordingEvents() {
-  const { recordingStatus, setRecordingStatus, setAudioLevel } = useMemosaStore()
+  const { recordingStatus, setRecordingStatus, setAudioLevel, appendLiveTranscriptLine, clearLiveTranscript } = useMemosaStore()
 
   useEffect(() => {
     let mounted = true
     let unlisten1: (() => void) | null = null
     let unlisten2: (() => void) | null = null
+    let unlisten3: (() => void) | null = null
 
     api.getRecordingStatus()
       .then((status) => {
@@ -18,19 +19,29 @@ export function useRecordingEvents() {
 
     api.onRecordingStatusChanged((status) => {
       setRecordingStatus(status)
-      if (!status.is_recording) setAudioLevel(0)
+      if (!status.is_recording) {
+        setAudioLevel(0)
+        api.stopLiveTranscription().catch(() => {})
+      } else if (status.meeting_id) {
+        clearLiveTranscript()
+        api.startLiveTranscription(status.meeting_id).catch(() => {})
+      }
     })
       .then(fn => { unlisten1 = fn })
 
     api.onAudioLevel((level) => setAudioLevel(level))
       .then(fn => { unlisten2 = fn })
 
+    api.onLiveTranscriptChunk((data) => appendLiveTranscriptLine(data.text))
+      .then(fn => { unlisten3 = fn })
+
     return () => {
       mounted = false
       unlisten1?.()
       unlisten2?.()
+      unlisten3?.()
     }
-  }, [setRecordingStatus, setAudioLevel])
+  }, [setRecordingStatus, setAudioLevel, appendLiveTranscriptLine, clearLiveTranscript])
 
   useEffect(() => {
     if (!recordingStatus.is_recording) return

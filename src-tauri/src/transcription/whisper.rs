@@ -158,6 +158,74 @@ impl WhisperTranscriber {
         Ok(segments)
     }
 
+    /// Transcribe pre-converted 16 kHz mono f32 PCM samples directly,
+    /// bypassing file I/O and resampling. Used for live/chunked transcription.
+    /// `time_offset_ms` is added to all segment timestamps.
+    /// `initial_prompt` gives Whisper prior context (previous chunk text).
+    #[cfg(feature = "whisper-rs")]
+    pub fn transcribe_pcm_16k(
+        &self,
+        samples: &[f32],
+        time_offset_ms: i64,
+        initial_prompt: &str,
+    ) -> Result<Vec<TranscriptSegment>, String> {
+        use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+
+        let ctx = WhisperContext::new_with_params(
+            self.model_path.to_str().ok_or("invalid model path")?,
+            WhisperContextParameters::default(),
+        )
+        .map_err(|e| format!("whisper load error: {}", e))?;
+
+        let mut state = ctx
+            .create_state()
+            .map_err(|e| format!("whisper state error: {}", e))?;
+
+        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+        params.set_language(Some("auto"));
+        params.set_print_progress(false);
+        params.set_print_realtime(false);
+        params.set_print_timestamps(true);
+        if !initial_prompt.is_empty() {
+            params.set_initial_prompt(initial_prompt);
+        }
+
+        state
+            .full(params, samples)
+            .map_err(|e| format!("whisper inference error: {}", e))?;
+
+        let num_segments = state
+            .full_n_segments()
+            .map_err(|e| format!("whisper segment count error: {}", e))?;
+
+        let mut segments = Vec::with_capacity(num_segments as usize);
+        for i in 0..num_segments {
+            let text = state
+                .full_get_segment_text(i)
+                .map_err(|e| format!("whisper segment text error: {}", e))?;
+            let start_ms = state
+                .full_get_segment_t0(i)
+                .map_err(|e| format!("whisper t0 error: {}", e))?
+                * 10
+                + time_offset_ms;
+            let end_ms = state
+                .full_get_segment_t1(i)
+                .map_err(|e| format!("whisper t1 error: {}", e))?
+                * 10
+                + time_offset_ms;
+            let cleaned = text.trim().to_string();
+            if !cleaned.is_empty() && cleaned != "[BLANK_AUDIO]" && cleaned != "[MUSIC]" {
+                segments.push(TranscriptSegment {
+                    start_ms,
+                    end_ms,
+                    text: cleaned,
+                });
+            }
+        }
+
+        Ok(segments)
+    }
+
     // ── CLI fallback ──────────────────────────────────────────────────────────
 
     /// Shell out to the `whisper` Python CLI tool:
