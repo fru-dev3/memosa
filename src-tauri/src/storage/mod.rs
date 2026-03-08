@@ -645,10 +645,17 @@ pub async fn preview_cleanup(db: tauri::State<'_, Database>) -> Result<CleanupPr
     Ok(build_cleanup_preview(&settings, &meetings))
 }
 
-#[tauri::command]
-pub async fn run_cleanup_now(
-    db: tauri::State<'_, Database>,
-    app_handle: tauri::AppHandle,
+/// Internal cleanup runner used by both the Tauri command and the scheduled background task.
+pub async fn run_scheduled_cleanup(
+    db: &Database,
+    app_handle: &tauri::AppHandle,
+) -> Result<CleanupRunResult, String> {
+    run_cleanup_impl(db, app_handle).await
+}
+
+async fn run_cleanup_impl(
+    db: &Database,
+    app_handle: &tauri::AppHandle,
 ) -> Result<CleanupRunResult, String> {
     let settings = SettingsManager::load();
     let meetings = db.get_meetings(&MeetingFilter {
@@ -674,14 +681,14 @@ pub async fn run_cleanup_now(
         let operation = match candidate.action {
             CleanupAction::ArchiveMeeting => archive_meeting_folder(
                 &meeting,
-                db.inner(),
+                db,
                 std::path::Path::new(&settings.storage_path),
             )
             .map(|bytes| {
                 result.archived += 1;
                 bytes
             }),
-            CleanupAction::DeleteTranscript => delete_meeting_transcript_file(&meeting, db.inner()).map(|bytes| {
+            CleanupAction::DeleteTranscript => delete_meeting_transcript_file(&meeting, db).map(|bytes| {
                 result.transcripts_deleted += 1;
                 bytes
             }),
@@ -690,25 +697,35 @@ pub async fn run_cleanup_now(
                     .as_deref()
                     .map(folder_size)
                     .unwrap_or(0);
-                delete_meeting(candidate.meeting_id.clone(), db.clone(), app_handle.clone()).await?;
+                if let Some(folder_path) = db.delete_meeting(&candidate.meeting_id)? {
+                    if std::path::Path::new(&folder_path).exists() {
+                        let _ = std::fs::remove_dir_all(&folder_path);
+                    }
+                }
+                app_handle
+                    .emit("meeting-deleted", serde_json::json!({ "id": candidate.meeting_id }))
+                    .ok();
                 result.meetings_deleted += 1;
                 Ok(bytes)
             }
         };
 
         match operation {
-            Ok(bytes) => {
-                result.reclaimed_bytes += bytes;
-            }
-            Err(error) => {
-                result.failed.push(format!("{}: {}", candidate.title, error));
-            }
+            Ok(bytes) => result.reclaimed_bytes += bytes,
+            Err(error) => result.failed.push(format!("{}: {}", candidate.title, error)),
         }
     }
 
     append_cleanup_log(&result);
-
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn run_cleanup_now(
+    db: tauri::State<'_, Database>,
+    app_handle: tauri::AppHandle,
+) -> Result<CleanupRunResult, String> {
+    run_cleanup_impl(db.inner(), &app_handle).await
 }
 
 fn cleanup_log_path() -> std::path::PathBuf {

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { invoke } from '@tauri-apps/api/core'
 import type {
   AmbientModeSettings,
   AppSettings,
@@ -258,17 +259,21 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
     meetings: state.meetings.filter(m => m.id !== id),
     favoriteMeetingIds: state.favoriteMeetingIds.filter((item) => item !== id),
   })),
-  toggleFavorite: (id) => set((state) => ({
-    favoriteMeetingIds: state.favoriteMeetingIds.includes(id)
-      ? state.favoriteMeetingIds.filter((item) => item !== id)
-      : [...state.favoriteMeetingIds, id],
-    meetings: state.meetings.map((meeting) =>
-      meeting.id === id ? { ...meeting, is_favorite: !meeting.is_favorite } : meeting
-    ),
-    currentMeeting: state.currentMeeting?.id === id
-      ? { ...state.currentMeeting, is_favorite: !state.currentMeeting.is_favorite }
-      : state.currentMeeting,
-  })),
+  toggleFavorite: (id) => {
+    const nowFavorite = !get().meetings.find(m => m.id === id)?.is_favorite
+    set((s) => ({
+      favoriteMeetingIds: nowFavorite
+        ? [...s.favoriteMeetingIds, id]
+        : s.favoriteMeetingIds.filter((item) => item !== id),
+      meetings: s.meetings.map((meeting) =>
+        meeting.id === id ? { ...meeting, is_favorite: nowFavorite } : meeting
+      ),
+      currentMeeting: s.currentMeeting?.id === id
+        ? { ...s.currentMeeting, is_favorite: nowFavorite }
+        : s.currentMeeting,
+    }))
+    invoke('set_meeting_favorite', { id, isFavorite: nowFavorite }).catch(console.error)
+  },
   setLibraryViewMode: (mode) => set({ libraryViewMode: mode }),
 
   folders: [
