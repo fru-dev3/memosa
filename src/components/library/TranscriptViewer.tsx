@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { convertFileSrc } from '@tauri-apps/api/core'
-import type { AudioFileStatus, Meeting } from '../../lib/types'
+import type { AudioFileStatus, Meeting, WhisperModel } from '../../lib/types'
 import * as api from '../../lib/tauri'
 import { useMemosaStore } from '../../store'
 
@@ -194,7 +194,8 @@ export function TranscriptViewer({
   onDelete?: (meeting: Meeting) => void
   onRetranscribe?: (meeting: Meeting) => void
 }) {
-  const { audioLevel, profiles, recordingStatus, setActiveView, setSearchSeed, transcriptionErrors, availableModels } = useMemosaStore()
+  const { audioLevel, profiles, recordingStatus, setActiveView, setSearchSeed, transcriptionErrors, availableModels, upsertMeeting } = useMemosaStore()
+  const downloadedModels = availableModels.filter(m => m.downloaded)
   const meetingProfile = profiles.find(p => p.id === meeting.profile_id)
   const profileDefaultViewMode: TranscriptViewMode =
     meetingProfile?.summary_template === 'action_items' || meetingProfile?.summary_template === 'decision_log'
@@ -223,6 +224,8 @@ export function TranscriptViewer({
   const [notesContent, setNotesContent] = useState('')
   const [notesState, setNotesState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const notesTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [showModelPicker, setShowModelPicker] = useState(false)
+  const modelPickerRef = useRef<HTMLDivElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const audioSrc = meeting.audio_path ? convertFileSrc(meeting.audio_path) : null
@@ -339,6 +342,33 @@ export function TranscriptViewer({
     }, 450)
   }
 
+  useEffect(() => {
+    if (!showModelPicker) return
+    const handler = (e: MouseEvent) => {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node))
+        setShowModelPicker(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showModelPicker])
+
+  const handleRetranscribeClick = () => {
+    if (!meeting.audio_path) return
+    if (downloadedModels.length <= 1) {
+      onRetranscribe?.(meeting)
+    } else {
+      setShowModelPicker(v => !v)
+    }
+  }
+
+  const handleRetranscribeWithModel = async (model: WhisperModel) => {
+    if (!meeting.audio_path) return
+    setShowModelPicker(false)
+    upsertMeeting({ ...meeting, transcription_status: 'processing' })
+    await api.transcribeAudio(meeting.audio_path, meeting.id, model)
+  }
+
+
   const lines = useMemo(() => parseTranscript(editing ? draftContent : (transcriptContent ?? '')), [draftContent, editing, transcriptContent])
   const cleanTranscript = useMemo(
     () => lines
@@ -354,6 +384,12 @@ export function TranscriptViewer({
     if (editing) return draftContent
     return textMode === 'clean' ? cleanTranscript : (transcriptContent ?? '')
   }, [viewMode, lines, editing, draftContent, textMode, cleanTranscript, transcriptContent])
+
+  const markdownExportContent = useMemo(() => {
+    const date = new Date(`${meeting.date}T${meeting.start_time}`)
+    const dateStr = date.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return `# ${meeting.title}\n\n**Date:** ${dateStr}\n\n---\n\n${cleanTranscript}`
+  }, [meeting.title, meeting.date, meeting.start_time, cleanTranscript])
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(copyContent)
@@ -428,14 +464,14 @@ export function TranscriptViewer({
         </div>
         {/* Underline tab bar */}
         <div style={{ display: 'flex' }}>
-          {(['transcript', 'timeline', 'notes'] as TranscriptViewMode[]).map((mode) => (
+          {(['transcript', 'notes', 'timeline'] as TranscriptViewMode[]).map((mode) => (
             <button
               key={mode}
               className={`tv-tab${viewMode === mode ? ' is-active' : ''}`}
               onClick={() => setViewMode(mode)}
             >
               <ReviewTabIcon kind={mode} />
-              <span>{mode === 'transcript' ? 'Transcript' : mode === 'timeline' ? 'Timeline' : 'Notes'}</span>
+              <span>{mode === 'transcript' ? 'Transcript' : mode === 'notes' ? 'Notes' : 'Timeline'}</span>
               {mode === 'notes' && notesContent.length > 0 && (
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', marginLeft: 4, flexShrink: 0 }} />
               )}
@@ -642,10 +678,15 @@ export function TranscriptViewer({
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 13h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/></svg>
               </button>
             )}
+            {meeting.transcription_status === 'complete' && (
+              <button className="tv-icon-btn" title="Export Markdown" onClick={() => api.saveTextFile(`${meeting.title}.md`, markdownExportContent)}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M4 10V6l2 2 2-2v4M11.5 10V8l-1.5 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            )}
 
             {/* Re-transcribe */}
             {meeting.audio_path && (
-              <button className="tv-icon-btn" title="Re-transcribe" onClick={() => onRetranscribe?.(meeting)}>
+              <button className="tv-icon-btn" title="Re-transcribe" onClick={handleRetranscribeClick}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/><path d="M11 2l2 3-3 1" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
             )}
@@ -712,10 +753,30 @@ export function TranscriptViewer({
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 13h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/></svg>
                   </button>
                 )}
-                {meeting.audio_path && (
-                  <button className="tv-icon-btn" title="Re-transcribe" onClick={() => onRetranscribe?.(meeting)}>
-                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/><path d="M11 2l2 3-3 1" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {meeting.transcription_status === 'complete' && (
+                  <button className="tv-icon-btn" title="Export Markdown" onClick={() => api.saveTextFile(`${meeting.title}.md`, markdownExportContent)}>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M4 10V6l2 2 2-2v4M11.5 10V8l-1.5 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
+                )}
+                {meeting.audio_path && (
+                  <div ref={modelPickerRef} style={{ position: 'relative' }}>
+                    <button className="tv-icon-btn" title={downloadedModels.length > 1 ? 'Re-transcribe with model…' : 'Re-transcribe'} onClick={handleRetranscribeClick}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/><path d="M11 2l2 3-3 1" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                    {showModelPicker && downloadedModels.length > 1 && (
+                      <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 50, minWidth: 120, overflow: 'hidden' }}>
+                        <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>Model</div>
+                        {downloadedModels.map(m => (
+                          <button key={m.name} onClick={() => void handleRetranscribeWithModel(m.name)} style={{ display: 'block', width: '100%', padding: '7px 10px', background: 'none', border: 'none', textAlign: 'left', fontSize: 12, color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'inherit' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                            {m.name}
+                            {m.name === meeting.whisper_model && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>current</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
                 {onDelete && (
                   <button className="tv-icon-btn" title="Delete recording" style={{ marginLeft: 'auto', color: 'var(--live)' }} onClick={() => onDelete(meeting)}>
