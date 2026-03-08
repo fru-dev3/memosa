@@ -690,6 +690,14 @@ export function TranscriptViewer({
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/><path d="M11 2l2 3-3 1" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
             )}
+
+            {/* Show in Finder */}
+            <button className="tv-icon-btn" title="Show in Finder" onClick={() => void api.openMeetingFolder(meeting.id)}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1.5 4.5C1.5 3.4 2.4 2.5 3.5 2.5H6l1.5 2H12.5C13.6 4.5 14.5 5.4 14.5 6.5V12C14.5 13.1 13.6 14 12.5 14H3.5C2.4 14 1.5 13.1 1.5 12V4.5Z"/>
+                <path d="M8 7.5v3M6.5 9l1.5 1.5L9.5 9"/>
+              </svg>
+            </button>
           </div>
         ) : (
           <div className="tv-sidebar" style={{ gap: 10 }}>
@@ -778,6 +786,12 @@ export function TranscriptViewer({
                     )}
                   </div>
                 )}
+                <button className="tv-icon-btn" title="Show in Finder" onClick={() => void api.openMeetingFolder(meeting.id)}>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1.5 4.5C1.5 3.4 2.4 2.5 3.5 2.5H6l1.5 2H12.5C13.6 4.5 14.5 5.4 14.5 6.5V12C14.5 13.1 13.6 14 12.5 14H3.5C2.4 14 1.5 13.1 1.5 12V4.5Z"/>
+                    <path d="M8 7.5v3M6.5 9l1.5 1.5L9.5 9" />
+                  </svg>
+                </button>
                 {onDelete && (
                   <button className="tv-icon-btn" title="Delete recording" style={{ marginLeft: 'auto', color: 'var(--live)' }} onClick={() => onDelete(meeting)}>
                     <svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M1.5 2.5H9.5M4 2.5V1.5H7V2.5M2.5 2.5L3 9.5H8L8.5 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>

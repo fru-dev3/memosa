@@ -690,6 +690,20 @@ export function ProjectsView() {
                     </div>
                   </div>
 
+                  {/* Show in Finder */}
+                  <button
+                    title="Show in Finder"
+                    onClick={(e) => { e.stopPropagation(); void api.openMeetingFolder(meeting.id) }}
+                    style={{ flexShrink: 0, padding: '3px', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.5 }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1.5 4.5C1.5 3.4 2.4 2.5 3.5 2.5H6l1.5 2H12.5C13.6 4.5 14.5 5.4 14.5 6.5V12C14.5 13.1 13.6 14 12.5 14H3.5C2.4 14 1.5 13.1 1.5 12V4.5Z"/>
+                      <path d="M8 7.5v3M6.5 9l1.5 1.5L9.5 9"/>
+                    </svg>
+                  </button>
+
                   {/* Remove button — only inside a folder */}
                   {selectedFolderId !== null && (
                     <button

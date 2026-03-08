@@ -4,12 +4,14 @@ mod diagnostics;
 mod export;
 #[cfg(target_os = "macos")]
 mod macos;
+mod screenshot;
 mod storage;
 mod transcription;
 mod types;
 
 use audio::AudioRecorder;
 use audio::AmbientController;
+use screenshot::ScreenshotCapturer;
 use calendar::{scheduler::AutoRecordScheduler, CalendarState};
 use std::sync::atomic::{AtomicBool, Ordering};
 use storage::{Database, SettingsManager};
@@ -60,6 +62,8 @@ pub fn run() {
     diagnostics::log("run: scheduler created");
     let live_transcriber = LiveTranscriber::new();
     diagnostics::log("run: live transcriber created");
+    let screenshot_capturer = ScreenshotCapturer::new();
+    diagnostics::log("run: screenshot capturer created");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -72,6 +76,7 @@ pub fn run() {
         .manage(calendar_state.clone())
         .manage(scheduler)
         .manage(live_transcriber)
+        .manage(screenshot_capturer)
         .manage(database.clone())
         .manage(ShutdownState::default())
         .setup(move |app| {
@@ -200,6 +205,9 @@ pub fn run() {
             storage::assign_meeting_folder,
             storage::remove_meeting_folder,
             export::export_meeting_bundle,
+            screenshot::capture_screenshot_now,
+            screenshot::start_screenshot_capture,
+            screenshot::stop_screenshot_capture,
             get_app_version,
             open_external_url,
         ])

@@ -820,14 +820,14 @@ button.chip {
 /* Expanded recording session panel (slides in from right) */
 .side-bookmark-session-panel {
   position: relative;
-  width: 300px;
+  width: 200px;
   max-height: 80vh;
   overflow-y: auto;
-  border-radius: 16px 0 0 16px;
+  border-radius: 12px 0 0 12px;
   border: 1px solid var(--live-border);
   border-right: none;
   background: var(--bg-elevated);
-  box-shadow: -8px 0 32px rgba(58,45,34,0.14);
+  box-shadow: -6px 0 20px rgba(58,45,34,0.12);
   animation: bookmark-slide-in 160ms ease;
 }
 
