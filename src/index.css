@@ -65,6 +65,29 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Dark mode body background — override the light-mode gradient */
+[data-theme='dark'] body {
+  background:
+    radial-gradient(circle at top left, rgba(89,194,138,0.06), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(240,92,92,0.04), transparent 24%),
+    var(--bg-app);
+}
+
+[data-theme='dark'] body::before {
+  display: none;
+}
+
+/* Dark mode glass pill overrides */
+[data-theme='dark'] .ghost-pill {
+  background: rgba(255,255,255,0.06);
+}
+
+[data-theme='dark'] .ghost-pill:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
 :root[data-theme='dark'] {
   --bg-app:      #080A0D;
   --bg-sidebar:  #0C1015;

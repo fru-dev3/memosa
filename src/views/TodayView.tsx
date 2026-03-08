@@ -94,9 +94,30 @@ function WarningBanner({
 
 
 
+function NoModelBanner({ onGoToSettings }: { onGoToSettings: () => void }) {
+  return (
+    <div className="surface-panel" style={{
+      background: 'linear-gradient(180deg, var(--accent-dim), transparent)',
+      border: '1px solid var(--accent-border)',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18,
+    }}>
+      <div>
+        <div className="section-label" style={{ color: 'var(--accent)' }}>No transcription model</div>
+        <div style={{ marginTop: 4, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          Download a Whisper model to transcribe recordings on-device — no internet needed.
+        </div>
+      </div>
+      <button className="ghost-pill is-selected-pill" onClick={onGoToSettings} style={{ flexShrink: 0 }}>
+        Download model
+      </button>
+    </div>
+  )
+}
+
 export function TodayView() {
   const {
     autoRecord,
+    availableModels,
     meetings,
     profiles,
     recordingStatus,
@@ -105,6 +126,7 @@ export function TodayView() {
     setCurrentMeeting,
     setSearchSeed,
   } = useMemosaStore()
+  const hasModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
   const { warning, dismissWarning, dismissAndSkipRecord } = useCalendar()
   const [loading, setLoading] = useState(true)
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * LIVING_QUOTES.length))
@@ -186,6 +208,7 @@ export function TodayView() {
 
   return (
     <div className="page-shell">
+      {!loading && !hasModel && <NoModelBanner onGoToSettings={() => setActiveView('settings')} />}
       {warning && (
         <div style={{ marginBottom: 18 }}>
           <WarningBanner

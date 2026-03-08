@@ -17,7 +17,7 @@ use crate::audio::AudioRecorder;
 use crate::storage::SettingsManager;
 
 /// Seconds of audio to accumulate before running Whisper on a chunk.
-const CHUNK_SECS: u64 = 7;
+const CHUNK_SECS: u64 = 3;
 /// Maximum characters of previous text kept as Whisper initial_prompt.
 const MAX_PROMPT_CHARS: usize = 500;
 
