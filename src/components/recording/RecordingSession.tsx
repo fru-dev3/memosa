@@ -270,8 +270,7 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
           )
         ) : null}
         <p style={{ margin: '6px 0 0', fontSize: 11, color: signalDetected ? 'var(--accent)' : 'var(--text-muted)', lineHeight: 1.4 }}>
-          {signalDetected ? `Input activity ${levelPercent}%` : 'Waiting for visible audio activity'}
-          {' '}<span style={{ fontFamily: 'monospace', fontSize: 10, opacity: 0.5 }}>(rms:{audioLevel.toFixed(5)})</span>
+          {signalDetected ? `Input activity ${levelPercent}%` : 'Waiting for audio signal'}
         </p>
       </div>
 
@@ -393,7 +392,7 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
 
       {/* Info */}
       <p style={{ margin: '16px 0 0', fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-        Recording locally now.
+        Audio is saved locally. Transcription starts when you stop.
       </p>
 
     </div>

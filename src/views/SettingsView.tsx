@@ -7,6 +7,7 @@ import type {
   AmbientStatus,
   AppSettings,
   AudioDiagnostics,
+  CleanupLogEntry,
   CleanupPreview,
   CleanupRunResult,
   MicrophoneProbeResult,
@@ -67,6 +68,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     decision_log: 'Extract the decisions made, why they were made, and any unresolved questions.',
   },
   custom_summary_templates: [],
+  has_completed_setup: false,
 }
 
 const MODEL_OPTIONS: WhisperModel[] = ['tiny', 'base', 'small', 'medium']
@@ -394,6 +396,7 @@ export function SettingsView() {
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null)
   const [cleanupPreview, setCleanupPreview] = useState<CleanupPreview | null>(null)
   const [cleanupResult, setCleanupResult] = useState<CleanupRunResult | null>(null)
+  const [cleanupLog, setCleanupLog] = useState<CleanupLogEntry[]>([])
   const [loadingCleanup, setLoadingCleanup] = useState(false)
   const [runningCleanup, setRunningCleanup] = useState(false)
   const [ambientStatus, setAmbientStatus] = useState<AmbientStatus | null>(null)
@@ -527,12 +530,14 @@ export function SettingsView() {
   }
 
   const refreshCleanupState = async () => {
-    const [usage, preview] = await Promise.all([
+    const [usage, preview, log] = await Promise.all([
       api.getStorageUsage(),
       api.previewCleanup(),
+      api.getCleanupLog().catch(() => [] as import('../lib/types').CleanupLogEntry[]),
     ])
     setStorageUsage(usage)
     setCleanupPreview(preview)
+    setCleanupLog(log)
   }
 
   const handlePreviewCleanup = async () => {
@@ -1311,6 +1316,26 @@ export function SettingsView() {
                   <div className="settings-note-copy">
                     Archived {cleanupResult.archived}, deleted {cleanupResult.transcripts_deleted} transcripts, removed {cleanupResult.meetings_deleted} meetings, reclaimed {formatBytes(cleanupResult.reclaimed_bytes)}.
                   </div>
+                </div>
+              ) : null}
+
+              {cleanupLog.length > 0 ? (
+                <div className="settings-card-stack">
+                  <div className="settings-note-title" style={{ paddingBottom: 4 }}>Cleanup history</div>
+                  {cleanupLog.slice(0, 5).map((entry, i) => (
+                    <div key={i} className="settings-check">
+                      <div className="settings-check-row">
+                        <div className="settings-check-label" style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                          {new Date(entry.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <span className="settings-check-tone is-neutral">{formatBytes(entry.reclaimed_bytes)}</span>
+                      </div>
+                      <div className="settings-check-copy">
+                        Archived {entry.archived} · deleted {entry.transcripts_deleted} transcripts · removed {entry.meetings_deleted} meetings
+                        {entry.failed.length > 0 ? ` · ${entry.failed.length} failed` : ''}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : null}
 

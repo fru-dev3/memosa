@@ -4,7 +4,7 @@ import type {
   RecordingStatus, RecordingResult, AudioDiagnostics, AudioFileStatus, MicrophoneProbeResult, WhisperModel, ModelInfo,
   TranscriptionStatus, CalendarEvent, AuthStatus, Meeting,
   SearchResult, MeetingFilter, AppSettings
-  , StorageUsage, CleanupPreview, CleanupRunResult
+  , StorageUsage, CleanupPreview, CleanupRunResult, CleanupLogEntry
   , ExportRequest, ExportResult
   , AmbientStatus
 } from './types'
@@ -174,6 +174,9 @@ export const previewCleanup = () =>
 
 export const runCleanupNow = () =>
   invoke<CleanupRunResult>('run_cleanup_now')
+
+export const getCleanupLog = () =>
+  invoke<CleanupLogEntry[]>('get_cleanup_log')
 
 export const exportMeetingBundle = (request: ExportRequest) =>
   invoke<ExportResult>('export_meeting_bundle', { request })
