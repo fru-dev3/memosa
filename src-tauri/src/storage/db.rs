@@ -164,6 +164,7 @@ impl Database {
             ("people", "ALTER TABLE meetings ADD COLUMN people TEXT NOT NULL DEFAULT '[]'"),
             ("themes", "ALTER TABLE meetings ADD COLUMN themes TEXT NOT NULL DEFAULT '[]'"),
             ("keywords", "ALTER TABLE meetings ADD COLUMN keywords TEXT NOT NULL DEFAULT '[]'"),
+            ("is_favorite", "ALTER TABLE meetings ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0"),
         ] {
             let has_column = conn
                 .prepare("PRAGMA table_info(meetings)")
@@ -211,8 +212,8 @@ impl Database {
             "INSERT OR REPLACE INTO meetings
               (id, title, date, start_time, duration_seconds, audio_path, transcript_path,
               transcription_status, calendar_event_id, attendees, whisper_model, profile_id,
-              source_app, summary, tags, people, themes, keywords, folder_path, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+              source_app, summary, tags, people, themes, keywords, is_favorite, folder_path, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 meeting.id,
                 meeting.title,
@@ -232,6 +233,7 @@ impl Database {
                 people_json,
                 themes_json,
                 keywords_json,
+                meeting.is_favorite as i32,
                 folder_path,
                 chrono::Utc::now().to_rfc3339(),
             ],
@@ -357,6 +359,17 @@ impl Database {
         Ok(())
     }
 
+    /// Toggle the is_favorite flag for a meeting.
+    pub fn set_meeting_favorite(&self, id: &str, is_favorite: bool) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE meetings SET is_favorite=?1 WHERE id=?2",
+            params![is_favorite as i32, id],
+        )
+        .map_err(|e| format!("Failed to update is_favorite: {}", e))?;
+        Ok(())
+    }
+
     /// Delete a meeting row and its FTS entry. Returns the folder_path so the
     /// caller can also remove the files from disk.
     pub fn delete_meeting(&self, id: &str) -> Result<Option<String>, String> {
@@ -417,7 +430,8 @@ impl Database {
         let result = conn.query_row(
             "SELECT id, title, date, start_time, duration_seconds, audio_path,
                     transcript_path, transcription_status, calendar_event_id,
-                    attendees, whisper_model, profile_id, source_app, summary, tags, people, themes, keywords
+                    attendees, whisper_model, profile_id, source_app, summary, tags, people, themes, keywords,
+                    is_favorite
              FROM meetings WHERE id=?1",
             params![id],
             row_to_meeting,
@@ -468,7 +482,8 @@ impl Database {
         let sql = format!(
             "SELECT id, title, date, start_time, duration_seconds, audio_path,
                     transcript_path, transcription_status, calendar_event_id,
-                    attendees, whisper_model, profile_id, source_app, summary, tags, people, themes, keywords
+                    attendees, whisper_model, profile_id, source_app, summary, tags, people, themes, keywords,
+                    is_favorite
              FROM meetings
              {}
              ORDER BY date DESC, start_time DESC",
@@ -504,6 +519,7 @@ impl Database {
                         m.audio_path, m.transcript_path, m.transcription_status,
                         m.calendar_event_id, m.attendees, m.whisper_model, m.profile_id,
                         m.source_app, m.summary, m.tags, m.people, m.themes, m.keywords,
+                        m.is_favorite,
                         snippet(transcripts_fts, 2, '<b>', '</b>', '...', 20) AS snippet
                  FROM transcripts_fts
                  JOIN meetings m ON m.id = transcripts_fts.meeting_id
@@ -516,7 +532,7 @@ impl Database {
         let rows = stmt
             .query_map(params![query], |row| {
                 let meeting = row_to_meeting_indexed(row, 0)?;
-                let snippet: String = row.get(18)?;
+                let snippet: String = row.get(19)?;
                 Ok((meeting, snippet))
             })
             .map_err(|e| format!("Failed to run search: {}", e))?;
@@ -555,7 +571,7 @@ impl Database {
 /// Map a rusqlite Row to a Meeting. Columns must be in the canonical order:
 /// 0:id 1:title 2:date 3:start_time 4:duration_seconds 5:audio_path
 /// 6:transcript_path 7:transcription_status 8:calendar_event_id
-/// 9:attendees 10:whisper_model 11:profile_id 12:source_app 13:summary 14:tags 15:people 16:themes 17:keywords
+/// 9:attendees 10:whisper_model 11:profile_id 12:source_app 13:summary 14:tags 15:people 16:themes 17:keywords 18:is_favorite
 fn row_to_meeting(row: &rusqlite::Row<'_>) -> rusqlite::Result<Meeting> {
     row_to_meeting_indexed(row, 0)
 }
@@ -581,6 +597,7 @@ fn row_to_meeting_indexed(row: &rusqlite::Row<'_>, offset: usize) -> rusqlite::R
     let people_json: String = row.get(offset + 15)?;
     let themes_json: String = row.get(offset + 16)?;
     let keywords_json: String = row.get(offset + 17)?;
+    let is_favorite: i32 = row.get(offset + 18).unwrap_or(0);
 
     let attendees: Vec<String> = serde_json::from_str(&attendees_json).unwrap_or_default();
     let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
@@ -610,6 +627,7 @@ fn row_to_meeting_indexed(row: &rusqlite::Row<'_>, offset: usize) -> rusqlite::R
         people,
         themes,
         keywords,
+        is_favorite: is_favorite != 0,
     })
 }
 

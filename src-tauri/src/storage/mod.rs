@@ -6,8 +6,8 @@ pub use db::Database;
 pub use settings::SettingsManager;
 
 use crate::types::{
-    AppSettings, AudioFileStatus, CleanupAction, CleanupCandidate, CleanupPreview, CleanupRunResult,
-    Meeting, MeetingFilter, StorageUsage, TranscriptionStatus,
+    AppSettings, AudioFileStatus, CleanupAction, CleanupCandidate, CleanupLogEntry, CleanupPreview,
+    CleanupRunResult, Meeting, MeetingFilter, StorageUsage, TranscriptionStatus,
 };
 use std::path::PathBuf;
 use tauri_plugin_autostart::ManagerExt;
@@ -46,6 +46,7 @@ pub fn create_meeting_record_with_id(
         people: Vec::new(),
         themes: Vec::new(),
         keywords: Vec::new(),
+        is_favorite: false,
     };
 
     fs::write_metadata(&folder, &meeting)?;
@@ -468,6 +469,11 @@ fn build_cleanup_preview(settings: &AppSettings, meetings: &[Meeting]) -> Cleanu
             continue;
         };
 
+        if settings.retention_policy.keep_starred && meeting.is_favorite {
+            protected_count += 1;
+            continue;
+        }
+
         if meeting
             .profile_id
             .as_ref()
@@ -700,7 +706,69 @@ pub async fn run_cleanup_now(
         }
     }
 
+    append_cleanup_log(&result);
+
     Ok(result)
+}
+
+fn cleanup_log_path() -> std::path::PathBuf {
+    dirs::home_dir()
+        .unwrap_or_default()
+        .join(".memosa")
+        .join("cleanup_log.json")
+}
+
+fn append_cleanup_log(result: &CleanupRunResult) {
+    let path = cleanup_log_path();
+    let mut entries: Vec<CleanupLogEntry> = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_default();
+
+    entries.push(CleanupLogEntry {
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        archived: result.archived,
+        meetings_deleted: result.meetings_deleted,
+        transcripts_deleted: result.transcripts_deleted,
+        reclaimed_bytes: result.reclaimed_bytes,
+        failed: result.failed.clone(),
+    });
+
+    // Keep last 100 entries
+    if entries.len() > 100 {
+        entries.drain(0..entries.len() - 100);
+    }
+
+    if let Ok(json) = serde_json::to_string_pretty(&entries) {
+        let _ = std::fs::write(&path, json);
+    }
+}
+
+#[tauri::command]
+pub async fn get_cleanup_log() -> Result<Vec<CleanupLogEntry>, String> {
+    let path = cleanup_log_path();
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let json = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read cleanup log: {}", e))?;
+    serde_json::from_str(&json).map_err(|e| format!("Failed to parse cleanup log: {}", e))
+}
+
+#[tauri::command]
+pub async fn set_meeting_favorite(
+    id: String,
+    is_favorite: bool,
+    db: tauri::State<'_, Database>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    db.set_meeting_favorite(&id, is_favorite)?;
+    if let Some(updated) = db.get_meeting(&id)? {
+        app_handle
+            .emit("meeting-updated", serde_json::json!({ "meeting": updated }))
+            .ok();
+    }
+    Ok(())
 }
 
 #[tauri::command]

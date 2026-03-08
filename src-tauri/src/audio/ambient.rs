@@ -12,6 +12,9 @@ use std::sync::{Arc, Mutex};
 const PROBE_DURATION_MS: u64 = 1200;
 const LOOP_PAUSE_MS: u64 = 1800;
 const SILENCE_TICKS_TO_STOP: u8 = 4;
+/// Require this many consecutive signal probes before starting a new ambient recording.
+/// Prevents false starts from transient noise (door slam, keyboard, etc.).
+const SIGNAL_TICKS_TO_START: u8 = 2;
 
 struct AmbientInner {
     active: bool,
@@ -124,6 +127,7 @@ async fn run_ambient_loop(
     stop_flag: Arc<AtomicBool>,
 ) {
     let mut silence_ticks = 0_u8;
+    let mut signal_ticks = 0_u8;
 
     loop {
         if stop_flag.load(Ordering::SeqCst) {
@@ -182,40 +186,47 @@ async fn run_ambient_loop(
             .unwrap_or(false);
 
         let current_meeting_id = ambient.inner.lock().unwrap().current_meeting_id.clone();
-        if current_meeting_id.is_none() && detected_signal {
-            let meeting_id = format!("ambient-{}", chrono::Utc::now().timestamp_millis());
-            let title = format!("Ambient capture {}", chrono::Local::now().format("%H:%M"));
-            if let Ok(meeting) = begin_recording_session(
-                &recorder,
-                &db,
-                &app_handle,
-                meeting_id,
-                title,
-                None,
-                Vec::new(),
-                profile_id.clone(),
-                Some("Ambient Mode".to_string()),
-            ) {
-                let mut state = ambient.inner.lock().unwrap();
-                state.current_meeting_id = Some(meeting.id);
-                silence_ticks = 0;
-            }
-        } else if current_meeting_id.is_some() {
+        if current_meeting_id.is_none() {
             if detected_signal {
-                silence_ticks = 0;
+                signal_ticks = signal_ticks.saturating_add(1);
             } else {
-                silence_ticks = silence_ticks.saturating_add(1);
-                if silence_ticks >= SILENCE_TICKS_TO_STOP {
-                    let _ = stop_current_ambient_recording(
-                        &recorder,
-                        &db,
-                        &transcription,
-                        &app_handle,
-                        &ambient,
-                    )
-                    .await;
+                signal_ticks = 0;
+            }
+            if signal_ticks >= SIGNAL_TICKS_TO_START {
+                let meeting_id = format!("ambient-{}", chrono::Utc::now().timestamp_millis());
+                let title = format!("Ambient capture {}", chrono::Local::now().format("%H:%M"));
+                if let Ok(meeting) = begin_recording_session(
+                    &recorder,
+                    &db,
+                    &app_handle,
+                    meeting_id,
+                    title,
+                    None,
+                    Vec::new(),
+                    profile_id.clone(),
+                    Some("Ambient Mode".to_string()),
+                ) {
+                    let mut state = ambient.inner.lock().unwrap();
+                    state.current_meeting_id = Some(meeting.id);
                     silence_ticks = 0;
+                    signal_ticks = 0;
                 }
+            }
+        } else if detected_signal {
+            silence_ticks = 0;
+        } else {
+            silence_ticks = silence_ticks.saturating_add(1);
+            if silence_ticks >= SILENCE_TICKS_TO_STOP {
+                let _ = stop_current_ambient_recording(
+                    &recorder,
+                    &db,
+                    &transcription,
+                    &app_handle,
+                    &ambient,
+                )
+                .await;
+                silence_ticks = 0;
+                signal_ticks = 0;
             }
         }
 
