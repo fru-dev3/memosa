@@ -179,12 +179,6 @@ export default function App() {
     ? activeView as PrimaryView
     : 'today'
 
-  // Show setup screen for new installs. Existing users always have
-  // has_completed_setup = true (set at load time in settings.rs).
-  if (settings != null && !settings.has_completed_setup) {
-    return <SetupView />
-  }
-
   return (
     <div style={{
       display: 'flex',
@@ -210,6 +204,8 @@ export default function App() {
           {resolvedModalView === 'about' ? <AboutView /> : null}
         </ViewErrorBoundary>
       </div>
+      {/* Setup overlay — rendered on top of the main app so backdrop blur has real content */}
+      {settings != null && !settings.has_completed_setup && <SetupView />}
     </div>
   )
 }
