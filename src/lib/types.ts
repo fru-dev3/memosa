@@ -83,6 +83,15 @@ export interface CleanupRunResult {
   failed: string[]
 }
 
+export interface CleanupLogEntry {
+  timestamp: string
+  archived: number
+  meetings_deleted: number
+  transcripts_deleted: number
+  reclaimed_bytes: number
+  failed: string[]
+}
+
 export interface IntegrationState {
   enabled: boolean
 }
