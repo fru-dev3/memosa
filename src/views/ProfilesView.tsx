@@ -1,7 +1,22 @@
 import { useState } from 'react'
 import * as api from '../lib/tauri'
-import type { RecordingProfile } from '../lib/types'
+import type { RecordingProfile, SummaryTemplate } from '../lib/types'
 import { useMemosaStore } from '../store'
+
+const SUMMARY_TEMPLATE_LABELS: Record<SummaryTemplate, string> = {
+  general: 'General notes',
+  meeting_brief: 'Meeting brief',
+  one_on_one_briefing: '1-on-1 briefing',
+  customer_call: 'Customer call',
+  internal_standup: 'Internal standup',
+  project_sync: 'Project sync',
+  interview_notes: 'Interview notes',
+  research_notes: 'Research notes',
+  lecture_notes: 'Lecture notes',
+  personal_notes: 'Personal notes',
+  action_items: 'Action items',
+  decision_log: 'Decision log',
+}
 
 const SYSTEM_DEFAULT_PROFILE_ID = 'default'
 
@@ -189,6 +204,22 @@ export function ProfilesView() {
                         onChange={(e) => update('accent', e.target.value)}
                         style={{ width: 72, height: 42, border: 'none', background: 'transparent', padding: 0 }}
                       />
+                    </label>
+
+                    <label className="settings-field">
+                      <div className="settings-field-label-row">
+                        <div className="settings-field-label">Default summary template</div>
+                        <div className="settings-field-hint">Applied when summarizing recordings with this profile</div>
+                      </div>
+                      <select
+                        value={activeProfile.summary_template}
+                        onChange={(e) => update('summary_template', e.target.value as SummaryTemplate)}
+                        className="settings-input"
+                      >
+                        {(Object.entries(SUMMARY_TEMPLATE_LABELS) as [SummaryTemplate, string][]).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
                     </label>
 
                     <div className="settings-note-card">
