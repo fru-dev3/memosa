@@ -93,15 +93,18 @@ interface TranscriptLine {
   text: string
 }
 
-type TranscriptViewMode = 'transcript' | 'timeline'
+type TranscriptViewMode = 'transcript' | 'timeline' | 'notes'
 type TranscriptTextMode = 'clean' | 'raw'
 
 function ReviewTabIcon({ kind }: { kind: TranscriptViewMode }) {
   if (kind === 'transcript') {
     return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 2.5H13V13.5H3V2.5Z" stroke="currentColor" strokeWidth="1.35" /><path d="M5.25 5.5H10.75M5.25 8H10.75M5.25 10.5H10.75" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /></svg>
   }
-  // timeline
-  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 4.5H12.5M3.5 8H12.5M3.5 11.5H12.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /><circle cx="5" cy="4.5" r="1" fill="currentColor" /><circle cx="8" cy="8" r="1" fill="currentColor" /><circle cx="11" cy="11.5" r="1" fill="currentColor" /></svg>
+  if (kind === 'timeline') {
+    return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 4.5H12.5M3.5 8H12.5M3.5 11.5H12.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /><circle cx="5" cy="4.5" r="1" fill="currentColor" /><circle cx="8" cy="8" r="1" fill="currentColor" /><circle cx="11" cy="11.5" r="1" fill="currentColor" /></svg>
+  }
+  // notes
+  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 2.5H10L13 5.5V13.5H3V2.5Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" /><path d="M9.5 2.5V6H13" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" /><path d="M5.5 8.5H10.5M5.5 10.5H8.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /></svg>
 }
 
 // Whisper special tokens: [BLANK_AUDIO], [MUSIC], [NOISE], etc.
@@ -217,6 +220,9 @@ export function TranscriptViewer({
   const [menuOpen, setMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [transcriptSearch, setTranscriptSearch] = useState('')
+  const [notesContent, setNotesContent] = useState('')
+  const [notesState, setNotesState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const notesTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const audioSrc = meeting.audio_path ? convertFileSrc(meeting.audio_path) : null
@@ -277,6 +283,18 @@ export function TranscriptViewer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meeting.id, meeting.audio_path, isThisMeetingRecording])
 
+  // Load notes when meeting changes
+  useEffect(() => {
+    let cancelled = false
+    setNotesContent('')
+    api.readMeetingNotes(meeting.id).then((content) => {
+      if (!cancelled) setNotesContent(content)
+    }).catch(() => {
+      if (!cancelled) setNotesContent('')
+    })
+    return () => { cancelled = true }
+  }, [meeting.id])
+
   // Sync title draft when meeting changes
   useEffect(() => {
     setTitleDraft(meeting.title)
@@ -307,6 +325,18 @@ export function TranscriptViewer({
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleTitleCommit()
     if (e.key === 'Escape') { setTitleDraft(meeting.title); setEditingTitle(false) }
+  }
+
+  const handleNotesChange = (value: string) => {
+    setNotesContent(value)
+    setNotesState('saving')
+    if (notesTimeout.current) clearTimeout(notesTimeout.current)
+    notesTimeout.current = setTimeout(() => {
+      void api.saveMeetingNotes(meeting.id, value).then(() => {
+        setNotesState('saved')
+        setTimeout(() => setNotesState('idle'), 1600)
+      }).catch(() => setNotesState('idle'))
+    }, 450)
   }
 
   const lines = useMemo(() => parseTranscript(editing ? draftContent : (transcriptContent ?? '')), [draftContent, editing, transcriptContent])
@@ -398,14 +428,17 @@ export function TranscriptViewer({
         </div>
         {/* Underline tab bar */}
         <div style={{ display: 'flex' }}>
-          {(['transcript', 'timeline'] as TranscriptViewMode[]).map((mode) => (
+          {(['transcript', 'timeline', 'notes'] as TranscriptViewMode[]).map((mode) => (
             <button
               key={mode}
               className={`tv-tab${viewMode === mode ? ' is-active' : ''}`}
               onClick={() => setViewMode(mode)}
             >
               <ReviewTabIcon kind={mode} />
-              <span>{mode === 'transcript' ? 'Transcript' : 'Timeline'}</span>
+              <span>{mode === 'transcript' ? 'Transcript' : mode === 'timeline' ? 'Timeline' : 'Notes'}</span>
+              {mode === 'notes' && notesContent.length > 0 && (
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', marginLeft: 4, flexShrink: 0 }} />
+              )}
             </button>
           ))}
         </div>
@@ -416,8 +449,30 @@ export function TranscriptViewer({
 
         {/* Left: main scrollable content */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {/* Notes panel */}
+        {viewMode === 'notes' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ padding: '8px 16px 6px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {notesState === 'saving' ? 'Saving…' : notesState === 'saved' ? 'Saved' : notesContent.length > 0 ? 'Stored with this recording' : 'Your private notes about this recording'}
+              </span>
+            </div>
+            <textarea
+              value={notesContent}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              placeholder="Type your notes here…"
+              style={{
+                flex: 1, resize: 'none', border: 'none', outline: 'none',
+                padding: '14px 16px', fontSize: 13, lineHeight: 1.65,
+                background: 'transparent', color: 'var(--text-primary)',
+                fontFamily: 'var(--font-body)',
+              }}
+            />
+          </div>
+        )}
+
         {/* Transcript search bar — only shown when transcript is ready */}
-        {meeting.transcription_status === 'complete' && transcriptContent && (
+        {viewMode !== 'notes' && meeting.transcription_status === 'complete' && transcriptContent && (
           <div style={{ padding: '8px 16px 0', flexShrink: 0, position: 'relative' }}>
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}>
               <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
@@ -435,6 +490,7 @@ export function TranscriptViewer({
             )}
           </div>
         )}
+        {viewMode !== 'notes' && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
           {loadingTranscript ? (
             <div className="space-y-3">
@@ -555,6 +611,7 @@ export function TranscriptViewer({
             </div>
           )}
         </div>
+        )}
         </div>
 
         {/* Right: sidebar (collapsible) */}
