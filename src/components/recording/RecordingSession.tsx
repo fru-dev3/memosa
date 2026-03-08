@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as api from '../../lib/tauri'
 import { useMemosaStore } from '../../store'
 import { Waveform } from './Waveform'
+import { LiveTranscript } from './LiveTranscript'
 import { useRecording } from '../../hooks/useRecording'
 
 const SIGNAL_WARNING_SECONDS = 5
@@ -301,6 +302,11 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
         }}
       >
         <Waveform color={waveformColor} height={44} />
+      </div>
+
+      {/* Live transcript */}
+      <div style={{ marginBottom: 12, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+        <LiveTranscript />
       </div>
 
       {noSignalWarning && !error ? (

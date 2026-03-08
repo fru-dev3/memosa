@@ -46,6 +46,11 @@ struct RecorderState {
     /// Samples accumulated since the last RMS event (written by the capture
     /// thread, drained by the level-emitter).
     level_buffer: Arc<Mutex<Vec<f32>>>,
+    /// Live PCM accumulator for real-time transcription. Mixed samples at
+    /// native device sample rate, drained by LiveTranscriber every few seconds.
+    live_pcm: Arc<Mutex<Vec<f32>>>,
+    /// (sample_rate, channels) of the live capture, set once the stream opens.
+    live_capture_info: Arc<Mutex<Option<(u32, u16)>>>,
     /// Signal for the background thread to stop.
     stop_flag: Arc<std::sync::atomic::AtomicBool>,
     /// Join handle for the background capture + encode thread.
@@ -60,6 +65,8 @@ impl RecorderState {
             start_time: None,
             output_path: None,
             level_buffer: Arc::new(Mutex::new(Vec::new())),
+            live_pcm: Arc::new(Mutex::new(Vec::new())),
+            live_capture_info: Arc::new(Mutex::new(None)),
             stop_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             thread_handle: None,
         }
@@ -123,9 +130,15 @@ impl AudioRecorder {
 
         let stop_flag = Arc::clone(&state.stop_flag);
         let level_buf = Arc::clone(&state.level_buffer);
+        let live_pcm = Arc::clone(&state.live_pcm);
+        let live_capture_info = Arc::clone(&state.live_capture_info);
         let meeting_id_clone = meeting_id.clone();
         let output_path_clone = output_path.clone();
         let app_handle_clone = app_handle.clone();
+
+        // Reset live PCM from any previous session
+        live_pcm.lock().unwrap().clear();
+        *live_capture_info.lock().unwrap() = None;
 
         // Channel to get stream-open success/failure back from the thread
         let (startup_tx, startup_rx) = std::sync::mpsc::channel::<Result<(), String>>();
@@ -138,6 +151,8 @@ impl AudioRecorder {
                 output_path_clone,
                 stop_flag,
                 level_buf,
+                live_pcm,
+                live_capture_info,
                 app_handle_clone,
                 startup_tx,
             )
@@ -242,6 +257,15 @@ impl AudioRecorder {
                 Err(e)
             }
         }
+    }
+
+    /// Drain the live PCM accumulator and return (samples, capture_info).
+    /// Returns an empty vec if no capture info is available yet.
+    pub fn take_live_pcm(&self) -> (Vec<f32>, Option<(u32, u16)>) {
+        let state = self.state.lock().unwrap();
+        let samples = std::mem::take(&mut *state.live_pcm.lock().unwrap());
+        let info = *state.live_capture_info.lock().unwrap();
+        (samples, info)
     }
 
     pub fn get_status(&self) -> RecordingStatus {
@@ -725,6 +749,8 @@ fn capture_and_encode(
     output_path: PathBuf,
     stop_flag: Arc<std::sync::atomic::AtomicBool>,
     level_buf: Arc<Mutex<Vec<f32>>>,
+    live_pcm: Arc<Mutex<Vec<f32>>>,
+    live_capture_info: Arc<Mutex<Option<(u32, u16)>>>,
     app_handle: tauri::AppHandle,
     startup_tx: std::sync::mpsc::Sender<Result<(), String>>,
 ) -> Result<(), String> {
@@ -762,6 +788,7 @@ fn capture_and_encode(
 
     let sample_rate = mic_config.sample_rate().0;
     let channels: u16 = mic_config.channels();
+    *live_capture_info.lock().unwrap() = Some((sample_rate, channels));
 
     // --- BlackHole (optional system audio) ---
     let system_audio_device = if settings.capture_system_audio {
@@ -898,6 +925,9 @@ fn capture_and_encode(
                     msg
                 })?;
         }
+
+        // Accumulate for live transcription
+        live_pcm.lock().unwrap().extend_from_slice(&mixed);
 
         // Emit audio-level ~10x per second (every 100 ms)
         if last_level_emit.elapsed() >= std::time::Duration::from_millis(100) {

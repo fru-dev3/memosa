@@ -1,8 +1,10 @@
 pub mod jobs;
+pub mod live;
 pub mod models;
 pub mod whisper;
 
 pub use jobs::TranscriptionManager;
+pub use live::LiveTranscriber;
 
 use crate::types::{ModelInfo, TranscriptionStatus, WhisperModel};
 use tauri::State;
@@ -62,5 +64,24 @@ pub async fn cancel_transcription(
     state: State<'_, TranscriptionManager>,
 ) -> Result<(), String> {
     state.cancel_job(&meeting_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn start_live_transcription(
+    meeting_id: String,
+    recorder: State<'_, crate::audio::AudioRecorder>,
+    live: State<'_, LiveTranscriber>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    live.start(recorder.inner().clone(), meeting_id, app_handle);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_live_transcription(
+    live: State<'_, LiveTranscriber>,
+) -> Result<(), String> {
+    live.stop();
     Ok(())
 }
