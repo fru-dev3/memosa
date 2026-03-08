@@ -57,7 +57,7 @@ function SkeletonRow() {
 function EmptyPanel({ message }: { message: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 24 }}>
-      <div aria-label={message} style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--border-strong)', opacity: 0.7 }} />
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{message}</span>
     </div>
   )
 }
@@ -380,11 +380,14 @@ export function LibraryView() {
           ) : selectedMeeting ? (
             <TranscriptViewer meeting={selectedMeeting} onDelete={handleDeleteSelectedMeeting} onRetranscribe={handleRetranscribe} />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 14, textAlign: 'center', padding: 32 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--border-strong)', opacity: 0.8 }} />
-              <div style={{ width: 48, height: 1, background: 'var(--border-subtle)' }} />
-              <div style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: 18, height: 22, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-elevated)' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, textAlign: 'center', padding: 32 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                {meetings.length === 0 ? 'No recordings yet' : 'Select a recording'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 220, lineHeight: 1.6 }}>
+                {meetings.length === 0
+                  ? 'Start a capture to build your library. Recordings are stored locally.'
+                  : 'Pick a memo from the list to view its transcript and details.'}
               </div>
             </div>
           )}
