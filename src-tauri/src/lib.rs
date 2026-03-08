@@ -80,6 +80,28 @@ pub fn run() {
 
             diagnostics::log("setup: native tray and shortcut registration disabled for stability");
 
+            // Scheduled retention cleanup — runs once per day if policy is enabled.
+            let cleanup_db = database.clone();
+            let cleanup_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // Wait 60 seconds after startup before the first check, then repeat daily.
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                loop {
+                    let settings = storage::SettingsManager::load();
+                    if settings.retention_policy.enabled {
+                        diagnostics::log("scheduled cleanup: running retention policy");
+                        match storage::run_scheduled_cleanup(&cleanup_db, &cleanup_app).await {
+                            Ok(result) => diagnostics::log(format!(
+                                "scheduled cleanup: archived={} deleted={} reclaimed={}B",
+                                result.archived, result.meetings_deleted, result.reclaimed_bytes
+                            )),
+                            Err(e) => diagnostics::log(format!("scheduled cleanup error: {e}")),
+                        }
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60)).await;
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {
