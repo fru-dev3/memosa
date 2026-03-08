@@ -115,8 +115,19 @@ export function SetupView() {
 
         {/* CTA */}
         <button
-          className="ghost-pill is-selected-pill"
-          style={{ padding: '9px 28px', fontSize: 14, fontWeight: 600 }}
+          style={{
+            padding: '10px 32px',
+            fontSize: 14,
+            fontWeight: 600,
+            borderRadius: 999,
+            border: 'none',
+            background: 'var(--accent)',
+            color: '#fff',
+            cursor: saving ? 'default' : 'pointer',
+            opacity: saving ? 0.7 : 1,
+            fontFamily: 'inherit',
+            transition: 'opacity 140ms ease',
+          }}
           disabled={saving}
           onClick={() => void handleGetStarted()}
         >
