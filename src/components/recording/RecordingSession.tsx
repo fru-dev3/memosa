@@ -33,6 +33,7 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
   } = useMemosaStore()
   const { stopRecording } = useRecording()
   const [stopping, setStopping] = useState(false)
+  const [savedInfo, setSavedInfo] = useState<{ title: string; duration: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [noSignalWarning, setNoSignalWarning] = useState(false)
@@ -114,13 +115,16 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
   const handleStop = async () => {
     setStopping(true)
     setError(null)
+    const capturedDuration = elapsed
     try {
       const result = await stopRecording()
       const savedMeeting = await api.getMeeting(result.meeting_id)
       upsertMeeting(savedMeeting)
       setCurrentMeeting(savedMeeting)
-      // Stay in projects if recording was started from a folder, otherwise go to library
-      setActiveView(activeFolderId ? 'projects' : 'library')
+      setSavedInfo({ title: savedMeeting.title, duration: capturedDuration })
+      setStopping(false)
+      const targetView = activeFolderId ? 'projects' : 'library'
+      setTimeout(() => setActiveView(targetView), 1800)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to stop recording')
       setStopping(false)
@@ -149,7 +153,28 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
     }
   }
 
-  if (!recordingStatus.is_recording) return null
+  if (!recordingStatus.is_recording && !savedInfo) return null
+
+  // Post-recording handoff state
+  if (savedInfo && !recordingStatus.is_recording) {
+    return (
+      <div style={{ padding: compact ? '44px 16px 16px' : '20px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="6.5" stroke="var(--accent)" strokeWidth="1.2" />
+            <path d="M4.5 7l2 2 3-3" stroke="var(--accent)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--accent)' }}>Saved</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>{formatTime(savedInfo.duration)}</span>
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>{savedInfo.title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--upcoming)', display: 'block', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: 'var(--upcoming)' }}>Transcription queued…</span>
+        </div>
+      </div>
+    )
+  }
 
   if (compact) {
     return (
