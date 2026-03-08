@@ -141,6 +141,7 @@ export function MeetingEntry({
 }: MeetingEntryProps) {
   const [hovered, setHovered] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [pendingDelete, setPendingDelete] = useState(false)
 
   const dateLabel = formatDate(meeting.date, meeting.start_time)
   const duration = meeting.duration_seconds > 0 ? formatDuration(meeting.duration_seconds) : null
@@ -206,6 +207,14 @@ export function MeetingEntry({
               <StatusIcon status={meeting.transcription_status} progress={progress} />
             )}
           </div>
+          {meeting.transcription_status === 'complete' && ((meeting.people?.length ?? 0) > 0 || (meeting.themes?.length ?? 0) > 0) && (
+            <div style={{
+              fontSize: 11, color: 'var(--text-muted)', marginTop: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {[...(meeting.people ?? []).slice(0, 2), ...(meeting.themes ?? []).slice(0, 2)].join(' · ')}
+            </div>
+          )}
         </div>
 
         {/* Right side: star + chevron */}
@@ -231,7 +240,7 @@ export function MeetingEntry({
       {/* Context menu */}
       {contextMenu && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setContextMenu(null)} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => { setContextMenu(null); setPendingDelete(false) }} />
           <div style={{
             position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 50,
             borderRadius: 12, padding: 5,
@@ -241,7 +250,9 @@ export function MeetingEntry({
             {[
               { label: 'Open in Finder', color: 'var(--text-primary)', fn: () => { onOpenFolder?.(meeting.id); setContextMenu(null) } },
               null,
-              { label: 'Delete', color: 'var(--live)', fn: () => { onDelete?.(meeting.id); setContextMenu(null) } },
+              pendingDelete
+                ? { label: 'Confirm — delete forever', color: 'var(--live)', fn: () => { onDelete?.(meeting.id); setContextMenu(null); setPendingDelete(false) } }
+                : { label: 'Delete…', color: 'var(--live)', fn: () => setPendingDelete(true) },
             ].map((item, i) =>
               item === null
                 ? <div key={i} style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />

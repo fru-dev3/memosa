@@ -1,12 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import memosaIcon from '../assets/memosa-icon.png'
 import * as api from '../lib/tauri'
 import { useMemosaStore } from '../store'
+
+const QUOTES = [
+  { text: "The faintest ink is mightier than the best memory.", attr: "Chinese proverb" },
+  { text: "You were in the room. Now the room stays with you.", attr: "Memosa" },
+  { text: "Every meeting is an archive. Most people just don't have the key.", attr: "Memosa" },
+  { text: "Your best ideas don't send calendar invites.", attr: "Memosa" },
+  { text: "What was said is what happened. Your notes are the record.", attr: "Memosa" },
+  { text: "If it mattered enough to meet about, it matters enough to remember.", attr: "Memosa" },
+  { text: "The call ends. The context stays.", attr: "Memosa" },
+  { text: "Capture first. Think later. AI can wait.", attr: "Memosa" },
+]
 
 export function SetupView() {
   const { settings, setSettings, setMeetings } = useMemosaStore()
   const defaultPath = settings?.storage_path ?? '~/Documents/Memosa'
   const [storagePath, setStoragePath] = useState(defaultPath)
   const [saving, setSaving] = useState(false)
+  const [quoteIndex, setQuoteIndex] = useState(0)
+  const [quoteVisible, setQuoteVisible] = useState(true)
+
+  // Cycle quotes every 4s with fade transition
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteVisible(false)
+      setTimeout(() => {
+        setQuoteIndex((i) => (i + 1) % QUOTES.length)
+        setQuoteVisible(true)
+      }, 400)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleBrowse = async () => {
     const picked = await api.pickStorageFolder(storagePath)
@@ -20,7 +46,6 @@ export function SetupView() {
       const updated = { ...settings, storage_path: storagePath, has_completed_setup: true }
       await api.saveSettings(updated)
       setSettings(updated)
-      // Reload meetings from the chosen storage location
       const meetings = await api.getMeetings({})
       setMeetings(meetings)
     } finally {
@@ -28,13 +53,16 @@ export function SetupView() {
     }
   }
 
+  const quote = QUOTES[quoteIndex]
+
   return (
     <div style={{
       position: 'fixed',
       inset: 0,
       zIndex: 9999,
-      background: 'rgba(0,0,0,0.45)',
-      backdropFilter: 'blur(6px)',
+      background: 'rgba(10, 22, 14, 0.62)',
+      backdropFilter: 'blur(28px)',
+      WebkitBackdropFilter: 'blur(28px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -42,97 +70,161 @@ export function SetupView() {
       <div style={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: 28,
-        width: 400,
+        width: 460,
         maxWidth: 'calc(100vw - 48px)',
-        background: 'var(--bg-panel)',
-        border: '1px solid var(--border)',
-        borderRadius: 20,
-        padding: '40px 36px',
-        boxShadow: '0 32px 64px rgba(0,0,0,0.22)',
-        textAlign: 'center',
+        background: 'rgba(247, 243, 236, 0.97)',
+        border: '1px solid rgba(255,255,255,0.5)',
+        borderRadius: 28,
+        overflow: 'hidden',
+        boxShadow: '0 40px 80px rgba(0,0,0,0.36), 0 1px 0 rgba(255,255,255,0.8) inset',
       }}>
-        {/* Icon */}
+
+        {/* Quote strip at top */}
         <div style={{
-          width: 52,
-          height: 52,
-          borderRadius: 16,
-          background: 'var(--accent-dim)',
-          border: '1px solid var(--accent-border)',
+          padding: '18px 28px 16px',
+          borderBottom: '1px solid rgba(18, 77, 45, 0.1)',
+          background: 'rgba(18, 77, 45, 0.04)',
+          minHeight: 72,
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: 'column',
           justifyContent: 'center',
         }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-        </div>
-
-        {/* Heading */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
-            Where should Memosa save your recordings?
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            All recordings, transcripts, and notes are stored locally on your Mac.
-            You can change this at any time in Settings.
-          </div>
-        </div>
-
-        {/* Path picker */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: '8px 12px',
-            minWidth: 0,
+            opacity: quoteVisible ? 1 : 0,
+            transition: 'opacity 400ms ease',
           }}>
-            <span style={{
-              flex: 1,
-              fontSize: 12,
-              color: 'var(--text-secondary)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              fontFamily: 'monospace',
+            <p style={{
+              margin: 0,
+              fontSize: 13,
+              fontStyle: 'italic',
+              color: '#124d2d',
+              lineHeight: 1.55,
+              fontWeight: 500,
             }}>
-              {storagePath}
-            </span>
-            <button
-              className="ghost-pill"
-              style={{ flexShrink: 0 }}
-              onClick={() => void handleBrowse()}
-            >
-              Browse
-            </button>
+              "{quote.text}"
+            </p>
+            <p style={{
+              margin: '5px 0 0',
+              fontSize: 11,
+              color: '#218048',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}>
+              — {quote.attr}
+            </p>
           </div>
         </div>
 
-        {/* CTA */}
-        <button
-          style={{
-            padding: '10px 32px',
-            fontSize: 14,
-            fontWeight: 600,
-            borderRadius: 999,
-            border: 'none',
-            background: 'var(--accent)',
-            color: '#fff',
-            cursor: saving ? 'default' : 'pointer',
-            opacity: saving ? 0.7 : 1,
-            fontFamily: 'inherit',
-            transition: 'opacity 140ms ease',
-          }}
-          disabled={saving}
-          onClick={() => void handleGetStarted()}
-        >
-          {saving ? 'Saving…' : 'Get Started'}
-        </button>
+        {/* Main body */}
+        <div style={{
+          padding: '32px 28px 36px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 24,
+          textAlign: 'center',
+        }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <img
+              src={memosaIcon}
+              alt="Memosa"
+              style={{ width: 72, height: 48, objectFit: 'contain', display: 'block' }}
+            />
+            <div style={{
+              fontSize: 34,
+              fontWeight: 750,
+              color: '#124d2d',
+              letterSpacing: '-0.06em',
+              lineHeight: 1,
+              fontFamily: '"Avenir Next", "SF Pro Display", system-ui, sans-serif',
+            }}>
+              Memosa
+            </div>
+            <div style={{ fontSize: 13, color: '#218048', fontWeight: 500, lineHeight: 1.5 }}>
+              Quiet capture. Local first. Any AI.
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '100%', height: 1, background: 'rgba(18, 77, 45, 0.1)' }} />
+
+          {/* Storage picker */}
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
+            <div style={{ fontSize: 14, fontWeight: 650, color: '#124d2d' }}>
+              Where should your memos live?
+            </div>
+            <div style={{ fontSize: 12, color: '#218048', lineHeight: 1.6, opacity: 0.8 }}>
+              Audio, transcripts, and notes are stored entirely on your Mac. No cloud. Nothing leaves unless you move it.
+            </div>
+
+            {/* Path row */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'rgba(255,255,255,0.7)',
+              border: '1px solid rgba(18, 77, 45, 0.18)',
+              borderRadius: 10,
+              padding: '8px 10px 8px 14px',
+            }}>
+              <span style={{
+                flex: 1,
+                fontSize: 12,
+                color: '#124d2d',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontFamily: 'monospace',
+                opacity: 0.8,
+              }}>
+                {storagePath}
+              </span>
+              <button
+                className="ghost-pill"
+                style={{ flexShrink: 0 }}
+                onClick={() => void handleBrowse()}
+              >
+                Browse
+              </button>
+            </div>
+
+            <div style={{ fontSize: 11, color: '#218048', opacity: 0.65, textAlign: 'center' }}>
+              You can change this at any time in Settings → Storage
+            </div>
+          </div>
+
+          {/* CTA */}
+          <button
+            style={{
+              width: '100%',
+              padding: '13px 32px',
+              fontSize: 15,
+              fontWeight: 650,
+              borderRadius: 999,
+              border: 'none',
+              background: 'linear-gradient(135deg, #1a6b3a 0%, #0f4d28 100%)',
+              color: '#fff',
+              cursor: saving ? 'default' : 'pointer',
+              opacity: saving ? 0.7 : 1,
+              fontFamily: 'inherit',
+              transition: 'opacity 140ms ease, transform 100ms ease',
+              letterSpacing: '-0.01em',
+              boxShadow: '0 4px 16px rgba(18, 77, 45, 0.3)',
+            }}
+            onMouseEnter={(e) => { if (!saving) e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'none' }}
+            disabled={saving}
+            onClick={() => void handleGetStarted()}
+          >
+            {saving ? 'Setting up…' : 'Start capturing →'}
+          </button>
+
+          {/* Fine print */}
+          <div style={{ fontSize: 11, color: '#218048', opacity: 0.5, lineHeight: 1.6 }}>
+            No account. No subscription. No cloud.
+          </div>
+        </div>
       </div>
     </div>
   )

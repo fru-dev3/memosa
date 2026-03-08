@@ -345,3 +345,41 @@ export const stopScreenshotCapture = () =>
   invoke<void>('stop_screenshot_capture')
 export const onScreenshotTaken = (cb: (data: { count: number }) => void): Promise<UnlistenFn> =>
   listen<{ count: number }>('screenshot-taken', (e) => cb(e.payload))
+
+// ─── Voice Memo Import ────────────────────────────────────────────────────────
+
+export interface VoiceMemoEntry {
+  id: string
+  title: string
+  path: string
+  date: string
+  start_time: string
+  duration_seconds: number
+  size_bytes: number
+  already_imported: boolean
+}
+
+export interface ImportRequest {
+  title: string
+  path: string
+  date: string
+  start_time: string
+  duration_seconds: number
+}
+
+export const pickImportFolder = () =>
+  invoke<string | null>('pick_import_folder')
+
+export const scanVoiceMemos = (folderPath: string) =>
+  invoke<VoiceMemoEntry[]>('scan_voice_memos', { folderPath })
+
+export const importVoiceMemos = (entries: ImportRequest[]) =>
+  invoke<Meeting[]>('import_voice_memos', { entries })
+
+export const onImportProgress = (
+  cb: (data: { current: number; total: number; title: string }) => void
+): Promise<UnlistenFn> =>
+  listen<{ current: number; total: number; title: string }>(
+    'import-progress',
+    (e) => cb(e.payload)
+  )

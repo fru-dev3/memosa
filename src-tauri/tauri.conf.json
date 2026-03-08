@@ -25,13 +25,15 @@
     },
     "windows": [
       {
-        "title": "Memosa",
+        "title": "Memosa — Meeting memory",
         "width": 1100,
         "height": 720,
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
-        "decorations": true
+        "decorations": true,
+        "titleBarStyle": "overlay",
+        "hiddenTitle": true
       }
     ]
   },
@@ -39,6 +41,7 @@
     "active": true,
     "targets": "app",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns"],
+    "resources": ["PrivacyInfo.xcprivacy"],
     "macOS": {
       "minimumSystemVersion": "13.0",
       "entitlements": "entitlements.plist",

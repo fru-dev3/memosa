@@ -2,6 +2,7 @@ mod audio;
 mod calendar;
 mod diagnostics;
 mod export;
+mod import;
 #[cfg(target_os = "macos")]
 mod macos;
 mod screenshot;
@@ -205,6 +206,9 @@ pub fn run() {
             storage::assign_meeting_folder,
             storage::remove_meeting_folder,
             export::export_meeting_bundle,
+            import::pick_import_folder,
+            import::scan_voice_memos,
+            import::import_voice_memos,
             screenshot::capture_screenshot_now,
             screenshot::start_screenshot_capture,
             screenshot::stop_screenshot_capture,

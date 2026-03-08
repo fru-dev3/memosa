@@ -14,6 +14,18 @@ function formatTimer(secs?: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+function getTimeSuggestion(): string {
+  const h = new Date().getHours()
+  if (h < 10) return 'Morning session'
+  if (h < 12) return 'Late morning'
+  if (h < 14) return 'Lunch meeting'
+  if (h < 17) return 'Afternoon session'
+  if (h < 20) return 'Evening capture'
+  return 'Late session'
+}
+
+// ─── Icons ────────────────────────────────────────────────────────
+
 function MicIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -24,7 +36,6 @@ function MicIcon() {
   )
 }
 
-
 function ChevronRightIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
@@ -33,16 +44,60 @@ function ChevronRightIcon() {
   )
 }
 
+// ─── Drawer sub-components ────────────────────────────────────────
+
+function LiveTime() {
+  const fmt = () =>
+    new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  const [time, setTime] = useState(fmt)
+  useEffect(() => {
+    const id = setInterval(() => setTime(fmt()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+  return <span className="qr-fd-time">{time}</span>
+}
+
+function MiniWave() {
+  const heights = [0.35, 0.65, 1, 0.78, 0.5, 0.88, 0.62, 0.42, 0.8, 0.58, 0.44, 0.72, 0.9, 0.55]
+  return (
+    <div className="qr-fd-miniwave" aria-hidden="true">
+      {heights.map((h, i) => (
+        <span
+          key={i}
+          className="qr-fd-miniwave-bar"
+          style={{
+            height: `${Math.round(h * 14)}px`,
+            animationDuration: `${1.1 + (i % 5) * 0.24}s`,
+            animationDelay: `${(i % 7) * 0.11}s`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── FloatingRecorder ─────────────────────────────────────────────
+
 export function FloatingRecorder() {
-  const { activeView, activeFolderId, assignMeetingToProject, availableModels, folders, recordingStatus, selectedProfileId } = useMemosaStore()
-  const hasModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
+  const {
+    activeView,
+    activeFolderId,
+    assignMeetingToProject,
+    availableModels,
+    folders,
+    recordingStatus,
+    selectedProfileId,
+  } = useMemosaStore()
+
+  const hasModel = availableModels.length > 0 && availableModels.some((m) => m.downloaded)
   const [expanded, setExpanded] = useState(false)
   const [keepLivePanelOpen, setKeepLivePanelOpen] = useState(false)
+  const [titleInput, setTitleInput] = useState('')
 
   useEffect(() => {
     if (recordingStatus.is_recording) {
       setKeepLivePanelOpen(true)
-      setExpanded(true)  // auto-open so waveform + signal state are immediately visible
+      setExpanded(true)
     } else if (keepLivePanelOpen) {
       const id = setTimeout(() => {
         setKeepLivePanelOpen(false)
@@ -52,20 +107,34 @@ export function FloatingRecorder() {
     }
   }, [recordingStatus.is_recording]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (activeView === 'settings' || activeView === 'profiles' || activeView === 'templates' || activeView === 'about' || activeView === 'privacy') {
+  if (
+    activeView === 'settings' ||
+    activeView === 'profiles' ||
+    activeView === 'templates' ||
+    activeView === 'about' ||
+    activeView === 'privacy'
+  ) {
     return null
   }
 
   const handleStart = () => {
     const meetingId = generateMeetingId()
     const activeFolder = activeFolderId ? folders.find((f) => f.id === activeFolderId) : null
-    const title = activeFolder ? activeFolder.name : 'Quick Memo'
+    const title = titleInput.trim() || (activeFolder ? activeFolder.name : 'Quick Memo')
     void api.startRecording(meetingId, title, selectedProfileId)
     if (activeFolder) {
       assignMeetingToProject(meetingId, activeFolder.id)
     }
+    setTitleInput('')
+    setExpanded(false)
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleStart()
+    if (e.key === 'Escape') setExpanded(false)
+  }
+
+  // ── Live recording state ─────────────────────────────────────────
   if (recordingStatus.is_recording || keepLivePanelOpen) {
     return (
       <div className="side-bookmark side-bookmark-live">
@@ -81,8 +150,11 @@ export function FloatingRecorder() {
             {formatTimer(recordingStatus.duration_seconds)}
           </span>
         </button>
-        {/* Always mounted so guard logic (auto-stop on no signal) keeps running */}
-        <div className={`side-bookmark-session-panel${expanded ? '' : ' side-bookmark-panel-hidden'}`}>
+        <div
+          className={`side-bookmark-session-panel${
+            expanded ? '' : ' side-bookmark-panel-hidden'
+          }`}
+        >
           <button
             type="button"
             className="side-bookmark-session-close"
@@ -98,32 +170,59 @@ export function FloatingRecorder() {
     )
   }
 
+  // ── Idle state ───────────────────────────────────────────────────
   return (
     <div className={`side-bookmark ${expanded ? 'is-open' : ''}`}>
       <button
         type="button"
         className={`side-bookmark-tab ${expanded ? 'is-open' : ''}`}
         onClick={() => setExpanded((v) => !v)}
-        aria-label={expanded ? 'Collapse recorder' : 'Expand recorder'}
-        title={expanded ? 'Collapse recorder' : 'Start recording'}
+        aria-label={expanded ? 'Collapse recorder' : 'Start recording'}
+        title={expanded ? 'Collapse recorder' : 'Quick record'}
       >
         {expanded ? <ChevronRightIcon /> : <MicIcon />}
       </button>
+
       {expanded && (
-        <div className="side-bookmark-drawer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: '10px 12px' }}>
-          <button
-            type="button"
-            className="side-bookmark-record-btn"
-            onClick={handleStart}
-            style={{ width: '100%', justifyContent: 'center' }}
-          >
-            <MicIcon />
-            <span>Record</span>
+        <div className="side-bookmark-drawer qr-fd">
+          {/* Header: waveform + clock */}
+          <div className="qr-fd-header">
+            <MiniWave />
+            <LiveTime />
+          </div>
+
+          {/* Divider */}
+          <div className="qr-fd-divider" />
+
+          {/* Name input */}
+          <input
+            type="text"
+            className="qr-fd-input"
+            placeholder={getTimeSuggestion()}
+            value={titleInput}
+            onChange={(e) => setTitleInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            autoFocus
+          />
+
+          {/* Record button */}
+          <button type="button" className="qr-fd-btn" onClick={handleStart}>
+            <span className="qr-fd-rec-dot" />
+            Record
           </button>
+
+          {/* Keyboard hint */}
+          <div className="qr-fd-hint">
+            <span>↩ start</span>
+            <span className="qr-fd-hint-sep">·</span>
+            <kbd className="qr-fd-kbd">⇧⌘R</kbd>
+            <span>global</span>
+            <span className="qr-fd-hint-sep">·</span>
+            <span>esc close</span>
+          </div>
+
           {!hasModel && (
-            <p style={{ margin: 0, fontSize: 10, color: 'var(--warning-amber)', lineHeight: 1.4, textAlign: 'center' }}>
-              No model — audio captured, no transcription.
-            </p>
+            <div className="qr-fd-no-model">No model · audio only</div>
           )}
         </div>
       )}

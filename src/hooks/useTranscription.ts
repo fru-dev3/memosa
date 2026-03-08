@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react'
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { useMemosaStore } from '../store'
 import * as api from '../lib/tauri'
 import type { WhisperModel } from '../lib/types'
@@ -29,7 +30,22 @@ export function useTranscriptionEvents() {
       clearTranscriptionProgress(data.meeting_id)
       clearTranscriptionError(data.meeting_id)
       api.getMeeting(data.meeting_id)
-        .then(meeting => upsertMeeting(meeting))
+        .then(async meeting => {
+          upsertMeeting(meeting)
+          try {
+            let granted = await isPermissionGranted()
+            if (!granted) {
+              const perm = await requestPermission()
+              granted = perm === 'granted'
+            }
+            if (granted) {
+              sendNotification({
+                title: 'Transcript ready',
+                body: meeting.title || 'Untitled memo',
+              })
+            }
+          } catch { /* non-critical — ignore notification errors */ }
+        })
         .catch(() => {})
     }).then(fn => unlisteners.push(fn))
 
