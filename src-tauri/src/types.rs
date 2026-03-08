@@ -362,6 +362,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub custom_summary_templates: Vec<CustomSummaryTemplate>,
     #[serde(default)]
+    pub excluded_calendar_names: Vec<String>,
+    #[serde(default)]
     pub has_completed_setup: bool,
 }
 

@@ -68,6 +68,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     decision_log: 'Extract the decisions made, why they were made, and any unresolved questions.',
   },
   custom_summary_templates: [],
+  excluded_calendar_names: [],
   has_completed_setup: false,
 }
 
@@ -378,6 +379,7 @@ export function SettingsView() {
     setHotkeys,
     setSettings,
     settings,
+    todayEvents,
   } = useMemosaStore()
   const { downloadModel, modelProgress } = useTranscription()
 
@@ -637,8 +639,15 @@ export function SettingsView() {
 
   const renderSection = () => {
     switch (activeSection) {
-      case 'calendar':
+      case 'calendar': {
+        const knownCalendarNames = Array.from(new Set(todayEvents.map((e) => e.calendar_name).filter(Boolean))).sort()
+        const toggleCalendarExclusion = (name: string) => {
+          const current = draft.excluded_calendar_names ?? []
+          const next = current.includes(name) ? current.filter((n) => n !== name) : [...current, name]
+          updateDraft('excluded_calendar_names', next)
+        }
         return (
+          <>
           <SettingsBlock title="Auto-record">
             <div className="settings-card-stack">
               <Field label="Auto-record upcoming meetings">
@@ -667,7 +676,33 @@ export function SettingsView() {
               </Field>
             </div>
           </SettingsBlock>
+
+          {knownCalendarNames.length > 0 && (
+            <SettingsBlock title="Calendar sources" detail="Choose which calendars appear in Memosa. Hidden sources are not shown in Calendar view or auto-record scheduling.">
+              <div className="settings-card-stack">
+                {knownCalendarNames.map((name) => {
+                  const excluded = (draft.excluded_calendar_names ?? []).includes(name)
+                  return (
+                    <div key={name} className="settings-check">
+                      <div className="settings-check-row">
+                        <div className="settings-check-label">{name}</div>
+                        <button
+                          type="button"
+                          className={`ghost-pill ${excluded ? '' : 'is-selected-pill'}`}
+                          onClick={() => toggleCalendarExclusion(name)}
+                        >
+                          {excluded ? 'Hidden' : 'Shown'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </SettingsBlock>
+          )}
+          </>
         )
+      }
       case 'recording':
         return (
           <SettingsBlock title="Capture">
