@@ -34,7 +34,8 @@ function ChevronRightIcon() {
 }
 
 export function FloatingRecorder() {
-  const { activeView, activeFolderId, assignMeetingToProject, folders, recordingStatus, selectedProfileId } = useMemosaStore()
+  const { activeView, activeFolderId, assignMeetingToProject, availableModels, folders, recordingStatus, selectedProfileId } = useMemosaStore()
+  const hasModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
   const [expanded, setExpanded] = useState(false)
   const [keepLivePanelOpen, setKeepLivePanelOpen] = useState(false)
 
@@ -109,15 +110,21 @@ export function FloatingRecorder() {
         {expanded ? <ChevronRightIcon /> : <MicIcon />}
       </button>
       {expanded && (
-        <div className="side-bookmark-drawer">
+        <div className="side-bookmark-drawer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: '10px 12px' }}>
           <button
             type="button"
             className="side-bookmark-record-btn"
             onClick={handleStart}
+            style={{ width: '100%', justifyContent: 'center' }}
           >
             <MicIcon />
             <span>Record</span>
           </button>
+          {!hasModel && (
+            <p style={{ margin: 0, fontSize: 10, color: 'var(--warning-amber)', lineHeight: 1.4, textAlign: 'center' }}>
+              No model — audio captured, no transcription.
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -5,12 +5,7 @@ import { useMemosaStore } from '../store'
 import { useSearch } from '../hooks/useSearch'
 import type { SearchResult } from '../lib/types'
 
-const PROMPTS = [
-  'pricing last week',
-  'budget in customer calls',
-  'Slack Huddles from Monday',
-  'action items this month',
-]
+const FALLBACK_PROMPTS = ['action items', 'decisions', 'follow-up', 'next steps']
 
 function highlightMatch(text: string, query: string): ReactNode {
   if (!query.trim()) return text
@@ -93,6 +88,17 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
   }, [displayResults, query])
   const aggregateMeetingCount = aggregate?.meetingCount ?? 0
 
+  const suggestedSearches = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const meeting of meetings) {
+      for (const t of meeting.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1)
+      for (const p of meeting.people ?? []) counts.set(p, (counts.get(p) ?? 0) + 1)
+      for (const k of (meeting.keywords ?? []).slice(0, 3)) counts.set(k, (counts.get(k) ?? 0) + 1)
+    }
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([term]) => term)
+    return sorted.length >= 4 ? sorted.slice(0, 6) : FALLBACK_PROMPTS
+  }, [meetings])
+
   const handleResultClick = (result: SearchResult) => {
     const meeting = meetings.find((item) => item.id === result.meeting.id) ?? result.meeting
     setCurrentMeeting(meeting)
@@ -129,7 +135,7 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
           </div>
 
           <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {PROMPTS.map((prompt) => (
+            {suggestedSearches.map((prompt) => (
               <button key={prompt} className="ghost-pill search-prompt-pill" onClick={() => setQuery(prompt)}>{prompt}</button>
             ))}
           </div>
@@ -148,8 +154,10 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
 
         <section className="surface-panel search-results-panel">
           {!query.trim() ? (
-            <div className="search-empty-state">
-              <div className="minimal-empty-state" aria-label="Search your archive" />
+            <div style={{ padding: '24px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
+                {meetings.length > 0 ? `${meetings.length} recording${meetings.length === 1 ? '' : 's'} in your archive` : 'No recordings yet — start a capture to build your archive.'}
+              </div>
             </div>
           ) : loading ? (
             <div style={{ display: 'grid', gap: 12 }}>
@@ -162,8 +170,11 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
               <div className="empty-copy">{error}</div>
             </div>
           ) : displayResults.length === 0 ? (
-            <div className="search-empty-state">
-              <div className="minimal-empty-state" aria-label="No matches" />
+            <div style={{ padding: '24px 0 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>No matches for "{query.trim()}"</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                Try a shorter term, a different keyword, or one of your recent topics above.
+              </div>
             </div>
           ) : aggregate && showQuerySummary ? (
             <div className="search-results-split">
