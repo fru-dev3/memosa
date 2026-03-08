@@ -482,16 +482,31 @@ button.chip {
   width: 48px;
 }
 
-/* Top drag region for main content area (title bar area) */
+/* Top drag region for main content area — in-flow, JS startDragging() */
 .app-main-drag {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 28px;
-  -webkit-app-region: drag;
+  flex-shrink: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to bottom, var(--bg-app) 0%, var(--bg-surface) 100%);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: grab;
+  user-select: none;
+}
+
+.app-main-drag:active {
+  cursor: grabbing;
+}
+
+.app-main-drag-handle {
+  width: 32px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  opacity: 0.3;
   pointer-events: none;
-  z-index: 0;
+  flex-shrink: 0;
 }
 
 /* ─── Header ─────────────────────────────────────────────────────── */
@@ -500,22 +515,24 @@ button.chip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 10px 10px;
+  height: 38px;
+  padding: 0 10px;
   flex-shrink: 0;
   gap: 6px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .app-sidebar.is-collapsed .sb-header {
   justify-content: center;
-  padding: 10px 6px 8px;
 }
 
 .sb-collapsed-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
+  padding: 10px 0 6px;
 }
 
 .sb-brand {
@@ -524,6 +541,7 @@ button.chip {
   gap: 7px;
   min-width: 0;
   overflow: hidden;
+  -webkit-app-region: no-drag;
 }
 
 .sb-logo {
@@ -557,6 +575,7 @@ button.chip {
   cursor: pointer;
   flex-shrink: 0;
   transition: background 120ms, color 120ms, border-color 120ms;
+  -webkit-app-region: no-drag;
 }
 
 .sb-toggle:hover {

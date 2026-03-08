@@ -1,4 +1,5 @@
-import { Component, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { Component, useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { CommandPalette } from './components/layout/CommandPalette'
 import { FloatingRecorder } from './components/layout/FloatingRecorder'
 import { Sidebar } from './components/layout/Sidebar'
@@ -222,6 +223,10 @@ export default function App() {
     return () => window.clearTimeout(timer)
   }, [profiles])
 
+  const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0) void invoke('start_window_drag')
+  }, [])
+
   const views: Record<PrimaryView, ReactElement> = {
     today:    <TodayView />,
     calendar: <CalendarView />,
@@ -257,9 +262,11 @@ export default function App() {
     }}>
       <CommandPalette />
       <Sidebar />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-        <div className="app-main-drag" data-tauri-drag-region />
-<FloatingRecorder />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="app-main-drag" onMouseDown={handleDragMouseDown}>
+          <div className="app-main-drag-handle" />
+        </div>
+        <FloatingRecorder />
         <main style={{ flex: 1, overflow: 'hidden' }}>
           <ViewErrorBoundary onReset={() => setActiveView('today')}>
             {views[primaryView]}
