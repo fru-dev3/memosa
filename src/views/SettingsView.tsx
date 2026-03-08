@@ -1199,14 +1199,46 @@ export function SettingsView() {
                 </div>
               </Field>
 
+              {storageUsage && storageUsage.total_bytes > 0 && (() => {
+                const total = storageUsage.total_bytes
+                const segments = [
+                  { label: 'Audio', bytes: storageUsage.audio_bytes, color: 'var(--accent)' },
+                  { label: 'Transcripts', bytes: storageUsage.transcript_bytes, color: '#22c55e' },
+                  { label: 'Archive', bytes: storageUsage.archive_bytes, color: '#f59e0b' },
+                  { label: 'Metadata', bytes: storageUsage.metadata_bytes, color: '#a78bfa' },
+                  { label: 'Other', bytes: storageUsage.other_bytes, color: 'var(--border-subtle)' },
+                ].filter((s) => s.bytes > 0)
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', height: 8, borderRadius: 6, overflow: 'hidden', gap: 1 }}>
+                      {segments.map((seg) => (
+                        <div
+                          key={seg.label}
+                          title={`${seg.label}: ${formatBytes(seg.bytes)}`}
+                          style={{ flex: seg.bytes / total, background: seg.color, minWidth: 2 }}
+                        />
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+                      {segments.map((seg) => (
+                        <span key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
+                          {seg.label} <span style={{ color: 'var(--text-muted)' }}>{formatBytes(seg.bytes)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
               <div className="settings-grid-two">
                 <div className="settings-check">
                   <div className="settings-check-row">
-                    <div className="settings-check-label">Archive size</div>
+                    <div className="settings-check-label">Total on disk</div>
                     <span className="settings-check-tone is-neutral">{formatBytes(storageUsage?.total_bytes ?? 0)}</span>
                   </div>
                   <div className="settings-check-copy">
-                    {storageUsage?.meeting_count ?? 0} live recordings, {formatBytes(storageUsage?.archive_bytes ?? 0)} already archived.
+                    {storageUsage?.meeting_count ?? 0} live recording{storageUsage?.meeting_count !== 1 ? 's' : ''}{storageUsage?.archive_count ? `, ${storageUsage.archive_count} archived` : ''}.
                   </div>
                 </div>
                 <div className="settings-check">
