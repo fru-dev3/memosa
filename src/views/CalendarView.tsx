@@ -299,7 +299,7 @@ export function CalendarView() {
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {selectedMeetings.length === 0 ? (
-              <MinimalEmptyState label="" />
+              <MinimalEmptyState label={selectedDate === todayKey ? 'Nothing captured today yet.' : selectedDate > todayKey ? 'No recordings scheduled.' : 'No recordings on this day.'} />
             ) : (
               selectedMeetings.map((meeting) => {
                 const tags = [...(meeting.tags ?? []), ...(meeting.people ?? []), ...(meeting.themes ?? [])].slice(0, 4)
