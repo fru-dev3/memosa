@@ -160,6 +160,8 @@ pub fn run() {
             storage::pick_storage_folder,
             storage::rename_meeting,
             storage::update_meeting_profile,
+            storage::set_meeting_favorite,
+            storage::get_cleanup_log,
             storage::load_profiles,
             storage::save_profiles,
             storage::save_text_file,

@@ -128,6 +128,16 @@ pub struct CleanupRunResult {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CleanupLogEntry {
+    pub timestamp: String,
+    pub archived: u64,
+    pub meetings_deleted: u64,
+    pub transcripts_deleted: u64,
+    pub reclaimed_bytes: u64,
+    pub failed: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct IntegrationState {
     #[serde(default)]
     pub enabled: bool,
@@ -248,6 +258,8 @@ pub struct Meeting {
     pub themes: Vec<String>,
     #[serde(default)]
     pub keywords: Vec<String>,
+    #[serde(default)]
+    pub is_favorite: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
