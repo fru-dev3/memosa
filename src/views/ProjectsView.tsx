@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TranscriptViewer } from '../components/library/TranscriptViewer'
-import { StatusIcon } from '../components/library/MeetingEntry'
+import { StatusIcon, MemoIcon } from '../components/library/MeetingEntry'
 import { Waveform } from '../components/recording/Waveform'
+import { useMeetings } from '../hooks/useMeetings'
+import { useTranscription } from '../hooks/useTranscription'
 import * as api from '../lib/tauri'
 import type { Folder, Meeting } from '../lib/types'
 import { useMemosaStore } from '../store'
@@ -230,6 +232,25 @@ function fmtDuration(secs: number): string {
   return rm > 0 ? `${h}h ${rm}m` : `${h}h`
 }
 
+function fmtCardDate(date: string, startTime?: string): string {
+  const d = new Date(`${date}T12:00:00`)
+  const today = new Date()
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+  let timePart = ''
+  if (startTime) {
+    const [hStr, mStr] = startTime.split(':')
+    let h = parseInt(hStr, 10)
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    h = h % 12 || 12
+    timePart = ` · ${h}:${mStr ?? '00'} ${ampm}`
+  }
+  if (d.toDateString() === today.toDateString()) return `Today${timePart}`
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday${timePart}`
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${mm}/${dd}/${d.getFullYear()}${timePart}`
+}
+
 // Module-level ref for the folder being dragged (HTML5 drag API)
 let activeFolderDragId: string | null = null
 
@@ -301,7 +322,31 @@ export function ProjectsView() {
     setMeetings, createFolder, deleteFolder,
     assignMeetingToProject, removeMeetingFromProject,
     setActiveFolderId, moveFolder,
+    availableModels, upsertMeeting, setCurrentMeeting, settings,
   } = useMemosaStore()
+
+  const { deleteMeeting } = useMeetings({})
+  const { startTranscription } = useTranscription()
+
+  const powerRank: import('../lib/types').WhisperModel[] = ['medium', 'small', 'base', 'tiny']
+
+  const handleRetranscribe = async (meeting: Meeting) => {
+    const downloaded = availableModels.filter(m => m.downloaded).map(m => m.name as import('../lib/types').WhisperModel)
+    const defaultModel = settings?.default_model as import('../lib/types').WhisperModel | undefined
+    const model =
+      (defaultModel && downloaded.includes(defaultModel) ? defaultModel : null) ??
+      powerRank.find(m => downloaded.includes(m)) ??
+      defaultModel ?? 'small'
+    upsertMeeting({ ...meeting, transcription_status: 'processing' })
+    await startTranscription(meeting.audio_path, meeting.id, model)
+  }
+
+  const handleDeleteMeeting = async (meeting: Meeting) => {
+    if (!window.confirm(`Delete "${meeting.title}"? This will remove the memo, transcript, and saved metadata.`)) return
+    await deleteMeeting(meeting.id)
+    if (selectedMeeting?.id === meeting.id) setSelectedMeeting(null)
+    if (currentMeeting?.id === meeting.id) setCurrentMeeting(null)
+  }
 
   const liveMeetingId = recordingStatus.is_recording ? recordingStatus.meeting_id : null
   const liveFolderIds = liveMeetingId ? (meetingFolderAssignments[liveMeetingId] ?? []) : []
@@ -409,6 +454,7 @@ export function ProjectsView() {
   const handleMeetingMouseDown = (meeting: Meeting, e: React.MouseEvent) => {
     if (e.button !== 0) return
     if ((e.target as HTMLElement).closest('button')) return
+    e.preventDefault()
     dragRef.current = { type: 'meeting', id: meeting.id, title: meeting.title || 'Untitled', startX: e.clientX, startY: e.clientY, active: false }
   }
 
@@ -613,33 +659,38 @@ export function ProjectsView() {
                   className={`proj-meeting-row${isSelected ? ' is-selected' : ''}${isLiveMeeting ? ' is-live' : ''}`}
                   onMouseDown={(e) => handleMeetingMouseDown(meeting, e)}
                   onClick={() => setSelectedMeeting(meeting)}
-                  style={{ cursor: 'grab' }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '7px 10px 7px 8px', cursor: 'grab',
+                    background: isSelected ? 'var(--bg-selected)' : 'transparent',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    borderLeft: `2px solid ${isSelected ? 'var(--accent)' : 'transparent'}`,
+                    transition: 'background 100ms ease',
+                  }}
                 >
-                  <span className="proj-grab-handle" title="Drag to assign to a folder"><GrabIcon /></span>
+                  {/* Grab handle */}
+                  <span className="proj-grab-handle" title="Drag to assign to a folder" style={{ flexShrink: 0 }}><GrabIcon /></span>
+
+                  {/* Status icon */}
+                  {isLiveMeeting ? (
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--live-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Waveform color="var(--live)" height={12} />
+                    </div>
+                  ) : (
+                    <MemoIcon status={meeting.transcription_status} progress={transcriptionProgress.get(meeting.id)?.progress} />
+                  )}
+
+                  {/* Content */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="proj-meeting-title">
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meeting.title || 'Untitled'}</span>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3, marginBottom: 2 }}>
+                      {meeting.title || 'Untitled'}
                     </div>
-                    <div className="proj-meeting-meta">
-                      <span>{meeting.date}</span>
-                      {meeting.duration_seconds > 0 && <span>{fmtDuration(meeting.duration_seconds)}</span>}
-                      {assignedNames.map((name) => (
-                        <span key={name} className="proj-meeting-tag-count">{name}</span>
-                      ))}
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {fmtCardDate(meeting.date, meeting.start_time)}{meeting.duration_seconds > 0 ? ` · ${fmtDuration(meeting.duration_seconds)}` : ''}
                     </div>
                   </div>
-                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
-                    {isLiveMeeting ? (
-                      <div style={{ width: 36, height: 14, overflow: 'hidden' }}>
-                        <Waveform color="var(--live)" height={14} />
-                      </div>
-                    ) : (
-                      <StatusIcon
-                        status={meeting.transcription_status}
-                        progress={transcriptionProgress.get(meeting.id)?.progress}
-                      />
-                    )}
-                  </div>
+
+                  {/* Remove button — only inside a folder */}
                   {selectedFolderId !== null && (
                     <button
                       className="proj-remove-btn"
@@ -679,7 +730,11 @@ export function ProjectsView() {
                 </div>
               )
             })()}
-            <TranscriptViewer meeting={selectedMeeting} />
+            <TranscriptViewer
+              meeting={selectedMeeting}
+              onDelete={handleDeleteMeeting}
+              onRetranscribe={handleRetranscribe}
+            />
           </>
         ) : (
           <div className="proj-empty-state">

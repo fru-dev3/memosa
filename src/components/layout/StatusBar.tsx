@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react'
 import * as api from '../../lib/tauri'
-import type { AmbientStatus } from '../../lib/types'
 import { useMemosaStore } from '../../store'
 
 declare const __MEMOSA_BUILD_STAMP__: string
@@ -16,22 +14,6 @@ function fmtTimer(secs: number): string {
 
 export function StatusBar() {
   const { availableModels, meetings, recordingStatus, settings } = useMemosaStore()
-  const [ambientStatus, setAmbientStatus] = useState<AmbientStatus | null>(null)
-
-  const ambientEnabled = settings?.ambient_mode?.enabled ?? false
-
-  useEffect(() => {
-    if (!ambientEnabled) { setAmbientStatus(null); return }
-    let cancelled = false
-    const poll = () => {
-      api.getAmbientStatus()
-        .then((s) => { if (!cancelled) setAmbientStatus(s) })
-        .catch(() => {})
-    }
-    poll()
-    const id = window.setInterval(poll, 5000)
-    return () => { cancelled = true; window.clearInterval(id) }
-  }, [ambientEnabled])
 
   const defaultModel = settings?.default_model ?? 'small'
   const modelInfo = availableModels.find((model) => model.name === defaultModel)
@@ -90,18 +72,6 @@ export function StatusBar() {
             {pendingTranscriptions > 0 && (
               <span>{pendingTranscriptions} transcribing</span>
             )}
-            {ambientStatus?.active && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{
-                  width: 5, height: 5, borderRadius: 999, flexShrink: 0,
-                  background: ambientStatus.mode === 'capturing' ? 'var(--live)' : 'var(--accent)',
-                  animation: ambientStatus.mode === 'capturing' ? 'pulse 1.4s ease-in-out infinite' : undefined,
-                }} />
-                <span style={{ color: ambientStatus.mode === 'capturing' ? 'var(--live)' : 'var(--accent)', fontWeight: 600 }}>
-                  {ambientStatus.mode === 'capturing' ? 'Ambient capturing' : 'Ambient listening'}
-                </span>
-              </span>
-            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {!modelInfo?.downloaded && (
@@ -110,6 +80,7 @@ export function StatusBar() {
               </span>
             )}
             <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Local archive</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>Build {__MEMOSA_BUILD_STAMP__}</span>
           </div>
         </>
       )}

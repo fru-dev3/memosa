@@ -15,6 +15,7 @@ import type {
   RecordingProfile,
   RecordingStatus,
 } from '../lib/types'
+import * as api from '../lib/tauri'
 
 interface AutoRecordWarning {
   event: CalendarEvent
@@ -102,6 +103,7 @@ interface MemosaStore {
   deleteFolder: (id: string) => void
   assignMeetingToProject: (meetingId: string, folderId: string) => void
   removeMeetingFromProject: (meetingId: string, folderId: string) => void
+  loadFoldersFromDb: () => Promise<void>
 
   // UI
   activeView: AppView
@@ -289,61 +291,101 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
     { id: 'folder-default-notes', name: 'Notes', parentId: null, color: '#F59E0B' },
   ],
   meetingFolderAssignments: {},
-  createFolder: (name, parentId = null) => set((state) => ({
-    folders: [...state.folders, {
-      id: `folder-${Date.now()}`,
-      name,
-      parentId: parentId ?? null,
-      color: '#0FBE80',
-    }],
-  })),
-  renameFolder: (id, name) => set((state) => ({
-    folders: state.folders.map((f) => f.id === id ? { ...f, name } : f),
-  })),
-  setFolderColor: (id, color) => set((state) => ({
-    folders: state.folders.map((f) => f.id === id ? { ...f, color } : f),
-  })),
-  moveFolder: (id, newParentId) => set((state) => {
-    // Prevent moving a folder into its own descendant
-    const isDescendant = (parentId: string | null): boolean => {
-      if (parentId === null) return false
-      if (parentId === id) return true
-      const parent = state.folders.find((f) => f.id === parentId)
-      return parent ? isDescendant(parent.parentId) : false
+  createFolder: (name, parentId = null) => {
+    const id = `folder-${Date.now()}`
+    const color = '#0FBE80'
+    set((state) => ({ folders: [...state.folders, { id, name, parentId: parentId ?? null, color }] }))
+    api.saveFolder(id, name, parentId ?? null, color).catch(() => {})
+  },
+  renameFolder: (id, name) => {
+    set((state) => ({ folders: state.folders.map((f) => f.id === id ? { ...f, name } : f) }))
+    const f = useMemosaStore.getState().folders.find(f => f.id === id)
+    if (f) api.saveFolder(f.id, name, f.parentId ?? null, f.color ?? null).catch(() => {})
+  },
+  setFolderColor: (id, color) => {
+    set((state) => ({ folders: state.folders.map((f) => f.id === id ? { ...f, color } : f) }))
+    const f = useMemosaStore.getState().folders.find(f => f.id === id)
+    if (f) api.saveFolder(f.id, f.name, f.parentId ?? null, color).catch(() => {})
+  },
+  moveFolder: (id, newParentId) => {
+    set((state) => {
+      const isDescendant = (parentId: string | null): boolean => {
+        if (parentId === null) return false
+        if (parentId === id) return true
+        const parent = state.folders.find((f) => f.id === parentId)
+        return parent ? isDescendant(parent.parentId) : false
+      }
+      if (newParentId !== null && (newParentId === id || isDescendant(newParentId))) return state
+      return { folders: state.folders.map((f) => f.id === id ? { ...f, parentId: newParentId } : f) }
+    })
+    const f = useMemosaStore.getState().folders.find(f => f.id === id)
+    if (f) api.saveFolder(f.id, f.name, newParentId, f.color ?? null).catch(() => {})
+  },
+  deleteFolder: (id) => {
+    set((state) => {
+      const toDelete = new Set<string>()
+      const collect = (fid: string) => {
+        toDelete.add(fid)
+        state.folders.filter((f) => f.parentId === fid).forEach((f) => collect(f.id))
+      }
+      collect(id)
+      const nextAssignments: Record<string, string[]> = {}
+      for (const [mid, fids] of Object.entries(state.meetingFolderAssignments)) {
+        const filtered = fids.filter((fid) => !toDelete.has(fid))
+        if (filtered.length > 0) nextAssignments[mid] = filtered
+      }
+      return { folders: state.folders.filter((f) => !toDelete.has(f.id)), meetingFolderAssignments: nextAssignments }
+    })
+    api.deleteFolderRecord(id).catch(() => {})
+  },
+  assignMeetingToProject: (meetingId, folderId) => {
+    set((state) => {
+      const existing = state.meetingFolderAssignments[meetingId] ?? []
+      if (existing.includes(folderId)) return state
+      return { meetingFolderAssignments: { ...state.meetingFolderAssignments, [meetingId]: [...existing, folderId] } }
+    })
+    api.assignMeetingFolder(meetingId, folderId).catch(() => {})
+  },
+  removeMeetingFromProject: (meetingId, folderId) => {
+    set((state) => {
+      const existing = state.meetingFolderAssignments[meetingId] ?? []
+      const filtered = existing.filter((fid) => fid !== folderId)
+      const next = { ...state.meetingFolderAssignments }
+      if (filtered.length === 0) { delete next[meetingId] } else { next[meetingId] = filtered }
+      return { meetingFolderAssignments: next }
+    })
+    api.removeMeetingFolder(meetingId, folderId).catch(() => {})
+  },
+  loadFoldersFromDb: async () => {
+    try {
+      const [folderRows, assignmentRows] = await Promise.all([
+        api.getFolders(),
+        api.getFolderAssignments(),
+      ])
+      if (folderRows.length === 0) {
+        // First launch with empty DB — persist the current localStorage folders to DB
+        const state = useMemosaStore.getState()
+        for (const f of state.folders) {
+          await api.saveFolder(f.id, f.name, f.parentId ?? null, f.color ?? null)
+        }
+        for (const [mid, fids] of Object.entries(state.meetingFolderAssignments)) {
+          for (const fid of fids) await api.assignMeetingFolder(mid, fid)
+        }
+        return
+      }
+      const folders: Folder[] = folderRows.map(r => ({
+        id: r.id, name: r.name, parentId: r.parent_id ?? null, color: r.color ?? '#0FBE80',
+      }))
+      const meetingFolderAssignments: Record<string, string[]> = {}
+      for (const { meeting_id, folder_id } of assignmentRows) {
+        if (!meetingFolderAssignments[meeting_id]) meetingFolderAssignments[meeting_id] = []
+        meetingFolderAssignments[meeting_id].push(folder_id)
+      }
+      set({ folders, meetingFolderAssignments })
+    } catch {
+      // DB not available (dev/web mode) — keep localStorage state
     }
-    if (newParentId !== null && (newParentId === id || isDescendant(newParentId))) return state
-    return { folders: state.folders.map((f) => f.id === id ? { ...f, parentId: newParentId } : f) }
-  }),
-  deleteFolder: (id) => set((state) => {
-    const toDelete = new Set<string>()
-    const collect = (fid: string) => {
-      toDelete.add(fid)
-      state.folders.filter((f) => f.parentId === fid).forEach((f) => collect(f.id))
-    }
-    collect(id)
-    const nextAssignments: Record<string, string[]> = {}
-    for (const [mid, fids] of Object.entries(state.meetingFolderAssignments)) {
-      const filtered = fids.filter((fid) => !toDelete.has(fid))
-      if (filtered.length > 0) nextAssignments[mid] = filtered
-    }
-    return { folders: state.folders.filter((f) => !toDelete.has(f.id)), meetingFolderAssignments: nextAssignments }
-  }),
-  assignMeetingToProject: (meetingId, folderId) => set((state) => {
-    const existing = state.meetingFolderAssignments[meetingId] ?? []
-    if (existing.includes(folderId)) return state
-    return { meetingFolderAssignments: { ...state.meetingFolderAssignments, [meetingId]: [...existing, folderId] } }
-  }),
-  removeMeetingFromProject: (meetingId, folderId) => set((state) => {
-    const existing = state.meetingFolderAssignments[meetingId] ?? []
-    const filtered = existing.filter((fid) => fid !== folderId)
-    const next = { ...state.meetingFolderAssignments }
-    if (filtered.length === 0) {
-      delete next[meetingId]
-    } else {
-      next[meetingId] = filtered
-    }
-    return { meetingFolderAssignments: next }
-  }),
+  },
 
   transcriptionProgress: new Map(),
   transcriptionErrors: new Map(),

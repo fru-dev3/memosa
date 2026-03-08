@@ -72,6 +72,20 @@ impl Database {
                 ON meetings(date);
             CREATE INDEX IF NOT EXISTS idx_meetings_transcription
                 ON meetings(transcription_status);
+
+            CREATE TABLE IF NOT EXISTS folders (
+                id         TEXT PRIMARY KEY,
+                name       TEXT NOT NULL,
+                parent_id  TEXT,
+                color      TEXT,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS meeting_folder_assignments (
+                meeting_id TEXT NOT NULL,
+                folder_id  TEXT NOT NULL,
+                PRIMARY KEY (meeting_id, folder_id)
+            );
             ",
         )
         .map_err(|e| format!("Failed to initialize database schema: {}", e))?;
@@ -548,6 +562,67 @@ impl Database {
             });
         }
         Ok(results)
+    }
+
+    // ─── Folder operations ───────────────────────────────────────────────────
+
+    pub fn upsert_folder(&self, id: &str, name: &str, parent_id: Option<&str>, color: Option<&str>) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO folders (id, name, parent_id, color, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(id) DO UPDATE SET name=excluded.name, parent_id=excluded.parent_id, color=excluded.color",
+            params![id, name, parent_id, color, now],
+        ).map_err(|e| format!("Failed to upsert folder: {}", e))?;
+        Ok(())
+    }
+
+    pub fn delete_folder(&self, id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM meeting_folder_assignments WHERE folder_id=?1", params![id])
+            .map_err(|e| format!("Failed to delete folder assignments: {}", e))?;
+        conn.execute("DELETE FROM folders WHERE id=?1", params![id])
+            .map_err(|e| format!("Failed to delete folder: {}", e))?;
+        Ok(())
+    }
+
+    pub fn get_all_folders(&self) -> Result<Vec<(String, String, Option<String>, Option<String>)>, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT id, name, parent_id, color FROM folders ORDER BY created_at")
+            .map_err(|e| format!("Failed to prepare get_all_folders: {}", e))?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, Option<String>>(2)?, row.get::<_, Option<String>>(3)?))
+        }).map_err(|e| format!("Failed to query folders: {}", e))?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| format!("Failed to collect folders: {}", e))
+    }
+
+    pub fn assign_meeting_to_folder(&self, meeting_id: &str, folder_id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO meeting_folder_assignments (meeting_id, folder_id) VALUES (?1, ?2)",
+            params![meeting_id, folder_id],
+        ).map_err(|e| format!("Failed to assign meeting to folder: {}", e))?;
+        Ok(())
+    }
+
+    pub fn remove_meeting_from_folder(&self, meeting_id: &str, folder_id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM meeting_folder_assignments WHERE meeting_id=?1 AND folder_id=?2",
+            params![meeting_id, folder_id],
+        ).map_err(|e| format!("Failed to remove meeting from folder: {}", e))?;
+        Ok(())
+    }
+
+    pub fn get_all_assignments(&self) -> Result<Vec<(String, String)>, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT meeting_id, folder_id FROM meeting_folder_assignments")
+            .map_err(|e| format!("Failed to prepare get_all_assignments: {}", e))?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }).map_err(|e| format!("Failed to query assignments: {}", e))?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| format!("Failed to collect assignments: {}", e))
     }
 
     /// Return the folder_path for a meeting, or None if the meeting does not exist.

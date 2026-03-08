@@ -108,6 +108,29 @@ async fn stop_current_ambient_recording(
     Ok(Some(result))
 }
 
+/// Called by manual `start_recording` to gracefully save ambient capture before taking the recorder.
+pub async fn stop_current_ambient_for_manual(
+    recorder: &AudioRecorder,
+    db: &Database,
+    transcription: &TranscriptionManager,
+    app_handle: &tauri::AppHandle,
+    ambient: &AmbientController,
+) -> Result<(), String> {
+    let current_meeting_id = ambient.inner.lock().unwrap().current_meeting_id.clone();
+    if current_meeting_id.is_none() {
+        return Ok(());
+    }
+    if recorder.get_status().is_recording {
+        let result = finalize_recording_session(recorder, db, transcription, app_handle)?;
+        let mut state = ambient.inner.lock().unwrap();
+        state.current_meeting_id = None;
+        state.last_saved_meeting_id = Some(result.meeting_id);
+    } else {
+        ambient.inner.lock().unwrap().current_meeting_id = None;
+    }
+    Ok(())
+}
+
 fn should_skip_for_excluded_apps(excluded_apps: &[String]) -> bool {
     let Some(frontmost_app) = detect_frontmost_app() else {
         return false;

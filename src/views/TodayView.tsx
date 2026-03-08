@@ -93,6 +93,7 @@ function WarningBanner({
 }
 
 
+
 export function TodayView() {
   const {
     autoRecord,

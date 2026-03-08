@@ -62,42 +62,6 @@ function EmptyPanel({ message }: { message: string }) {
   )
 }
 
-// ─── Ambient sessionization ───────────────────────────────────────
-
-const AMBIENT_GAP_MINUTES = 15
-
-function meetingTimestampMs(m: Meeting): number {
-  return new Date(`${m.date}T${m.start_time}`).getTime()
-}
-
-/** Returns a map: meeting.id → sessionIndex (0-based per day).
- *  Only meetings with source_app === "Ambient Mode" get a session.
- *  Sessions are numbered per-day. Groups of 1 still get a session index (filtered later). */
-function buildAmbientSessionMap(meetings: Meeting[]): Map<string, { sessionIndex: number; size: number; position: 'first' | 'middle' | 'last' | 'only' }> {
-  const result = new Map<string, { sessionIndex: number; size: number; position: 'first' | 'middle' | 'last' | 'only' }>()
-  const ambient = meetings
-    .filter(m => m.source_app === 'Ambient Mode')
-    .sort((a, b) => meetingTimestampMs(a) - meetingTimestampMs(b))
-  const sessions: Meeting[][] = []
-  for (const m of ambient) {
-    const last = sessions[sessions.length - 1]
-    if (last) {
-      const prevEnd = meetingTimestampMs(last[last.length - 1]) + (last[last.length - 1].duration_seconds * 1000)
-      const gap = (meetingTimestampMs(m) - prevEnd) / 60_000
-      if (gap <= AMBIENT_GAP_MINUTES) { last.push(m); continue }
-    }
-    sessions.push([m])
-  }
-  sessions.forEach((session, sessionIndex) => {
-    const size = session.length
-    session.forEach((m, i) => {
-      const position = size === 1 ? 'only' : i === 0 ? 'first' : i === size - 1 ? 'last' : 'middle'
-      result.set(m.id, { sessionIndex, size, position })
-    })
-  })
-  return result
-}
-
 // ─── LibraryView ──────────────────────────────────────────────────
 
 export function LibraryView() {
@@ -363,7 +327,6 @@ export function LibraryView() {
                   {dayGroups.map(dayGroup => {
                     const isOpen = expandedDays.has(dayGroup.key)
                     const hasSelected = dayGroup.meetings.some(m => m.id === selectedMeetingId)
-                    const ambientMap = buildAmbientSessionMap(dayGroup.meetings)
                     return (
                       <div key={dayGroup.key}>
                         <button
@@ -377,32 +340,8 @@ export function LibraryView() {
                         </button>
                         {isOpen && dayGroup.meetings.map(meeting => {
                           const isLiveMeeting = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
-                          const ambientInfo = ambientMap.get(meeting.id)
-                          const showBracket = ambientInfo && ambientInfo.size > 1
-                          const isFirst = ambientInfo?.position === 'first'
                           return (
                             <div key={meeting.id} style={{ position: 'relative' }}>
-                              {showBracket && (
-                                <div style={{
-                                  position: 'absolute',
-                                  left: 0,
-                                  top: isFirst ? 8 : 0,
-                                  bottom: ambientInfo.position === 'last' ? 8 : 0,
-                                  width: 2,
-                                  background: 'var(--accent)',
-                                  opacity: 0.35,
-                                  borderRadius: isFirst ? '2px 2px 0 0' : ambientInfo.position === 'last' ? '0 0 2px 2px' : 0,
-                                  pointerEvents: 'none',
-                                  zIndex: 1,
-                                }} />
-                              )}
-                              {showBracket && isFirst && (
-                                <div style={{ paddingLeft: 10, paddingTop: 6, paddingBottom: 2 }}>
-                                  <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)', opacity: 0.7 }}>
-                                    Ambient session · {ambientInfo.size} parts
-                                  </span>
-                                </div>
-                              )}
                               {isLiveMeeting && (
                                 <div style={{ position: 'absolute', top: 0, bottom: 0, right: 38, zIndex: 1, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
                                   <div style={{ width: 54, height: 24, borderRadius: 5, background: 'var(--live-dim)', border: '1px solid var(--live-border)', overflow: 'hidden', padding: '2px 4px' }}>
