@@ -92,6 +92,15 @@ interface MemosaStore {
   setAmbientMode: (ambientMode: AmbientModeSettings) => void
   setHotkeys: (hotkeys: HotkeyConfig) => void
   setPrivacyDashboard: (dashboard: PrivacyDashboard) => void
+  screenshotCaptureEnabled: boolean
+  screenshotIntervalMinutes: number
+  setScreenshotCaptureEnabled: (enabled: boolean) => void
+  setScreenshotIntervalMinutes: (minutes: number) => void
+  // ephemeral — not persisted
+  screenshotCount: number
+  screenshotCountdown: number | null
+  setScreenshotCount: (n: number) => void
+  setScreenshotCountdown: (n: number | null) => void
 
   // Folders / Projects
   folders: Folder[]
@@ -479,6 +488,14 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
   setAmbientMode: (ambientMode) => set({ ambientMode }),
   setHotkeys: (hotkeys) => set({ hotkeys }),
   setPrivacyDashboard: (privacyDashboard) => set({ privacyDashboard }),
+  screenshotCaptureEnabled: false,
+  screenshotIntervalMinutes: 5,
+  setScreenshotCaptureEnabled: (enabled) => set({ screenshotCaptureEnabled: enabled }),
+  setScreenshotIntervalMinutes: (minutes) => set({ screenshotIntervalMinutes: minutes }),
+  screenshotCount: 0,
+  screenshotCountdown: null,
+  setScreenshotCount: (n) => set({ screenshotCount: n }),
+  setScreenshotCountdown: (n) => set({ screenshotCountdown: n }),
 
   activeView: 'today',
   activeFolderId: null,
@@ -519,5 +536,7 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
     searchSeed: state.searchSeed,
     selectedProfileId: state.selectedProfileId,
     sidebarCollapsed: state.sidebarCollapsed,
+    screenshotCaptureEnabled: state.screenshotCaptureEnabled,
+    screenshotIntervalMinutes: state.screenshotIntervalMinutes,
   }),
 }))

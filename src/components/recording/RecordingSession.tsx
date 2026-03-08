@@ -30,7 +30,17 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
     setCurrentMeeting,
     setRecordingGuardMessage,
     upsertMeeting,
+    screenshotCount,
+    screenshotCountdown,
+    screenshotCaptureEnabled,
+    screenshotIntervalMinutes,
   } = useMemosaStore()
+
+  function fmtCountdown(secs: number): string {
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
   const { stopRecording } = useRecording()
   const [stopping, setStopping] = useState(false)
   const [savedInfo, setSavedInfo] = useState<{ title: string; duration: number } | null>(null)
@@ -178,15 +188,23 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
 
   if (compact) {
     return (
-      <div style={{ padding: '44px 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: liveColor, display: 'block', flexShrink: 0 }} />
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: liveColor }}>
-            {signalDetected ? 'Signal live' : 'Listening…'}
+      <div style={{ padding: '32px 10px 10px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+
+        {/* Status + timer row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: liveColor, display: 'block', flexShrink: 0 }} />
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: liveColor }}>
+              {signalDetected ? 'Live' : 'Listening'}
+            </span>
+          </div>
+          <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
+            {formatTime(elapsed)}
           </span>
         </div>
 
-        {currentMeeting ? (
+        {/* Title */}
+        {currentMeeting && (
           editingTitle ? (
             <input
               ref={titleInputRef}
@@ -194,53 +212,70 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
               onChange={(e) => setTitleDraft(e.target.value)}
               onBlur={handleTitleCommit}
               onKeyDown={handleTitleKeyDown}
-              className="settings-input"
-              style={{ padding: '6px 8px', fontSize: 12 }}
+              style={{ padding: '3px 6px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 5, background: 'var(--bg-surface)', color: 'var(--text-primary)', fontFamily: 'inherit', outline: 'none', width: '100%' }}
             />
           ) : (
             <button
               type="button"
               onClick={() => setEditingTitle(true)}
-              style={{ margin: 0, padding: 0, border: 'none', background: 'transparent', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3, cursor: 'text', textAlign: 'left' }}
+              style={{ margin: 0, padding: 0, border: 'none', background: 'transparent', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.3, cursor: 'text', textAlign: 'left', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               title="Click to rename"
             >
               {currentMeeting.title}
             </button>
           )
-        ) : null}
+        )}
 
-        <div style={{ textAlign: 'center', padding: '6px 0' }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, letterSpacing: '0.06em', fontVariantNumeric: 'tabular-nums', color: 'var(--text-primary)', lineHeight: 1 }}>
-            {formatTime(elapsed)}
-          </span>
-        </div>
-
-        <div style={{ padding: '7px 10px', borderRadius: 10, border: `1px solid ${liveBorder}`, background: liveBackground }}>
-          <Waveform color={waveformColor} height={28} />
+        {/* Waveform */}
+        <div style={{ padding: '4px 6px', borderRadius: 6, border: `1px solid ${liveBorder}`, background: liveBackground }}>
+          <Waveform color={waveformColor} height={18} />
         </div>
 
         {noSignalWarning && !error && (
-          <div style={{ padding: '7px 10px', borderRadius: 8, background: 'rgba(226,153,45,0.12)', border: '1px solid rgba(226,153,45,0.24)' }}>
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--warning-amber)', lineHeight: 1.4 }}>No audio signal detected yet.</p>
-          </div>
+          <p style={{ margin: 0, fontSize: 10, color: 'var(--warning-amber)', lineHeight: 1.3 }}>No signal detected yet.</p>
+        )}
+        {error && (
+          <p style={{ margin: 0, fontSize: 10, color: 'var(--live)', lineHeight: 1.3 }}>{error}</p>
         )}
 
+        {/* Stop button */}
         <button
           onClick={handleStop}
           disabled={stopping}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid var(--live-border)', background: 'var(--live-dim)', color: 'var(--live)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: stopping ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: stopping ? 0.65 : 1 }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', padding: '6px', borderRadius: 7, border: '1px solid var(--live-border)', background: 'var(--live-dim)', color: 'var(--live)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: stopping ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: stopping ? 0.65 : 1 }}
         >
-          {stopping ? 'Stopping…' : (
-            <>
-              <svg width="9" height="9" viewBox="0 0 11 11" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="10" height="10" rx="2" fill="var(--live)" /></svg>
-              Stop
-            </>
-          )}
+          <svg width="8" height="8" viewBox="0 0 11 11" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="10" height="10" rx="2" fill="var(--live)" /></svg>
+          {stopping ? 'Stopping…' : 'Stop'}
         </button>
 
-        {error && (
-          <div style={{ padding: '7px 10px', borderRadius: 7, background: 'var(--live-dim)', border: '1px solid var(--live-border)' }}>
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--live)', lineHeight: 1.4 }}>{error}</p>
+        {/* Footer: go to live + screenshot */}
+        {currentMeeting && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 1 }}>
+            <button
+              type="button"
+              onClick={() => { setCurrentMeeting(currentMeeting); setActiveView('library') }}
+              style={{ margin: 0, padding: 0, border: 'none', background: 'transparent', color: 'var(--accent)', fontSize: 9, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: 0.85 }}
+            >
+              Go to live →
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {screenshotCaptureEnabled && screenshotCount > 0 && (
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  {screenshotCount} · {screenshotCountdown != null ? fmtCountdown(screenshotCountdown) : `${screenshotIntervalMinutes}m`}
+                </span>
+              )}
+              <button
+                type="button"
+                title="Capture screenshot"
+                onClick={() => { const f = currentMeeting.audio_path.replace(/[/\\][^/\\]+$/, ''); void api.captureScreenshotNow(f, currentMeeting.title) }}
+                style={{ margin: 0, padding: '2px', border: '1px solid var(--border-subtle)', borderRadius: 4, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </button>
+            </div>
           </div>
         )}
       </div>

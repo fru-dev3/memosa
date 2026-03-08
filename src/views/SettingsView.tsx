@@ -379,6 +379,10 @@ export function SettingsView() {
     setSettings,
     settings,
     todayEvents,
+    screenshotCaptureEnabled,
+    screenshotIntervalMinutes,
+    setScreenshotCaptureEnabled,
+    setScreenshotIntervalMinutes,
   } = useMemosaStore()
   const { downloadModel, modelProgress } = useTranscription()
 
@@ -748,6 +752,39 @@ export function SettingsView() {
                 />
               </Field>
 
+
+              <Field label="Screenshot capture" hint="Takes a screenshot of your entire screen at regular intervals during recording">
+                <ToggleButton
+                  value={screenshotCaptureEnabled}
+                  onClick={() => setScreenshotCaptureEnabled(!screenshotCaptureEnabled)}
+                  onLabel="Enabled"
+                  offLabel="Disabled"
+                  description={screenshotCaptureEnabled ? 'Screenshots will be saved to the memo folder during recording.' : 'No screenshots will be taken during recording.'}
+                />
+                {screenshotCaptureEnabled && (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="settings-note-card">
+                      <div className="settings-note-title" style={{ marginBottom: 8 }}>Capture interval</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {[1, 2, 5, 10].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setScreenshotIntervalMinutes(m)}
+                            className={`ghost-pill${screenshotIntervalMinutes === m ? ' is-selected-pill' : ''}`}
+                            style={{ flex: 1, textAlign: 'center' }}
+                          >
+                            {m}m
+                          </button>
+                        ))}
+                      </div>
+                      <div className="settings-note-copy" style={{ marginTop: 8 }}>
+                        Screenshots are saved as PNGs in a <code>screenshots/</code> folder inside each memo folder.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Field>
 
               <Field label="Speaker test">
                 <div className="settings-note-card">

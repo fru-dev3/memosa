@@ -334,3 +334,14 @@ export const assignMeetingFolder = (meetingId: string, folderId: string) =>
   invoke<void>('assign_meeting_folder', { meetingId, folderId })
 export const removeMeetingFolder = (meetingId: string, folderId: string) =>
   invoke<void>('remove_meeting_folder', { meetingId, folderId })
+
+// ─── Screenshot capture ───────────────────────────────────────────────────────
+
+export const captureScreenshotNow = (meetingFolder: string, meetingTitle: string) =>
+  invoke<void>('capture_screenshot_now', { meetingFolder, meetingTitle })
+export const startScreenshotCapture = (meetingFolder: string, meetingTitle: string, intervalSecs: number) =>
+  invoke<void>('start_screenshot_capture', { meetingFolder, meetingTitle, intervalSecs })
+export const stopScreenshotCapture = () =>
+  invoke<void>('stop_screenshot_capture')
+export const onScreenshotTaken = (cb: (data: { count: number }) => void): Promise<UnlistenFn> =>
+  listen<{ count: number }>('screenshot-taken', (e) => cb(e.payload))
