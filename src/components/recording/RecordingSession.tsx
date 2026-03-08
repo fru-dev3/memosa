@@ -133,8 +133,7 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
       setCurrentMeeting(savedMeeting)
       setSavedInfo({ title: savedMeeting.title, duration: capturedDuration })
       setStopping(false)
-      const targetView = activeFolderId ? 'projects' : 'library'
-      setTimeout(() => setActiveView(targetView), 1800)
+      setTimeout(() => setActiveView('projects'), 1800)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to stop recording')
       setStopping(false)
@@ -188,19 +187,17 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
 
   if (compact) {
     return (
-      <div style={{ padding: '32px 10px 10px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div className="rs-compact">
 
-        {/* Status + timer row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: liveColor, display: 'block', flexShrink: 0 }} />
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: liveColor }}>
+        {/* Status indicator + timer */}
+        <div className="rs-compact-header">
+          <div className="rs-compact-status">
+            <span className="rs-compact-dot" style={{ background: liveColor }} />
+            <span className="rs-compact-status-label" style={{ color: liveColor }}>
               {signalDetected ? 'Live' : 'Listening'}
             </span>
           </div>
-          <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
-            {formatTime(elapsed)}
-          </span>
+          <span className="rs-compact-timer">{formatTime(elapsed)}</span>
         </div>
 
         {/* Title */}
@@ -212,13 +209,13 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
               onChange={(e) => setTitleDraft(e.target.value)}
               onBlur={handleTitleCommit}
               onKeyDown={handleTitleKeyDown}
-              style={{ padding: '3px 6px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 5, background: 'var(--bg-surface)', color: 'var(--text-primary)', fontFamily: 'inherit', outline: 'none', width: '100%' }}
+              className="rs-compact-title-input"
             />
           ) : (
             <button
               type="button"
               onClick={() => setEditingTitle(true)}
-              style={{ margin: 0, padding: 0, border: 'none', background: 'transparent', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.3, cursor: 'text', textAlign: 'left', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              className="rs-compact-title-btn"
               title="Click to rename"
             >
               {currentMeeting.title}
@@ -227,34 +224,39 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
         )}
 
         {/* Waveform */}
-        <div style={{ padding: '4px 6px', borderRadius: 6, border: `1px solid ${liveBorder}`, background: liveBackground }}>
-          <Waveform color={waveformColor} height={18} />
+        <div className="rs-compact-wave" style={{ borderColor: liveBorder, background: liveBackground }}>
+          <Waveform color={waveformColor} height={20} />
         </div>
 
         {noSignalWarning && !error && (
-          <p style={{ margin: 0, fontSize: 10, color: 'var(--warning-amber)', lineHeight: 1.3 }}>No signal detected yet.</p>
+          <p className="rs-compact-warn">No signal yet — check microphone.</p>
         )}
         {error && (
-          <p style={{ margin: 0, fontSize: 10, color: 'var(--live)', lineHeight: 1.3 }}>{error}</p>
+          <p className="rs-compact-warn" style={{ color: 'var(--live)' }}>{error}</p>
         )}
 
         {/* Stop button */}
-        <button
-          onClick={handleStop}
-          disabled={stopping}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', padding: '6px', borderRadius: 7, border: '1px solid var(--live-border)', background: 'var(--live-dim)', color: 'var(--live)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: stopping ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: stopping ? 0.65 : 1 }}
-        >
-          <svg width="8" height="8" viewBox="0 0 11 11" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="10" height="10" rx="2" fill="var(--live)" /></svg>
-          {stopping ? 'Stopping…' : 'Stop'}
+        <button onClick={handleStop} disabled={stopping} className="rs-compact-stop">
+          {stopping ? (
+            <>
+              <span className="spinner" style={{ width: 10, height: 10, borderRadius: '50%', border: '1.5px solid rgba(240,92,92,0.3)', borderTopColor: 'var(--live)', display: 'block', flexShrink: 0 }} />
+              Stopping…
+            </>
+          ) : (
+            <>
+              <svg width="9" height="9" viewBox="0 0 11 11" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="10" height="10" rx="2" fill="var(--live)" /></svg>
+              Stop recording
+            </>
+          )}
         </button>
 
-        {/* Footer: go to live + screenshot */}
+        {/* Footer */}
         {currentMeeting && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 1 }}>
+          <div className="rs-compact-footer">
             <button
               type="button"
-              onClick={() => { setCurrentMeeting(currentMeeting); setActiveView('library') }}
-              style={{ margin: 0, padding: 0, border: 'none', background: 'transparent', color: 'var(--accent)', fontSize: 9, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: 0.85 }}
+              onClick={() => { setCurrentMeeting(currentMeeting); setActiveView('projects') }}
+              className="rs-compact-go-live"
             >
               Go to live →
             </button>
@@ -268,7 +270,7 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
                 type="button"
                 title="Capture screenshot"
                 onClick={() => { const f = currentMeeting.audio_path.replace(/[/\\][^/\\]+$/, ''); void api.captureScreenshotNow(f, currentMeeting.title) }}
-                style={{ margin: 0, padding: '2px', border: '1px solid var(--border-subtle)', borderRadius: 4, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                className="rs-compact-screenshot-btn"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -335,19 +337,8 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
       </div>
 
       {/* Timer */}
-      <div style={{ marginBottom: 20, textAlign: 'center' }}>
-        <span style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: 44,
-          fontWeight: 400,
-          letterSpacing: '0.06em',
-          fontVariantNumeric: 'tabular-nums',
-          color: 'var(--text-primary)',
-          lineHeight: 1,
-          display: 'block',
-        }}>
-          {formatTime(elapsed)}
-        </span>
+      <div className="rs-full-timer-wrap">
+        <span className="rs-full-timer">{formatTime(elapsed)}</span>
       </div>
 
       {/* Waveform */}
@@ -386,32 +377,8 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
       <button
         onClick={handleStop}
         disabled={stopping}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          width: '100%',
-          padding: '12px',
-          borderRadius: 16,
-          border: '1px solid var(--live-border)',
-          background: 'var(--live-dim)',
-          color: 'var(--live)',
-          fontSize: 12,
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          cursor: stopping ? 'not-allowed' : 'pointer',
-          fontFamily: 'inherit',
-          opacity: stopping ? 0.65 : 1,
-          transition: 'background 120ms ease',
-        }}
-        onMouseEnter={e => {
-          if (!stopping) (e.currentTarget as HTMLElement).style.background = 'rgba(240,92,92,0.18)'
-        }}
-        onMouseLeave={e => {
-          if (!stopping) (e.currentTarget as HTMLElement).style.background = 'var(--live-dim)'
-        }}
+        className="rs-full-stop"
+        style={{ opacity: stopping ? 0.65 : 1 }}
       >
         {stopping ? (
           <>

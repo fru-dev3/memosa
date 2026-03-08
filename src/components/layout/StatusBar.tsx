@@ -70,7 +70,7 @@ export function StatusBar() {
             )}
             {currentMeeting && (
               <button
-                onClick={() => { setCurrentMeeting(currentMeeting); setActiveView('library') }}
+                onClick={() => { setCurrentMeeting(currentMeeting); setActiveView('projects') }}
                 title="Go to live recording"
                 style={{ margin: 0, padding: 0, border: 'none', background: 'transparent', color: 'var(--accent)', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: 0.85 }}
               >

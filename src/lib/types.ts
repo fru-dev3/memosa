@@ -238,6 +238,7 @@ export type AppView =
   | 'library'
   | 'projects'
   | 'search'
+// 'library' is kept for backwards compat — all navigation uses 'projects'
   | 'about'
   | 'profiles'
   | 'templates'

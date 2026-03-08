@@ -1,4 +1,4 @@
-import { Component, useEffect, type ReactElement, type ReactNode } from 'react'
+import { Component, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { CommandPalette } from './components/layout/CommandPalette'
 import { FloatingRecorder } from './components/layout/FloatingRecorder'
 import { Sidebar } from './components/layout/Sidebar'
@@ -11,7 +11,6 @@ import * as api from './lib/tauri'
 import { useMemosaStore } from './store'
 import { AboutView } from './views/AboutView'
 import { CalendarView } from './views/CalendarView'
-import { LibraryView } from './views/LibraryView'
 import { ProjectsView } from './views/ProjectsView'
 import { ProfilesView } from './views/ProfilesView'
 import { SearchView } from './views/SearchView'
@@ -20,7 +19,7 @@ import { TemplatesView } from './views/TemplatesView'
 import { TodayView } from './views/TodayView'
 import { SetupView } from './views/SetupView'
 
-type PrimaryView = 'today' | 'calendar' | 'library' | 'projects' | 'search'
+type PrimaryView = 'today' | 'calendar' | 'projects' | 'search'
 
 type SafeModalView = 'settings' | 'profiles' | 'templates' | 'about' | null
 
@@ -56,6 +55,48 @@ class ViewErrorBoundary extends Component<
 
     return this.props.children
   }
+}
+
+function Toast() {
+  const [message, setMessage] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const msg = (e as CustomEvent<{ message: string }>).detail.message
+      if (timerRef.current) clearTimeout(timerRef.current)
+      setMessage(msg)
+      setVisible(true)
+      timerRef.current = setTimeout(() => setVisible(false), 2400)
+    }
+    window.addEventListener('memosa:toast', handler)
+    return () => window.removeEventListener('memosa:toast', handler)
+  }, [])
+
+  if (!message) return null
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 52, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 9999, pointerEvents: 'none',
+      opacity: visible ? 1 : 0,
+      transition: 'opacity 260ms ease',
+    }}>
+      <div style={{
+        padding: '8px 18px', borderRadius: 999,
+        background: 'rgba(28, 26, 23, 0.88)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        color: '#fff', fontSize: 12, fontWeight: 500,
+        boxShadow: '0 4px 18px rgba(0,0,0,0.22)',
+        whiteSpace: 'nowrap',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}>
+        {message}
+      </div>
+    </div>
+  )
 }
 
 export default function App() {
@@ -145,6 +186,34 @@ export default function App() {
     setCommandPaletteOpen,
   ])
 
+  // ⌘1-4 view switching
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.metaKey || e.shiftKey || e.altKey || e.ctrlKey || e.repeat) return
+      const viewMap: Record<string, PrimaryView> = { '1': 'today', '2': 'projects', '3': 'search' }
+      const view = viewMap[e.key]
+      if (view) { e.preventDefault(); setActiveView(view) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [setActiveView])
+
+  // In-app keyboard shortcut: ⇧⌘R toggles recording (complements the Rust global hotkey)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'r' && !e.repeat) {
+        e.preventDefault()
+        if (recordingStatus.is_recording) {
+          void api.stopRecording()
+        } else {
+          void api.startRecording(`manual-${Date.now()}`, 'Quick Recording', selectedProfileId)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [recordingStatus.is_recording, selectedProfileId])
+
   // Auto-save profiles to Rust storage when they change (debounced)
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -156,13 +225,12 @@ export default function App() {
   const views: Record<PrimaryView, ReactElement> = {
     today:    <TodayView />,
     calendar: <CalendarView />,
-    library:  <LibraryView />,
     projects: <ProjectsView />,
     search:   <SearchView />,
   }
 
   const modalViews = new Set(['settings', 'profiles', 'templates', 'about', 'privacy'] as const)
-  const primaryViews = new Set<PrimaryView>(['today', 'calendar', 'library', 'projects', 'search'])
+  const primaryViews = new Set<PrimaryView>(['today', 'calendar', 'projects', 'search'])
 
   useEffect(() => {
     if (!primaryViews.has(activeView as PrimaryView) && !modalViews.has(activeView as typeof modalViews extends Set<infer T> ? T : never)) {
@@ -190,6 +258,7 @@ export default function App() {
       <CommandPalette />
       <Sidebar />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+        <div className="app-main-drag" data-tauri-drag-region />
 <FloatingRecorder />
         <main style={{ flex: 1, overflow: 'hidden' }}>
           <ViewErrorBoundary onReset={() => setActiveView('today')}>
@@ -206,6 +275,7 @@ export default function App() {
       </div>
       {/* Setup overlay — rendered on top of the main app so backdrop blur has real content */}
       {settings != null && !settings.has_completed_setup && <SetupView />}
+      <Toast />
     </div>
   )
 }

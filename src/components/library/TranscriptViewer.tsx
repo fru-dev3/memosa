@@ -219,8 +219,11 @@ export function TranscriptViewer({
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(meeting.title)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirmingRetranscribe, setConfirmingRetranscribe] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [transcriptSearch, setTranscriptSearch] = useState('')
+  const transcriptSearchRef = useRef<HTMLInputElement>(null)
   const [notesContent, setNotesContent] = useState('')
   const [notesState, setNotesState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const notesTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -303,6 +306,8 @@ export function TranscriptViewer({
     setTitleDraft(meeting.title)
     setEditingTitle(false)
     setMenuOpen(false)
+    setConfirmingDelete(false)
+    setConfirmingRetranscribe(false)
     setViewMode('transcript')
     setTextMode('clean')
     setTranscriptSearch('')
@@ -352,12 +357,40 @@ export function TranscriptViewer({
     return () => document.removeEventListener('mousedown', handler)
   }, [showModelPicker])
 
+  // ⌘F focuses transcript search input when transcript is visible
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey && !e.shiftKey && !e.altKey && (e.key === 'f' || e.key === 'F')
+          && viewMode !== 'notes' && meeting.transcription_status === 'complete' && transcriptContent) {
+        e.preventDefault()
+        transcriptSearchRef.current?.focus()
+        transcriptSearchRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [viewMode, meeting.transcription_status, transcriptContent])
+
   const handleRetranscribeClick = () => {
     if (!meeting.audio_path) return
+    // Require confirmation if a transcript already exists
+    if (transcriptContent && meeting.transcription_status === 'complete') {
+      setConfirmingRetranscribe(true)
+      return
+    }
     if (downloadedModels.length <= 1) {
       onRetranscribe?.(meeting)
     } else {
       setShowModelPicker(v => !v)
+    }
+  }
+
+  const confirmRetranscribe = () => {
+    setConfirmingRetranscribe(false)
+    if (downloadedModels.length <= 1) {
+      onRetranscribe?.(meeting)
+    } else {
+      setShowModelPicker(true)
     }
   }
 
@@ -390,6 +423,11 @@ export function TranscriptViewer({
     const dateStr = date.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     return `# ${meeting.title}\n\n**Date:** ${dateStr}\n\n---\n\n${cleanTranscript}`
   }, [meeting.title, meeting.date, meeting.start_time, cleanTranscript])
+
+  const wordCount = useMemo(() => {
+    if (!cleanTranscript) return 0
+    return cleanTranscript.trim().split(/\s+/).filter(Boolean).length
+  }, [cleanTranscript])
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(copyContent)
@@ -448,7 +486,7 @@ export function TranscriptViewer({
           <h2
             onClick={() => setEditingTitle(true)}
             title="Click to rename"
-            style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 650, color: 'var(--text-primary)', cursor: 'text', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 650, color: 'var(--text-primary)', cursor: 'text', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >{titleDraft}</h2>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 10px', flexWrap: 'wrap' }}>
@@ -515,8 +553,9 @@ export function TranscriptViewer({
               <path d="M10 10l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
             <input
+              ref={transcriptSearchRef}
               type="text"
-              placeholder="Search transcript…"
+              placeholder="Search transcript… (⌘F)"
               value={transcriptSearch}
               onChange={e => setTranscriptSearch(e.target.value)}
               style={{ width: '100%', paddingLeft: 28, paddingRight: transcriptSearch ? 26 : 10, paddingTop: 6, paddingBottom: 6, fontSize: 12, borderRadius: 7, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
@@ -613,8 +652,8 @@ export function TranscriptViewer({
                   {sq && filteredLines.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>No matches for "{transcriptSearch}"</div>
                   ) : viewMode === 'transcript' ? (
-                    <div className="surface-panel" style={{ padding: 16 }}>
-                      <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)', fontSize: textMode === 'clean' ? 13 : 12, lineHeight: 1.8, color: textMode === 'clean' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    <div className="surface-panel" style={{ padding: '16px 20px' }}>
+                      <pre className={`tv-transcript-body${textMode === 'raw' ? ' is-raw' : ''}`}>
                         {displayText}
                       </pre>
                     </div>
@@ -686,9 +725,16 @@ export function TranscriptViewer({
 
             {/* Re-transcribe */}
             {meeting.audio_path && (
-              <button className="tv-icon-btn" title="Re-transcribe" onClick={handleRetranscribeClick}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/><path d="M11 2l2 3-3 1" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
+              confirmingRetranscribe ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
+                  <button className="tv-icon-btn" title="Confirm re-transcribe" onClick={confirmRetranscribe} style={{ fontSize: 10, padding: '2px 5px', color: 'var(--live)', fontWeight: 700 }}>✓</button>
+                  <button className="tv-icon-btn" title="Cancel" onClick={() => setConfirmingRetranscribe(false)} style={{ fontSize: 10, padding: '2px 5px' }}>✕</button>
+                </div>
+              ) : (
+                <button className="tv-icon-btn" title="Re-transcribe" onClick={handleRetranscribeClick}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/><path d="M11 2l2 3-3 1" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              )
             )}
 
             {/* Show in Finder */}
@@ -750,26 +796,38 @@ export function TranscriptViewer({
                 </button>
               </div>
             ) : (
-              <div className="tv-sidebar-icon-row">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {transcriptContent && viewMode === 'transcript' && meeting.transcription_status === 'complete' && (
-                  <button className="tv-icon-btn" title="Edit transcript" onClick={() => setEditing(true)}>
+                  <button className="tv-sidebar-action-btn" onClick={() => setEditing(true)}>
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2-9 9H2.5v-2l9-9z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
+                    Edit transcript
                   </button>
                 )}
                 {meeting.transcription_status === 'complete' && (
-                  <button className="tv-icon-btn" title="Export TXT" onClick={() => api.saveTextFile(`${meeting.title}.txt`, copyContent)}>
+                  <button className="tv-sidebar-action-btn" onClick={() => api.saveTextFile(`${meeting.title}.txt`, copyContent)}>
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 13h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/></svg>
+                    Export as TXT
                   </button>
                 )}
                 {meeting.transcription_status === 'complete' && (
-                  <button className="tv-icon-btn" title="Export Markdown" onClick={() => api.saveTextFile(`${meeting.title}.md`, markdownExportContent)}>
+                  <button className="tv-sidebar-action-btn" onClick={() => api.saveTextFile(`${meeting.title}.md`, markdownExportContent)}>
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M4 10V6l2 2 2-2v4M11.5 10V8l-1.5 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Export as Markdown
                   </button>
                 )}
                 {meeting.audio_path && (
                   <div ref={modelPickerRef} style={{ position: 'relative' }}>
-                    <button className="tv-icon-btn" title={downloadedModels.length > 1 ? 'Re-transcribe with model…' : 'Re-transcribe'} onClick={handleRetranscribeClick}>
+                    {confirmingRetranscribe ? (
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 7px' }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1 }}>Overwrite transcript?</span>
+                        <button className="tv-icon-btn" onClick={confirmRetranscribe} style={{ fontSize: 10, padding: '2px 6px', color: 'var(--live)', fontWeight: 700 }}>Yes</button>
+                        <button className="tv-icon-btn" onClick={() => setConfirmingRetranscribe(false)} style={{ fontSize: 10, padding: '2px 6px' }}>No</button>
+                      </div>
+                    ) : (
+                    <>
+                    <button className="tv-sidebar-action-btn" onClick={handleRetranscribeClick}>
                       <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/><path d="M11 2l2 3-3 1" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Re-transcribe{downloadedModels.length > 1 ? '…' : ''}
                     </button>
                     {showModelPicker && downloadedModels.length > 1 && (
                       <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 50, minWidth: 120, overflow: 'hidden' }}>
@@ -784,18 +842,30 @@ export function TranscriptViewer({
                         ))}
                       </div>
                     )}
+                    </>
+                    )}
                   </div>
                 )}
-                <button className="tv-icon-btn" title="Show in Finder" onClick={() => void api.openMeetingFolder(meeting.id)}>
+                <button className="tv-sidebar-action-btn" onClick={() => void api.openMeetingFolder(meeting.id)}>
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M1.5 4.5C1.5 3.4 2.4 2.5 3.5 2.5H6l1.5 2H12.5C13.6 4.5 14.5 5.4 14.5 6.5V12C14.5 13.1 13.6 14 12.5 14H3.5C2.4 14 1.5 13.1 1.5 12V4.5Z"/>
                     <path d="M8 7.5v3M6.5 9l1.5 1.5L9.5 9" />
                   </svg>
+                  Show in Finder
                 </button>
                 {onDelete && (
-                  <button className="tv-icon-btn" title="Delete recording" style={{ marginLeft: 'auto', color: 'var(--live)' }} onClick={() => onDelete(meeting)}>
-                    <svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M1.5 2.5H9.5M4 2.5V1.5H7V2.5M2.5 2.5L3 9.5H8L8.5 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
+                  confirmingDelete ? (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 7px' }}>
+                      <span style={{ fontSize: 11, color: 'var(--live)', flex: 1 }}>Delete recording?</span>
+                      <button className="tv-icon-btn" onClick={() => setConfirmingDelete(false)} style={{ fontSize: 10, padding: '2px 7px' }}>No</button>
+                      <button className="tv-icon-btn" onClick={() => { setConfirmingDelete(false); onDelete(meeting) }} style={{ fontSize: 10, padding: '2px 7px', color: 'var(--live)', fontWeight: 600 }}>Yes</button>
+                    </div>
+                  ) : (
+                    <button className="tv-sidebar-action-btn is-danger" onClick={() => setConfirmingDelete(true)}>
+                      <svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M1.5 2.5H9.5M4 2.5V1.5H7V2.5M2.5 2.5L3 9.5H8L8.5 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Delete recording
+                    </button>
+                  )
                 )}
               </div>
             )}
@@ -807,6 +877,7 @@ export function TranscriptViewer({
               <div>
                 {[
                   formatDuration(meeting.duration_seconds),
+                  wordCount > 0 ? `~${wordCount.toLocaleString()} words` : null,
                   meeting.whisper_model ?? null,
                   audioStatus?.bytes ? `${(audioStatus.bytes / 1024 / 1024).toFixed(1)} MB` : null,
                 ].filter(Boolean).join(' · ')}
@@ -846,18 +917,32 @@ export function TranscriptViewer({
           <div className="text-xs" style={{ color: 'var(--warning-amber)' }}>{audioError}</div>
         </div>
       ) : audioSrc ? (
-        <div className="px-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-surface)', padding: '8px 16px' }}>
-          {audioStatus?.is_silent ? (
+        <div className="tv-audio-bar" style={{ flexShrink: 0 }}>
+          {audioStatus?.is_silent && (
             <div style={{ fontSize: 11, color: 'var(--warning-amber)', marginBottom: 6 }}>
               Signal appears silent{audioStatus.peak_db != null ? ` (${audioStatus.peak_db.toFixed(1)} dB peak)` : ''}. Check microphone or enable system audio in Settings.
             </div>
-          ) : null}
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+              <rect x="2" y="4" width="2.5" height="8" rx="1" fill="currentColor" opacity="0.45"/>
+              <rect x="6.75" y="2" width="2.5" height="12" rx="1" fill="currentColor" opacity="0.7"/>
+              <rect x="11.5" y="5" width="2.5" height="6" rx="1" fill="currentColor" opacity="0.45"/>
+            </svg>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {meeting.title}
+            </span>
+            {audioStatus?.bytes ? (
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', opacity: 0.7, flexShrink: 0 }}>
+                {(audioStatus.bytes / 1024 / 1024).toFixed(1)} MB
+              </span>
+            ) : null}
+          </div>
           <audio
             ref={audioRef}
             controls
             src={audioSrc}
-            className="w-full"
-            style={{ height: 36, accentColor: 'var(--accent)', filter: 'saturate(0.92)', display: 'block' }}
+            style={{ display: 'block', width: '100%', height: 32, accentColor: 'var(--accent)' }}
             onError={() => setAudioError('Playback failed to load this recording')}
           />
         </div>

@@ -102,7 +102,7 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
   const handleResultClick = (result: SearchResult) => {
     const meeting = meetings.find((item) => item.id === result.meeting.id) ?? result.meeting
     setCurrentMeeting(meeting)
-    setActiveView('library')
+    setActiveView('projects')
   }
 
   const content = (

@@ -2,13 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as api from '../lib/tauri'
 import { useMemosaStore } from '../store'
 
-function formatDuration(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.round((totalSeconds % 3600) / 60)
-  if (totalSeconds <= 0) return '0m'
-  if (hours === 0) return `${minutes}m`
-  return `${hours}h ${minutes}m`
-}
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function dayKey(date: Date) {
   return date.toISOString().slice(0, 10)
@@ -18,139 +12,130 @@ function isSameMonth(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
 }
 
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1)
-}
-
-function endOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0)
-}
-
 function startOfWeek(date: Date) {
-  const next = new Date(date)
-  const day = next.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  next.setDate(next.getDate() + diff)
-  next.setHours(0, 0, 0, 0)
-  return next
+  const d = new Date(date)
+  const day = d.getDay()
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
-function addDays(date: Date, amount: number) {
-  const next = new Date(date)
-  next.setDate(next.getDate() + amount)
-  return next
+function addDays(date: Date, n: number) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
 }
 
-function addMonths(date: Date, amount: number) {
-  return new Date(date.getFullYear(), date.getMonth() + amount, 1)
+function addMonths(date: Date, n: number) {
+  return new Date(date.getFullYear(), date.getMonth() + n, 1)
 }
 
-function buildMonthGrid(cursorDate: Date) {
-  const monthStart = startOfMonth(cursorDate)
-  const monthEnd = endOfMonth(cursorDate)
+function buildMonthGrid(cursor: Date) {
+  const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
+  const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0)
   const gridStart = startOfWeek(monthStart)
   const gridEnd = addDays(startOfWeek(monthEnd), 6)
   const days: Date[] = []
-
-  for (let current = new Date(gridStart); current <= gridEnd; current = addDays(current, 1)) {
-    days.push(new Date(current))
-  }
-
+  for (let d = new Date(gridStart); d <= gridEnd; d = addDays(d, 1)) days.push(new Date(d))
   return days
 }
 
-function buildWeekDays(cursorDate: Date) {
-  const weekStart = startOfWeek(cursorDate)
-  return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+function buildWeekDays(cursor: Date) {
+  const ws = startOfWeek(cursor)
+  return Array.from({ length: 7 }, (_, i) => addDays(ws, i))
 }
 
-function MinimalEmptyState({ label }: { label?: string }) {
+function formatDuration(secs: number) {
+  if (secs <= 0) return '0m'
+  const h = Math.floor(secs / 3600)
+  const m = Math.round((secs % 3600) / 60)
+  return h === 0 ? `${m}m` : `${h}h ${m}m`
+}
+
+// ─── Status icon ──────────────────────────────────────────────────────────────
+
+function StatusDot({ status }: { status: string }) {
+  if (status === 'complete') return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="6.5" cy="6.5" r="6" fill="color-mix(in srgb,#22c55e 15%,transparent)" stroke="#22c55e" strokeWidth="1"/>
+      <path d="M3.5 6.5L5.5 8.5L9.5 4.5" stroke="#22c55e" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+  if (status === 'failed') return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="6.5" cy="6.5" r="6" fill="color-mix(in srgb,#ef4444 12%,transparent)" stroke="#ef4444" strokeWidth="1"/>
+      <path d="M4.5 4.5L8.5 8.5M8.5 4.5L4.5 8.5" stroke="#ef4444" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  )
   return (
-    <div className="calendar-minimal-empty">
-      <div className="calendar-minimal-orbit" aria-hidden="true" />
-      {label ? <div className="calendar-minimal-empty-title">{label}</div> : null}
-    </div>
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="6.5" cy="6.5" r="6" stroke="var(--border-subtle)" strokeWidth="1"/>
+      <circle cx="6.5" cy="6.5" r="2" fill="var(--text-muted)"/>
+    </svg>
   )
 }
 
+// ─── Profile filter ───────────────────────────────────────────────────────────
+
 function ProfileFilterIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <circle cx="8" cy="5" r="2.25" stroke="currentColor" strokeWidth="1.3" />
       <path d="M3.25 13.25c.55-2 2.42-3.25 4.75-3.25s4.2 1.25 4.75 3.25" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   )
 }
 
-function PaneIcon({ kind }: { kind: 'calendar' | 'recordings' }) {
-  if (kind === 'calendar') {
-    return (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <rect x="1.5" y="2.5" width="13" height="12" rx="2" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M1.5 6h13M5 1.5v2M11 1.5v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    )
-  }
-
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <rect x="2" y="2.25" width="12" height="11.5" rx="2" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M5 5.5H11M5 8H11M5 10.5H8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  )
-}
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function CalendarView() {
   const { meetings, profiles, setActiveView, setCurrentMeeting, setSearchSeed, setMeetings } = useMemosaStore()
   const today = new Date()
+  const todayKey = dayKey(today)
 
   useEffect(() => {
     api.getMeetings({}).then(setMeetings).catch(() => {})
   }, [setMeetings])
-  const todayKey = dayKey(today)
 
   const [selectedDate, setSelectedDate] = useState(todayKey)
   const [mode, setMode] = useState<'month' | 'week'>('month')
-  const [profileFilter, setProfileFilter] = useState<string>('all')
+  const [profileFilter, setProfileFilter] = useState('all')
   const [cursorDate, setCursorDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
-  const [showCalendarPane, setShowCalendarPane] = useState(true)
-  const [showRecordingPane, setShowRecordingPane] = useState(true)
 
   const filteredMeetings = useMemo(
-    () => meetings.filter((meeting) => profileFilter === 'all' || meeting.profile_id === profileFilter),
+    () => meetings.filter((m) => profileFilter === 'all' || m.profile_id === profileFilter),
     [meetings, profileFilter]
   )
 
-  const grouped = useMemo(() => {
-    return filteredMeetings.reduce<Record<string, typeof filteredMeetings>>((acc, meeting) => {
-      acc[meeting.date] ??= []
-      acc[meeting.date].push(meeting)
+  const grouped = useMemo(() =>
+    filteredMeetings.reduce<Record<string, typeof filteredMeetings>>((acc, m) => {
+      acc[m.date] ??= []
+      acc[m.date].push(m)
       return acc
-    }, {})
-  }, [filteredMeetings])
+    }, {}),
+    [filteredMeetings]
+  )
 
   const visibleDays = useMemo(
-    () => (mode === 'month' ? buildMonthGrid(cursorDate) : buildWeekDays(cursorDate)),
+    () => mode === 'month' ? buildMonthGrid(cursorDate) : buildWeekDays(cursorDate),
     [cursorDate, mode]
   )
 
-  const selectedDateObject = useMemo(() => new Date(`${selectedDate}T12:00:00`), [selectedDate])
+  const selectedDateObj = useMemo(() => new Date(`${selectedDate}T12:00:00`), [selectedDate])
   const selectedMeetings = grouped[selectedDate] ?? []
-  const totalForSelectedDay = selectedMeetings.reduce((sum, meeting) => sum + meeting.duration_seconds, 0)
-  const visibleMeetingCount = visibleDays.reduce((sum, day) => sum + (grouped[dayKey(day)]?.length ?? 0), 0)
+  const totalDuration = selectedMeetings.reduce((s, m) => s + m.duration_seconds, 0)
 
-  const jumpToToday = () => {
-    setCursorDate(new Date(today.getFullYear(), today.getMonth(), mode === 'month' ? 1 : today.getDate()))
-    setSelectedDate(todayKey)
+  const periodLabel = mode === 'month'
+    ? cursorDate.toLocaleDateString([], { month: 'long', year: 'numeric' })
+    : `${visibleDays[0].toLocaleDateString([], { month: 'short', day: 'numeric' })} – ${visibleDays[6].toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`
+
+  const shiftRange = (dir: -1 | 1) => {
+    setCursorDate((cur) => mode === 'month' ? addMonths(cur, dir) : addDays(cur, dir * 7))
   }
 
-  const shiftRange = (direction: -1 | 1) => {
-    setCursorDate((current) => {
-      if (mode === 'month') {
-        return addMonths(current, direction)
-      }
-      return addDays(current, direction * 7)
-    })
+  const jumpToToday = () => {
+    setCursorDate(new Date(today.getFullYear(), today.getMonth(), 1))
+    setSelectedDate(todayKey)
   }
 
   const handleSelectDay = (date: Date) => {
@@ -160,165 +145,176 @@ export function CalendarView() {
     }
   }
 
-  const periodLabel = mode === 'month'
-    ? cursorDate.toLocaleDateString([], { month: 'long', year: 'numeric' })
-    : `${visibleDays[0].toLocaleDateString([], { month: 'short', day: 'numeric' })} - ${visibleDays[6].toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`
+  const openMeeting = (id: string) => {
+    const target = meetings.find((m) => m.id === id)
+    if (!target) return
+    setCurrentMeeting(target)
+    setActiveView('projects')
+  }
 
   const openSearchFor = (value: string) => {
     setSearchSeed(value)
     setActiveView('search')
   }
 
-  const openMeeting = (meetingId: string) => {
-    const target = meetings.find((meeting) => meeting.id === meetingId)
-    if (!target) return
-    setCurrentMeeting(target)
-    setActiveView('library')
-  }
+  // max recordings on any day in view — for density bar sizing
+  const maxCount = useMemo(
+    () => Math.max(1, ...visibleDays.map((d) => grouped[dayKey(d)]?.length ?? 0)),
+    [visibleDays, grouped]
+  )
 
   return (
     <div className="page-shell">
+      {/* ── Page header ── */}
       <div className="page-header">
         <div>
           <div className="eyebrow">Calendar</div>
           <h1 className="page-title">Your archive over time.</h1>
         </div>
         <div className="calendar-toolbar">
-          <div className="calendar-pane-controls">
-            <button
-              className={`calendar-pane-toggle ${showCalendarPane ? 'is-active' : ''}`}
-              onClick={() => setShowCalendarPane((value) => !value)}
-              aria-label={showCalendarPane ? 'Hide calendar pane' : 'Show calendar pane'}
-              title={showCalendarPane ? 'Hide calendar' : 'Show calendar'}
-            >
-              <PaneIcon kind="calendar" />
-            </button>
-            <button
-              className={`calendar-pane-toggle ${showRecordingPane ? 'is-active' : ''}`}
-              onClick={() => setShowRecordingPane((value) => !value)}
-              aria-label={showRecordingPane ? 'Hide recordings pane' : 'Show recordings pane'}
-              title={showRecordingPane ? 'Hide recordings' : 'Show recordings'}
-            >
-              <PaneIcon kind="recordings" />
-            </button>
-          </div>
+          {/* Month / Week toggle */}
           <div className="segmented-control">
-            {(['month', 'week'] as const).map((item) => (
+            {(['month', 'week'] as const).map((m) => (
               <button
-                key={item}
-                className={`segmented-button ${mode === item ? 'is-active' : ''}`}
+                key={m}
+                className={`segmented-button ${mode === m ? 'is-active' : ''}`}
                 onClick={() => {
-                  setMode(item)
-                  if (item === 'month') {
-                    setCursorDate(new Date(selectedDateObject.getFullYear(), selectedDateObject.getMonth(), 1))
-                  } else {
-                    setCursorDate(selectedDateObject)
-                  }
+                  setMode(m)
+                  if (m === 'month') setCursorDate(new Date(selectedDateObj.getFullYear(), selectedDateObj.getMonth(), 1))
+                  else setCursorDate(selectedDateObj)
                 }}
               >
-                {item === 'month' ? 'Month' : 'Week'}
+                {m === 'month' ? 'Month' : 'Week'}
               </button>
             ))}
           </div>
+          {/* Profile filter */}
           <label className="calendar-profile-filter">
-            <span className="calendar-profile-filter-icon">
-              <ProfileFilterIcon />
-            </span>
+            <span className="calendar-profile-filter-icon"><ProfileFilterIcon /></span>
             <select className="calendar-profile-filter-select" value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
               <option value="all">All profiles</option>
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>{profile.name}</option>
-              ))}
+              {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <span className="calendar-profile-filter-chevron" aria-hidden="true">⌄</span>
           </label>
         </div>
       </div>
 
-      <div className="calendar-layout">
-        {showCalendarPane && (
-        <section className="surface-panel">
-          <div className="panel-header">
-            <div>
-              <div className="calendar-period-title">{periodLabel}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button className="calendar-nav-btn" onClick={() => shiftRange(-1)} aria-label="Previous" title="Previous">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-              <button className="ghost-pill" onClick={jumpToToday}>Today</button>
-              <button className="calendar-nav-btn" onClick={() => shiftRange(1)} aria-label="Next" title="Next">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2L8.5 6L4.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-              {visibleMeetingCount > 0 ? <div className="stat-inline">{visibleMeetingCount}</div> : null}
-            </div>
-          </div>
+      {/* ── Calendar nav bar ── */}
+      <div className="cal2-nav">
+        <button className="calendar-nav-btn" onClick={() => shiftRange(-1)} aria-label="Previous">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <span className="cal2-period">{periodLabel}</span>
+        <button className="calendar-nav-btn" onClick={() => shiftRange(1)} aria-label="Next">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2L8.5 6L4.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <button className="ghost-pill" style={{ marginLeft: 6 }} onClick={jumpToToday}>Today</button>
+      </div>
 
-          <div className="calendar-weekdays">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => (
-              <div key={label} className="calendar-weekday-label">{label}</div>
+      {/* ── MONTH VIEW ── */}
+      {mode === 'month' && (
+        <div className="cal2-month-wrap">
+          {/* Weekday headers */}
+          <div className="cal2-weekdays">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+              <div key={d} className="cal2-weekday">{d}</div>
             ))}
           </div>
-
-          <div className={`calendar-grid ${mode === 'week' ? 'is-week' : ''}`}>
+          {/* Day grid */}
+          <div className="cal2-grid">
             {visibleDays.map((day) => {
               const key = dayKey(day)
-              const dayMeetings = grouped[key] ?? []
-              const duration = dayMeetings.reduce((sum, meeting) => sum + meeting.duration_seconds, 0)
-              const active = key === selectedDate
+              const count = grouped[key]?.length ?? 0
+              const isSelected = key === selectedDate
               const isToday = key === todayKey
-              const outsideMonth = mode === 'month' && !isSameMonth(day, cursorDate)
-
+              const outside = !isSameMonth(day, cursorDate)
               return (
                 <button
                   key={key}
-                  className={`calendar-day-card ${active ? 'is-active' : ''} ${outsideMonth ? 'is-outside-month' : ''}`}
+                  className={`cal2-cell${isSelected ? ' is-selected' : ''}${isToday ? ' is-today' : ''}${outside ? ' is-outside' : ''}${count > 0 ? ' has-memos' : ''}`}
                   onClick={() => handleSelectDay(day)}
                 >
-                  <span className={`calendar-date-pill ${isToday ? 'is-today' : ''}`}>{day.getDate()}</span>
-                  {dayMeetings.length > 0 && (
-                    <span className="calendar-day-rec-badge">{dayMeetings.length}</span>
+                  <span className="cal2-date-num">{day.getDate()}</span>
+                  {count > 0 && (
+                    <div className="cal2-density-bar" style={{ width: `${Math.round((count / maxCount) * 100)}%` }} />
                   )}
+                  {count > 0 && <span className="cal2-count">{count}</span>}
                 </button>
               )
             })}
           </div>
-        </section>
-        )}
+        </div>
+      )}
 
-        {showRecordingPane && (
-        <section className="surface-panel">
-          <div className="panel-header">
-            <div>
-              <div className="calendar-period-title">
-                {selectedDateObject.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+      {/* ── WEEK VIEW ── */}
+      {mode === 'week' && (
+        <div className="cal2-week-grid">
+          {visibleDays.map((day) => {
+            const key = dayKey(day)
+            const dayMeetings = grouped[key] ?? []
+            const isToday = key === todayKey
+            const isSelected = key === selectedDate
+            return (
+              <div
+                key={key}
+                className={`cal2-week-col${isSelected ? ' is-selected' : ''}${isToday ? ' is-today' : ''}`}
+                onClick={() => handleSelectDay(day)}
+              >
+                <div className="cal2-week-col-header">
+                  <span className="cal2-week-day-name">{day.toLocaleDateString([], { weekday: 'short' })}</span>
+                  <span className={`cal2-week-date-num${isToday ? ' is-today' : ''}`}>{day.getDate()}</span>
+                  {dayMeetings.length > 0 && <span className="cal2-week-count">{dayMeetings.length}</span>}
+                </div>
+                <div className="cal2-week-col-body">
+                  {dayMeetings.length === 0 ? (
+                    <div className="cal2-week-empty" />
+                  ) : (
+                    dayMeetings.map((m) => (
+                      <button
+                        key={m.id}
+                        className="cal2-week-memo"
+                        onClick={(e) => { e.stopPropagation(); openMeeting(m.id) }}
+                        title={m.title || 'Untitled'}
+                      >
+                        <StatusDot status={m.transcription_status} />
+                        <span className="cal2-week-memo-title">{m.title || 'Untitled'}</span>
+                        {m.start_time && <span className="cal2-week-memo-time">{m.start_time}</span>}
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-            {selectedMeetings.length > 0 ? <div className="stat-inline">{formatDuration(totalForSelectedDay)}</div> : null}
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Selected day panel (month view only) ── */}
+      {mode === 'month' && (
+        <div className="cal2-day-panel">
+          <div className="cal2-day-panel-header">
+            <span className="cal2-day-panel-date">
+              {selectedDateObj.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </span>
+            {selectedMeetings.length > 0 && (
+              <span className="cal2-day-panel-meta">
+                {selectedMeetings.length} memo{selectedMeetings.length !== 1 ? 's' : ''} · {formatDuration(totalDuration)}
+              </span>
+            )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {selectedMeetings.length === 0 ? (
-              <MinimalEmptyState label={selectedDate === todayKey ? 'Nothing captured today yet.' : selectedDate > todayKey ? 'No recordings scheduled.' : 'No recordings on this day.'} />
-            ) : (
-              selectedMeetings.map((meeting) => {
-                const tags = [...(meeting.tags ?? []), ...(meeting.people ?? []), ...(meeting.themes ?? [])].slice(0, 4)
+          {selectedMeetings.length === 0 ? (
+            <div style={{ padding: '20px 0', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+              {selectedDate === todayKey ? 'Nothing captured today yet.' : selectedDate > todayKey ? 'Future date.' : 'No memos on this day.'}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {selectedMeetings.map((meeting) => {
+                const tags = [...(meeting.tags ?? []), ...(meeting.people ?? []), ...(meeting.themes ?? [])].slice(0, 3)
                 return (
-                  <div
-                    key={meeting.id}
-                    className="cal-rec-row"
-                    onClick={() => openMeeting(meeting.id)}
-                  >
-                    {/* status icon */}
-                    <span className="cal-rec-status">
-                      {meeting.transcription_status === 'complete' ? (
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="6" fill="color-mix(in srgb, #22c55e 15%, transparent)" stroke="#22c55e" strokeWidth="1"/><path d="M3.5 6.5L5.5 8.5L9.5 4.5" stroke="#22c55e" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      ) : meeting.transcription_status === 'failed' ? (
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="6" fill="color-mix(in srgb, #ef4444 12%, transparent)" stroke="#ef4444" strokeWidth="1"/><path d="M4.5 4.5L8.5 8.5M8.5 4.5L4.5 8.5" stroke="#ef4444" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                      ) : (
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="6" stroke="var(--border-subtle)" strokeWidth="1"/><circle cx="6.5" cy="6.5" r="2" fill="var(--text-muted)"/></svg>
-                      )}
-                    </span>
+                  <div key={meeting.id} className="cal-rec-row" onClick={() => openMeeting(meeting.id)}>
+                    <span className="cal-rec-status"><StatusDot status={meeting.transcription_status} /></span>
                     <span className="cal-rec-title">{meeting.title || 'Untitled'}</span>
                     {tags.length > 0 && (
                       <span className="cal-rec-tags">
@@ -330,12 +326,11 @@ export function CalendarView() {
                     <span className="cal-rec-time">{meeting.start_time}</span>
                   </div>
                 )
-              })
-            )}
-          </div>
-        </section>
-        )}
-      </div>
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

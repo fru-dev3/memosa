@@ -78,7 +78,7 @@ function FolderMenu({
         <PencilIcon /> Rename
       </button>
       <button className="proj-folder-menu-item" onClick={() => { onAddChild(); onClose() }}>
-        <PlusIcon /> Add sub-folder
+        <PlusIcon /> Add sub-collection
       </button>
       <div className="proj-folder-menu-divider" />
       <div className="proj-folder-menu-label">Color</div>
@@ -358,7 +358,7 @@ export function ProjectsView() {
     setActiveFolderId(id)
   }
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null)
-  const [showFolderPanel, setShowFolderPanel] = useState(true)
+  const [showFolderPanel, setShowFolderPanel] = useState(false)
   const [showMeetingPanel, setShowMeetingPanel] = useState(true)
   const [folderSearch, setFolderSearch] = useState('')
   const [meetingSearch, setMeetingSearch] = useState('')
@@ -486,13 +486,86 @@ export function ProjectsView() {
   }, [baseMeetings, meetingSearch])
 
   const handleAddRoot = () => {
-    createFolder('New Folder')
+    createFolder('New Collection')
     setTimeout(() => {
       const fs = useMemosaStore.getState().folders
       const created = fs[fs.length - 1]
       if (created) setSelectedFolderId(created.id)
     }, 50)
   }
+
+  const dateGroups = useMemo(() => {
+    if (selectedFolderId !== null) return null
+    const sorted = [...visibleMeetings].sort((a, b) =>
+      `${b.date}${b.start_time}`.localeCompare(`${a.date}${a.start_time}`)
+    )
+    const groups: { label: string; meetings: typeof sorted }[] = []
+    const seen = new Set<string>()
+    for (const m of sorted) {
+      if (!seen.has(m.date)) {
+        seen.add(m.date)
+        groups.push({ label: fmtCardDate(m.date), meetings: sorted.filter(x => x.date === m.date) })
+      }
+    }
+    return groups
+  }, [selectedFolderId, visibleMeetings])
+
+  const renderMeetingRow = (meeting: Meeting, isSelected: boolean, isLiveMeeting: boolean, assignedIds: string[]) => (
+    <div
+      key={meeting.id}
+      className={`proj-meeting-row${isSelected ? ' is-selected' : ''}${isLiveMeeting ? ' is-live' : ''}`}
+      onMouseDown={(e) => handleMeetingMouseDown(meeting, e)}
+      onClick={() => setSelectedMeeting(meeting)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '7px 10px 7px 8px', cursor: 'grab',
+        background: isSelected ? 'var(--bg-selected)' : 'transparent',
+        borderBottom: '1px solid var(--border-subtle)',
+        borderLeft: `2px solid ${isSelected ? 'var(--accent)' : 'transparent'}`,
+        transition: 'background 100ms ease',
+      }}
+    >
+      <span className="proj-grab-handle" title="Drag to assign to a collection" style={{ flexShrink: 0 }}><GrabIcon /></span>
+      {isLiveMeeting ? (
+        <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--live-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Waveform color="var(--live)" height={12} />
+        </div>
+      ) : (
+        <MemoIcon status={meeting.transcription_status} progress={transcriptionProgress.get(meeting.id)?.progress} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3, marginBottom: 2 }}>
+          {meeting.title || 'Untitled'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {fmtCardDate(meeting.date, meeting.start_time)}{meeting.duration_seconds > 0 ? ` · ${fmtDuration(meeting.duration_seconds)}` : ''}
+        </div>
+      </div>
+      <button
+        title="Show in Finder"
+        onClick={(e) => { e.stopPropagation(); void api.openMeetingFolder(meeting.id) }}
+        style={{ flexShrink: 0, padding: '3px', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.5 }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+        onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1.5 4.5C1.5 3.4 2.4 2.5 3.5 2.5H6l1.5 2H12.5C13.6 4.5 14.5 5.4 14.5 6.5V12C14.5 13.1 13.6 14 12.5 14H3.5C2.4 14 1.5 13.1 1.5 12V4.5Z"/>
+          <path d="M8 7.5v3M6.5 9l1.5 1.5L9.5 9"/>
+        </svg>
+      </button>
+      {selectedFolderId !== null && (
+        <button
+          className="proj-remove-btn"
+          title="Remove from this collection"
+          onClick={(e) => {
+            e.stopPropagation()
+            removeMeetingFromProject(meeting.id, selectedFolderId)
+            if (selectedMeeting?.id === meeting.id) setSelectedMeeting(null)
+          }}
+        >×</button>
+      )}
+    </div>
+  )
 
   const handleToggleExpand = (id: string) =>
     setExpandedFolders((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
@@ -502,8 +575,8 @@ export function ProjectsView() {
 
       <div className="page-header" style={{ padding: '24px 24px 0', marginBottom: 18 }}>
         <div>
-          <div className="eyebrow">Folders</div>
-          <h1 className="page-title" style={{ fontSize: 28 }}>Organise your memos.</h1>
+          <div className="eyebrow">Memos</div>
+          <h1 className="page-title" style={{ fontSize: 28 }}>Your recordings, organised.</h1>
         </div>
       </div>
 
@@ -511,16 +584,16 @@ export function ProjectsView() {
 
       {/* ── folder panel ── */}
       {!showFolderPanel ? (
-        <button className="proj-panel-tab" onClick={() => setShowFolderPanel(true)} title="Show projects">
+        <button className="proj-panel-tab" onClick={() => setShowFolderPanel(true)} title="Show collections">
           <span style={{ fontSize: 13 }}>›</span>
-          <span style={{ writingMode: 'vertical-rl', fontSize: 10, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', userSelect: 'none' }}>Folders</span>
+          <span style={{ writingMode: 'vertical-rl', fontSize: 10, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', userSelect: 'none' }}>Collections</span>
         </button>
       ) : (
       <div className="proj-folder-panel">
         <div className="proj-panel-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span className="proj-panel-label">Folders</span>
-            <button className="proj-icon-btn" title="New folder" onClick={handleAddRoot}><PlusIcon /></button>
+            <span className="proj-panel-label">Collections</span>
+            <button className="proj-icon-btn" title="New collection" onClick={handleAddRoot}><PlusIcon /></button>
           </div>
           <button className="proj-icon-btn" title="Collapse" onClick={() => setShowFolderPanel(false)} style={{ fontSize: 13, lineHeight: 1 }}>‹</button>
         </div>
@@ -552,7 +625,7 @@ export function ProjectsView() {
                   selectedId={selectedFolderId} dragOverId={dragOverFolderId}
                   onSelect={setSelectedFolderId}
                   onDelete={(id) => { deleteFolder(id); if (selectedFolderId === id) setSelectedFolderId(null) }}
-                  onAddChild={(parentId) => createFolder('New Folder', parentId)}
+                  onAddChild={(parentId) => createFolder('New Collection', parentId)}
                   meetingCount={meetingCount} expandedSet={expandedFolders} onToggleExpand={handleToggleExpand}
                   onFolderMouseDown={handleFolderMouseDown}
                   isLive={liveFolderIds.includes(folder.id)} />
@@ -632,92 +705,50 @@ export function ProjectsView() {
 
         {visibleMeetings.length === 0 ? (
           <div className="proj-empty-state">
-            {selectedFolderId === null ? <p>No memos yet.</p> : (
+            {selectedFolderId === null ? (
               <>
-                <p>No memos in this folder.</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-                  Select "All Memos" and drag any memo onto this folder.
-                </p>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ marginBottom: 10, opacity: 0.25 }}>
+                  <rect x="10" y="3" width="12" height="17" rx="6" stroke="currentColor" strokeWidth="1.8"/>
+                  <path d="M5 15c0 6.627 4.925 12 11 12s11-5.373 11-12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="16" y1="27" x2="16" y2="30" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+                <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Nothing captured yet</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 5, maxWidth: 180, lineHeight: 1.6 }}>Your recordings will appear here once you start your first memo.</p>
+              </>
+            ) : (
+              <>
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true" style={{ marginBottom: 10, opacity: 0.25 }}>
+                  <path d="M4 8h20M4 8v14a2 2 0 002 2h12a2 2 0 002-2V8M4 8V6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Collection is empty</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 5, maxWidth: 180, lineHeight: 1.6 }}>Switch to All Memos and drag any memo onto this collection.</p>
               </>
             )}
           </div>
+        ) : dateGroups ? (
+          <div className="proj-meeting-list">
+            {folders.length > 0 && (
+              <div className="proj-drag-tip">Hold and drag a memo onto a collection to assign it</div>
+            )}
+            {dateGroups.map(({ label, meetings: dayMeetings }) => (
+              <div key={label}>
+                <div style={{ padding: '8px 10px 4px', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>{label}</div>
+                {dayMeetings.map((meeting) => {
+                  const assignedIds = meetingFolderAssignments[meeting.id] ?? []
+                  const isSelected = selectedMeeting?.id === meeting.id
+                  const isLiveMeeting = liveMeetingId === meeting.id
+                  return renderMeetingRow(meeting, isSelected, isLiveMeeting, assignedIds)
+                })}
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="proj-meeting-list">
-            {selectedFolderId === null && folders.length > 0 && (
-              <div className="proj-drag-tip">Hold and drag a memo onto any folder to assign it</div>
-            )}
             {visibleMeetings.map((meeting) => {
               const assignedIds = meetingFolderAssignments[meeting.id] ?? []
-              const assignedNames = assignedIds
-                .map((fid) => folders.find((f) => f.id === fid)?.name)
-                .filter(Boolean) as string[]
               const isSelected = selectedMeeting?.id === meeting.id
               const isLiveMeeting = liveMeetingId === meeting.id
-              return (
-                <div
-                  key={meeting.id}
-                  className={`proj-meeting-row${isSelected ? ' is-selected' : ''}${isLiveMeeting ? ' is-live' : ''}`}
-                  onMouseDown={(e) => handleMeetingMouseDown(meeting, e)}
-                  onClick={() => setSelectedMeeting(meeting)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '7px 10px 7px 8px', cursor: 'grab',
-                    background: isSelected ? 'var(--bg-selected)' : 'transparent',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    borderLeft: `2px solid ${isSelected ? 'var(--accent)' : 'transparent'}`,
-                    transition: 'background 100ms ease',
-                  }}
-                >
-                  {/* Grab handle */}
-                  <span className="proj-grab-handle" title="Drag to assign to a folder" style={{ flexShrink: 0 }}><GrabIcon /></span>
-
-                  {/* Status icon */}
-                  {isLiveMeeting ? (
-                    <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--live-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Waveform color="var(--live)" height={12} />
-                    </div>
-                  ) : (
-                    <MemoIcon status={meeting.transcription_status} progress={transcriptionProgress.get(meeting.id)?.progress} />
-                  )}
-
-                  {/* Content */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3, marginBottom: 2 }}>
-                      {meeting.title || 'Untitled'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {fmtCardDate(meeting.date, meeting.start_time)}{meeting.duration_seconds > 0 ? ` · ${fmtDuration(meeting.duration_seconds)}` : ''}
-                    </div>
-                  </div>
-
-                  {/* Show in Finder */}
-                  <button
-                    title="Show in Finder"
-                    onClick={(e) => { e.stopPropagation(); void api.openMeetingFolder(meeting.id) }}
-                    style={{ flexShrink: 0, padding: '3px', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.5 }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1.5 4.5C1.5 3.4 2.4 2.5 3.5 2.5H6l1.5 2H12.5C13.6 4.5 14.5 5.4 14.5 6.5V12C14.5 13.1 13.6 14 12.5 14H3.5C2.4 14 1.5 13.1 1.5 12V4.5Z"/>
-                      <path d="M8 7.5v3M6.5 9l1.5 1.5L9.5 9"/>
-                    </svg>
-                  </button>
-
-                  {/* Remove button — only inside a folder */}
-                  {selectedFolderId !== null && (
-                    <button
-                      className="proj-remove-btn"
-                      title="Remove from this project"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeMeetingFromProject(meeting.id, selectedFolderId)
-                        if (selectedMeeting?.id === meeting.id) setSelectedMeeting(null)
-                      }}
-                    >×</button>
-                  )}
-                </div>
-              )
+              return renderMeetingRow(meeting, isSelected, isLiveMeeting, assignedIds)
             })}
           </div>
         )}
@@ -752,7 +783,11 @@ export function ProjectsView() {
           </>
         ) : (
           <div className="proj-empty-state">
-            <p>Select a memo to view its details.</p>
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true" style={{ marginBottom: 10, opacity: 0.2 }}>
+              <path d="M22 14H6M14 6l-8 8 8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Nothing selected</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 5, maxWidth: 180, lineHeight: 1.6 }}>Pick a memo from the list to read the transcript and notes.</p>
           </div>
         )}
       </div>

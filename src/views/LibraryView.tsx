@@ -177,9 +177,9 @@ export function LibraryView() {
     await deleteMeeting(id)
     if (selectedMeetingId === id) setSelectedMeetingId(null)
     if (currentMeeting?.id === id) setCurrentMeeting(null)
+    window.dispatchEvent(new CustomEvent('memosa:toast', { detail: { message: 'Memo deleted' } }))
   }
   const handleDeleteSelectedMeeting = async (meeting: Meeting) => {
-    if (!window.confirm(`Delete "${meeting.title}"? This will remove the memo, transcript, and saved metadata.`)) return
     await handleDeleteMeeting(meeting.id)
   }
   const toggleSelected = (id: string) =>
@@ -201,6 +201,40 @@ export function LibraryView() {
         <div style={{ borderRadius: 9, padding: '12px 16px', background: 'var(--live-dim)', border: '1px solid var(--live-border)' }}>
           <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: 'var(--live)' }}>Failed to load memos</p>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!loading && meetings.length === 0) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="page-header" style={{ padding: '24px 24px 0', marginBottom: 0 }}>
+          <div>
+            <div className="eyebrow">Memos</div>
+            <h1 className="page-title" style={{ fontSize: 28 }}>Every memo in one place.</h1>
+          </div>
+        </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 40, textAlign: 'center' }}>
+          <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="var(--accent)" strokeWidth="1.5"/>
+              <circle cx="12" cy="12" r="3.5" fill="var(--accent)" opacity="0.7"/>
+              <path d="M12 3v2M12 19v2M3 12h2M19 12h2" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 650, color: 'var(--text-primary)', marginBottom: 8 }}>No memos yet</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: 260 }}>
+              Start a capture on the Home screen. Audio, transcripts, and notes are stored locally on your Mac.
+            </div>
+          </div>
+          <button
+            className="ghost-pill is-selected-pill"
+            onClick={() => useMemosaStore.getState().setActiveView('today')}
+          >
+            Go to Home
+          </button>
         </div>
       </div>
     )
@@ -242,7 +276,7 @@ export function LibraryView() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* Month rail — collapsed */}
-        {!showMonthRail && (
+        {monthGroups.length > 1 && !showMonthRail && (
           <button onClick={() => setShowMonthRail(true)} style={{ width: 28, flexShrink: 0, border: 'none', cursor: 'pointer', background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 14, gap: 8 }}>
             <span style={{ fontSize: 13 }}>›</span>
             <span style={{ writingMode: 'vertical-rl', fontSize: 10, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-muted)', userSelect: 'none' }}>Months</span>
@@ -250,7 +284,7 @@ export function LibraryView() {
         )}
 
         {/* Month rail — expanded */}
-        {showMonthRail && (
+        {monthGroups.length > 1 && showMonthRail && (
           <div style={{ width: 172, flexShrink: 0, background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '14px 8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px 8px 0', flexShrink: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.65px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>By Month</span>
