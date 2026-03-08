@@ -133,6 +133,7 @@ impl Default for AppSettings {
                 ),
             ]),
             custom_summary_templates: Vec::new(),
+            excluded_calendar_names: Vec::new(),
             has_completed_setup: false,
         }
     }

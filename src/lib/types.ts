@@ -228,6 +228,7 @@ export interface AppSettings {
     detail: string
     prompt: string
   }>
+  excluded_calendar_names: string[]
   has_completed_setup: boolean
 }
 

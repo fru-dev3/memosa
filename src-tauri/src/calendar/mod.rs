@@ -58,9 +58,10 @@ pub async fn get_today_events(
     let settings = SettingsManager::load();
     let events = providers::get_events_for_provider(&settings.calendar_provider, &state, 1).await?;
     let today = chrono::Local::now().date_naive().to_string();
+    let excluded = &settings.excluded_calendar_names;
     let events: Vec<CalendarEvent> = events
         .into_iter()
-        .filter(|event| event.start.starts_with(&today))
+        .filter(|event| event.start.starts_with(&today) && !excluded.contains(&event.calendar_name))
         .collect();
     crate::diagnostics::log(format!("cmd:get_today_events fetched={}", events.len()));
 
@@ -84,8 +85,12 @@ pub async fn get_upcoming_events(
     state: tauri::State<'_, CalendarState>,
 ) -> Result<Vec<CalendarEvent>, String> {
     let settings = SettingsManager::load();
+    let excluded = &settings.excluded_calendar_names;
     let events = providers::get_events_for_provider(&settings.calendar_provider, &state, days).await?;
-
+    let events: Vec<CalendarEvent> = events
+        .into_iter()
+        .filter(|event| !excluded.contains(&event.calendar_name))
+        .collect();
     *state.cached_events.lock().unwrap() = events.clone();
     Ok(events)
 }
