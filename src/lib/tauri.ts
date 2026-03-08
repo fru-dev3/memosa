@@ -318,3 +318,19 @@ export const onLiveTranscriptChunk = (
   cb: (data: LiveTranscriptChunkPayload) => void
 ): Promise<UnlistenFn> =>
   listen<LiveTranscriptChunkPayload>('live-transcript-chunk', (e) => cb(e.payload))
+
+// ─── Folder persistence ───────────────────────────────────────────────────────
+
+export interface FolderRecord { id: string; name: string; parent_id: string | null; color: string | null }
+export interface AssignmentRecord { meeting_id: string; folder_id: string }
+
+export const getFolders = () => invoke<FolderRecord[]>('get_folders')
+export const saveFolder = (id: string, name: string, parent_id: string | null, color: string | null) =>
+  invoke<void>('save_folder', { id, name, parentId: parent_id, color })
+export const deleteFolderRecord = (id: string) => invoke<void>('delete_folder_record', { id })
+export const saveAllFolders = (folders: FolderRecord[]) => invoke<void>('save_all_folders', { folders })
+export const getFolderAssignments = () => invoke<AssignmentRecord[]>('get_folder_assignments')
+export const assignMeetingFolder = (meetingId: string, folderId: string) =>
+  invoke<void>('assign_meeting_folder', { meetingId, folderId })
+export const removeMeetingFolder = (meetingId: string, folderId: string) =>
+  invoke<void>('remove_meeting_folder', { meetingId, folderId })

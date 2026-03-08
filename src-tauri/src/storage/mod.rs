@@ -977,3 +977,76 @@ pub async fn save_text_file(
     std::fs::write(&resolved, content)
         .map_err(|e| format!("Failed to write file: {}", e))
 }
+
+// ─── Folder + assignment persistence commands ─────────────────────────────────
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct FolderRecord {
+    pub id: String,
+    pub name: String,
+    pub parent_id: Option<String>,
+    pub color: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_folders(db: tauri::State<'_, Database>) -> Result<Vec<FolderRecord>, String> {
+    let rows = db.get_all_folders()?;
+    Ok(rows.into_iter().map(|(id, name, parent_id, color)| FolderRecord { id, name, parent_id, color }).collect())
+}
+
+#[tauri::command]
+pub async fn save_folder(
+    id: String,
+    name: String,
+    parent_id: Option<String>,
+    color: Option<String>,
+    db: tauri::State<'_, Database>,
+) -> Result<(), String> {
+    db.upsert_folder(&id, &name, parent_id.as_deref(), color.as_deref())
+}
+
+#[tauri::command]
+pub async fn delete_folder_record(id: String, db: tauri::State<'_, Database>) -> Result<(), String> {
+    db.delete_folder(&id)
+}
+
+#[tauri::command]
+pub async fn save_all_folders(
+    folders: Vec<FolderRecord>,
+    db: tauri::State<'_, Database>,
+) -> Result<(), String> {
+    for f in &folders {
+        db.upsert_folder(&f.id, &f.name, f.parent_id.as_deref(), f.color.as_deref())?;
+    }
+    Ok(())
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct AssignmentRecord {
+    pub meeting_id: String,
+    pub folder_id: String,
+}
+
+#[tauri::command]
+pub async fn get_folder_assignments(db: tauri::State<'_, Database>) -> Result<Vec<AssignmentRecord>, String> {
+    let rows = db.get_all_assignments()?;
+    Ok(rows.into_iter().map(|(meeting_id, folder_id)| AssignmentRecord { meeting_id, folder_id }).collect())
+}
+
+#[tauri::command]
+pub async fn assign_meeting_folder(
+    meeting_id: String,
+    folder_id: String,
+    db: tauri::State<'_, Database>,
+) -> Result<(), String> {
+    db.assign_meeting_to_folder(&meeting_id, &folder_id)
+}
+
+#[tauri::command]
+pub async fn remove_meeting_folder(
+    meeting_id: String,
+    folder_id: String,
+    db: tauri::State<'_, Database>,
+) -> Result<(), String> {
+    db.remove_meeting_from_folder(&meeting_id, &folder_id)
+}

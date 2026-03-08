@@ -1,66 +1,79 @@
 import { useState } from 'react'
 import type { Meeting } from '../../lib/types'
 
-// ─── Icon helpers ─────────────────────────────────────────────────
+// ─── Left icon ────────────────────────────────────────────────────
 
-function IconTranscribed() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-label="Transcribed">
-      <rect x="1" y="1" width="7" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-      <path d="M3 4h5M3 6.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-      <circle cx="9.5" cy="9.5" r="2.5" fill="var(--accent)"/>
-      <path d="M8.4 9.5l.8.8 1.3-1.3" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-function IconFailed() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-label="Transcription failed">
-      <circle cx="6" cy="6" r="5" stroke="var(--live)" strokeWidth="1.3"/>
-      <path d="M4.5 4.5l3 3M7.5 4.5l-3 3" stroke="var(--live)" strokeWidth="1.3" strokeLinecap="round"/>
-    </svg>
-  )
-}
-function IconLocalOnly() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-label="Local only">
-      <rect x="1.5" y="5" width="8" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M3.5 5V3.5a2 2 0 014 0V5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-    </svg>
-  )
+function iconBg(status: Meeting['transcription_status']): string {
+  if (status === 'complete') return '#22c55e'
+  if (status === 'processing') return 'var(--accent)'
+  if (status === 'failed') return '#ef4444'
+  return '#e5e7eb'
 }
 
-// ─── Status icon ──────────────────────────────────────────────────
+function iconColor(status: Meeting['transcription_status']): string {
+  return status === 'not_started' ? '#9ca3af' : '#fff'
+}
+
+export function MemoIcon({ status, progress }: { status: Meeting['transcription_status']; progress?: number }) {
+  const bg = iconBg(status)
+  const fg = iconColor(status)
+
+  const inner = status === 'processing' ? (
+    // Waveform bars
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="6" width="2" height="4" rx="1" fill={fg} />
+      <rect x="5.5" y="3.5" width="2" height="9" rx="1" fill={fg} />
+      <rect x="9" y="5" width="2" height="6" rx="1" fill={fg} />
+      <rect x="12.5" y="7" width="2" height="3" rx="1" fill={fg} />
+    </svg>
+  ) : status === 'complete' ? (
+    // Document with checkmark
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="3" y="1.5" width="8" height="10" rx="1.5" stroke={fg} strokeWidth="1.3" />
+      <path d="M5 6h4M5 8.5h2.5" stroke={fg} strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="3" fill={fg} fillOpacity="0.25" />
+      <path d="M10.5 12l1 1 2-2" stroke={fg} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ) : status === 'failed' ? (
+    // Document with X
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="3" y="1.5" width="8" height="10" rx="1.5" stroke={fg} strokeWidth="1.3" />
+      <path d="M5.5 5.5l3 3M8.5 5.5l-3 3" stroke={fg} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ) : (
+    // Plain document
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="3" y="1.5" width="8" height="11" rx="1.5" stroke={fg} strokeWidth="1.3" />
+      <path d="M5 5.5h4M5 8h4M5 10.5h2.5" stroke={fg} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+
+  return (
+    <div style={{
+      width: 30, height: 30, borderRadius: 8, background: bg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+      transition: 'background 120ms ease',
+    }}>
+      {inner}
+    </div>
+  )
+}
+
+// ─── Exported StatusIcon (used elsewhere) ─────────────────────────
 
 export function StatusIcon({ status, progress }: { status: Meeting['transcription_status']; progress?: number }) {
-  if (status === 'complete') {
-    return (
-      <span title="Transcribed" style={{ display: 'inline-flex', color: 'var(--accent)' }}>
-        <IconTranscribed />
-      </span>
-    )
-  }
   if (status === 'processing') {
     return (
-      <span title={progress != null ? `Transcribing ${Math.round(progress * 100)}%` : 'Transcribing…'}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--accent)', fontSize: 9, fontWeight: 600 }}>
-        <span
-          className="spinner"
-          style={{
-            width: 8, height: 8, borderRadius: '50%',
-            border: '1.5px solid rgba(15,190,128,0.3)',
-            borderTopColor: 'var(--accent)',
-            display: 'inline-block', flexShrink: 0,
-          }}
-        />
-        {progress != null && `${Math.round(progress * 100)}%`}
-      </span>
-    )
-  }
-  if (status === 'failed') {
-    return (
-      <span title="Transcription failed" style={{ display: 'inline-flex' }}>
-        <IconFailed />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--accent)', fontSize: 10, fontWeight: 600 }}>
+        <span style={{
+          width: 7, height: 7, borderRadius: '50%',
+          border: '1.5px solid rgba(15,190,128,0.3)',
+          borderTopColor: 'var(--accent)',
+          display: 'inline-block', flexShrink: 0,
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        {progress != null ? `${Math.round(progress * 100)}%` : 'Transcribing…'}
       </span>
     )
   }
@@ -77,9 +90,26 @@ function formatDuration(seconds: number): string {
   return `${seconds}s`
 }
 
-function formatDate(date: string, time: string): string {
-  const d = new Date(`${date}T${time}`)
-  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+function formatDate(date: string, startTime?: string): string {
+  const d = new Date(`${date}T12:00:00`)
+  const today = new Date()
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+  const timePart = startTime ? ` · ${formatTime(startTime)}` : ''
+  if (d.toDateString() === today.toDateString()) return `Today${timePart}`
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday${timePart}`
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  return `${mm}/${dd}/${yyyy}${timePart}`
+}
+
+function formatTime(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(':')
+  let h = parseInt(hStr, 10)
+  const m = mStr ?? '00'
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${m} ${ampm}`
 }
 
 // ─── MeetingEntry ─────────────────────────────────────────────────
@@ -109,164 +139,124 @@ export function MeetingEntry({
   onToggleFavorite,
   onToggleChecked,
 }: MeetingEntryProps) {
+  const [hovered, setHovered] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+
+  const dateLabel = formatDate(meeting.date, meeting.start_time)
+  const duration = meeting.duration_seconds > 0 ? formatDuration(meeting.duration_seconds) : null
 
   return (
     <>
       <div
         onClick={onClick}
         onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }) }}
-        className="library-entry-row"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
-          padding: '12px 14px',
+          display: 'flex', alignItems: 'center', gap: 11,
+          padding: '10px 12px 10px 14px',
           cursor: 'pointer',
-          background: selected ? 'var(--bg-selected)' : 'transparent',
-          borderLeft: `2px solid ${selected ? 'var(--accent)' : 'transparent'}`,
+          background: selected ? 'var(--bg-selected)' : hovered ? 'var(--bg-hover)' : 'transparent',
           borderBottom: '1px solid var(--border-subtle)',
-          transition: 'background 120ms ease, transform 120ms ease',
-        }}
-        onMouseEnter={e => {
-          if (!selected) {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'var(--bg-hover)'
-            el.style.transform = 'translateX(1px)'
-          }
-        }}
-        onMouseLeave={e => {
-          if (!selected) {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'transparent'
-            el.style.transform = 'translateX(0)'
-          }
+          borderLeft: `2px solid ${selected ? 'var(--accent)' : 'transparent'}`,
+          transition: 'background 100ms ease',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-          {selecting && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleChecked?.(meeting.id) }}
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 5,
-                border: `1.5px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
-                background: checked ? 'var(--accent)' : 'transparent',
-                flexShrink: 0,
-                marginTop: 1,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 0,
-                cursor: 'pointer',
-                transition: 'background 120ms ease, border-color 120ms ease',
-              }}
-              aria-checked={checked}
-            >
-              {checked && (
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                  <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </button>
-          )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          margin: '0 0 3px',
-          fontSize: 13,
-          fontWeight: 600,
-          color: 'var(--text-primary)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          lineHeight: 1.3,
-        }}>
-          {meeting.title}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-          {meeting.source_app && <span className="chip chip-muted" style={{ fontSize: 9 }}>{meeting.source_app}</span>}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              {formatDate(meeting.date, meeting.start_time)}
-            </span>
-            {meeting.duration_seconds > 0 && (
-              <>
-                <span style={{ color: 'var(--border-strong)', fontSize: 10 }}>·</span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {formatDuration(meeting.duration_seconds)}
-                </span>
-              </>
-            )}
-          </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, color: 'var(--text-muted)' }}>
-            {meeting.local_only !== false && (
-              <span title="Local only"><IconLocalOnly /></span>
-            )}
-            <StatusIcon status={meeting.transcription_status} progress={progress} />
-          </div>
-        </div>
-          </div>
+        {/* Checkbox (select mode) */}
+        {selecting && (
           <button
-            onClick={(e) => { e.stopPropagation(); onToggleFavorite?.(meeting.id) }}
+            onClick={e => { e.stopPropagation(); onToggleChecked?.(meeting.id) }}
             style={{
-              border: 'none',
-              background: 'transparent',
-              color: meeting.is_favorite ? 'var(--accent)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: 0,
-              flexShrink: 0,
-              fontSize: 15,
+              width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+              border: `1.5px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
+              background: checked ? 'var(--accent)' : 'transparent',
+              padding: 0, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            aria-label={meeting.is_favorite ? 'Remove favorite' : 'Add favorite'}
+            aria-checked={checked}
           >
-            ★
+            {checked && (
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                <path d="M1.5 4.5l2 2L7.5 2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </button>
+        )}
+
+        {/* Left icon */}
+        <MemoIcon status={meeting.transcription_status} progress={progress} />
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Title */}
+          <div style={{
+            fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            lineHeight: 1.3, marginBottom: 3,
+          }}>
+            {meeting.title || 'Untitled'}
+          </div>
+
+          {/* Date · duration · tags */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              {dateLabel}{duration ? ` · ${duration}` : ''}
+            </span>
+            {meeting.transcription_status === 'processing' && (
+              <StatusIcon status={meeting.transcription_status} progress={progress} />
+            )}
+          </div>
+        </div>
+
+        {/* Right side: star + chevron */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {(meeting.is_favorite || hovered || selected) && (
+            <button
+              onClick={e => { e.stopPropagation(); onToggleFavorite?.(meeting.id) }}
+              style={{
+                border: 'none', background: 'transparent', padding: '2px 3px',
+                cursor: 'pointer', lineHeight: 1, fontSize: 13,
+                color: meeting.is_favorite ? '#f59e0b' : 'var(--text-muted)',
+                transition: 'color 100ms ease',
+              }}
+              aria-label={meeting.is_favorite ? 'Remove star' : 'Star'}
+            >★</button>
+          )}
+          <svg width="7" height="12" viewBox="0 0 7 12" fill="none" style={{ color: 'var(--border-strong)', flexShrink: 0 }}>
+            <path d="M1 1l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
       </div>
 
       {/* Context menu */}
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setContextMenu(null)} />
           <div style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-            zIndex: 50,
-            borderRadius: 16,
-            padding: '6px',
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border-strong)',
-            boxShadow: '0 24px 40px rgba(58,45,34,0.14)',
-            minWidth: 168,
+            position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 50,
+            borderRadius: 12, padding: 5,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)',
+            boxShadow: '0 16px 32px rgba(58,45,34,0.14)', minWidth: 160,
           }}>
-            <button
-              style={{
-                width: '100%', display: 'block', textAlign: 'left',
-                padding: '6px 10px', borderRadius: 6, border: 'none',
-                background: 'transparent', color: 'var(--text-primary)',
-                fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-              }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-              onClick={() => { onOpenFolder?.(meeting.id); setContextMenu(null) }}
-            >
-              Open in Finder
-            </button>
-            <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
-            <button
-              style={{
-                width: '100%', display: 'block', textAlign: 'left',
-                padding: '6px 10px', borderRadius: 6, border: 'none',
-                background: 'transparent', color: 'var(--live)',
-                fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-              }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--live-dim)'}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-              onClick={() => { onDelete?.(meeting.id); setContextMenu(null) }}
-            >
-              Delete Recording
-            </button>
+            {[
+              { label: 'Open in Finder', color: 'var(--text-primary)', fn: () => { onOpenFolder?.(meeting.id); setContextMenu(null) } },
+              null,
+              { label: 'Delete', color: 'var(--live)', fn: () => { onDelete?.(meeting.id); setContextMenu(null) } },
+            ].map((item, i) =>
+              item === null
+                ? <div key={i} style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+                : (
+                  <button key={i} onClick={item.fn}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '6px 10px', borderRadius: 7,
+                      border: 'none', background: 'transparent', color: item.color,
+                      fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'block',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  >{item.label}</button>
+                )
+            )}
           </div>
         </>
       )}

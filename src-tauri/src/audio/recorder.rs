@@ -1115,8 +1115,24 @@ pub async fn start_recording(
     profile_id: Option<String>,
     state: tauri::State<'_, AudioRecorder>,
     db: tauri::State<'_, Database>,
+    ambient: tauri::State<'_, crate::audio::AmbientController>,
+    transcription: tauri::State<'_, crate::transcription::TranscriptionManager>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    // If ambient is currently capturing, save and stop it before starting manual recording
+    let ambient_status = ambient.status();
+    if ambient_status.active && ambient_status.mode == crate::types::AmbientModeState::Capturing {
+        let _ = crate::audio::ambient::stop_current_ambient_for_manual(
+            state.inner(),
+            db.inner(),
+            transcription.inner(),
+            &app_handle,
+            ambient.inner(),
+        ).await;
+        // Brief pause to ensure the recorder lock is fully released
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+
     // Detect frontmost app before Memosa potentially takes focus
     let source_app = detect_frontmost_app();
     begin_recording_session(

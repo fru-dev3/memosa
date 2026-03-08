@@ -4,7 +4,6 @@ import { useCalendar } from '../hooks/useCalendar'
 import { useTranscription } from '../hooks/useTranscription'
 import * as api from '../lib/tauri'
 import type {
-  AmbientStatus,
   AppSettings,
   AudioDiagnostics,
   CleanupLogEntry,
@@ -401,8 +400,6 @@ export function SettingsView() {
   const [cleanupLog, setCleanupLog] = useState<CleanupLogEntry[]>([])
   const [loadingCleanup, setLoadingCleanup] = useState(false)
   const [runningCleanup, setRunningCleanup] = useState(false)
-  const [ambientStatus, setAmbientStatus] = useState<AmbientStatus | null>(null)
-  const [ambientBusy, setAmbientBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const audioLevel = useMemosaStore((state) => state.audioLevel)
@@ -424,7 +421,6 @@ export function SettingsView() {
   useEffect(() => {
     api.getStorageUsage().then(setStorageUsage).catch(() => {})
     api.previewCleanup().then(setCleanupPreview).catch(() => {})
-    api.getAmbientStatus().then(setAmbientStatus).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -566,44 +562,6 @@ export function SettingsView() {
       setError(e instanceof Error ? e.message : 'Failed to run cleanup')
     } finally {
       setRunningCleanup(false)
-    }
-  }
-
-  const refreshAmbientStatus = async () => {
-    const status = await api.getAmbientStatus()
-    setAmbientStatus(status)
-  }
-
-  const handleAmbientToggle = async () => {
-    setAmbientBusy(true)
-    setError(null)
-    try {
-      if (ambientStatus?.active) {
-        await api.stopAmbientCapture()
-      } else {
-        await api.startAmbientCapture(selectedProfileId)
-      }
-      await refreshAmbientStatus()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to toggle ambient capture')
-    } finally {
-      setAmbientBusy(false)
-    }
-  }
-
-  const handleSaveLastAmbient = async () => {
-    setAmbientBusy(true)
-    setError(null)
-    try {
-      const meetingId = await api.saveLastAmbientSegment()
-      await refreshAmbientStatus()
-      if (!meetingId) {
-        setError('There is no saved ambient segment yet.')
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save last ambient segment')
-    } finally {
-      setAmbientBusy(false)
     }
   }
 
@@ -790,153 +748,6 @@ export function SettingsView() {
                 />
               </Field>
 
-
-              <Field label="Ambient prototype">
-                <ToggleButton
-                  value={draft.ambient_mode.enabled}
-                  onClick={() =>
-                    updateDraft('ambient_mode', {
-                      ...draft.ambient_mode,
-                      enabled: !draft.ambient_mode.enabled,
-                    })
-                  }
-                  onLabel="Enabled"
-                  offLabel="Disabled"
-                  description="Keeps ambient capture settings available for manual use during your chosen hours."
-                />
-              </Field>
-
-              {draft.ambient_mode.enabled && (
-                <>
-                  <div className="settings-grid-three">
-                    <Field label="Buffer minutes">
-                      <select
-                        value={draft.ambient_mode.buffer_minutes}
-                        onChange={(e) =>
-                          updateDraft('ambient_mode', {
-                            ...draft.ambient_mode,
-                            buffer_minutes: Number(e.target.value) as 15 | 30 | 60,
-                          })
-                        }
-                        className="settings-input"
-                        style={inputStyles()}
-                      >
-                        <option value={15}>15</option>
-                        <option value={30}>30</option>
-                        <option value={60}>60</option>
-                      </select>
-                    </Field>
-                    <Field label="Active from">
-                      <input
-                        type="number"
-                        min={0}
-                        max={23}
-                        value={draft.ambient_mode.active_start_hour}
-                        onChange={(e) =>
-                          updateDraft('ambient_mode', {
-                            ...draft.ambient_mode,
-                            active_start_hour: Number(e.target.value) || 0,
-                          })
-                        }
-                        className="settings-input"
-                        style={inputStyles()}
-                      />
-                    </Field>
-                    <Field label="Active until">
-                      <input
-                        type="number"
-                        min={0}
-                        max={23}
-                        value={draft.ambient_mode.active_end_hour}
-                        onChange={(e) =>
-                          updateDraft('ambient_mode', {
-                            ...draft.ambient_mode,
-                            active_end_hour: Number(e.target.value) || 0,
-                          })
-                        }
-                        className="settings-input"
-                        style={inputStyles()}
-                      />
-                    </Field>
-                  </div>
-
-                  <Field label="Ambient inputs">
-                    <div className="settings-grid-two">
-                      <ToggleButton
-                        value={draft.ambient_mode.capture_microphone}
-                        onClick={() =>
-                          updateDraft('ambient_mode', {
-                            ...draft.ambient_mode,
-                            capture_microphone: !draft.ambient_mode.capture_microphone,
-                          })
-                        }
-                        onLabel="Microphone on"
-                        offLabel="Microphone off"
-                        description="Use the microphone path during ambient capture."
-                      />
-                      <ToggleButton
-                        value={draft.ambient_mode.capture_system_audio}
-                        onClick={() =>
-                          updateDraft('ambient_mode', {
-                            ...draft.ambient_mode,
-                            capture_system_audio: !draft.ambient_mode.capture_system_audio,
-                          })
-                        }
-                        onLabel="System audio on"
-                        offLabel="System audio off"
-                        description="Prepare loopback capture for a later ambient iteration."
-                      />
-                    </div>
-                  </Field>
-
-                  <div className="settings-grid-two">
-                    <Field label="Max daily storage (MB)">
-                      <input
-                        type="number"
-                        min={128}
-                        value={draft.ambient_mode.max_daily_storage_mb}
-                        onChange={(e) =>
-                          updateDraft('ambient_mode', {
-                            ...draft.ambient_mode,
-                            max_daily_storage_mb: Number(e.target.value) || 128,
-                          })
-                        }
-                        className="settings-input"
-                        style={inputStyles()}
-                      />
-                    </Field>
-                    <Field label="Save last hotkey">
-                      <input
-                        type="text"
-                        value={draft.ambient_mode.save_hotkey}
-                        onChange={(e) =>
-                          updateDraft('ambient_mode', {
-                            ...draft.ambient_mode,
-                            save_hotkey: e.target.value,
-                          })
-                        }
-                        className="settings-input"
-                        style={inputStyles()}
-                      />
-                    </Field>
-                  </div>
-
-                  <Field label="Excluded apps" hint="Comma-separated app names">
-                    <input
-                      type="text"
-                      value={draft.ambient_mode.excluded_apps.join(', ')}
-                      onChange={(e) =>
-                        updateDraft('ambient_mode', {
-                          ...draft.ambient_mode,
-                          excluded_apps: e.target.value.split(',').map((value) => value.trim()).filter(Boolean),
-                        })
-                      }
-                      className="settings-input"
-                      style={inputStyles()}
-                    />
-                  </Field>
-                </>
-              )}
 
               <Field label="Speaker test">
                 <div className="settings-note-card">

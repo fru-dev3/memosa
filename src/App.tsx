@@ -73,6 +73,7 @@ export default function App() {
     settings,
     setSettings,
     upsertMeeting,
+    loadFoldersFromDb,
   } = useMemosaStore()
 
   useRecordingEvents()
@@ -82,13 +83,13 @@ export default function App() {
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => {})
     api.getAvailableModels().then(setAvailableModels).catch(() => {})
-    // Load persisted profiles from Rust storage
     api.loadProfiles().then(data => {
       if (Array.isArray(data) && data.length > 0) {
         setProfiles(data as RecordingProfile[])
       }
     }).catch(() => {})
-  }, [setAvailableModels, setProfiles, setSettings])
+    loadFoldersFromDb()
+  }, [setAvailableModels, setProfiles, setSettings, loadFoldersFromDb])
 
   useEffect(() => {
     const root = document.documentElement
