@@ -54,10 +54,10 @@ function StopIcon() {
 }
 
 export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
-  const { audioLevel, recordingStatus, transcriptionProgress } = useMemosaStore()
+  const { audioLevel, recordingStatus, liveTranscriptLines } = useMemosaStore()
 
   const isLive = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
-  const partialText = transcriptionProgress.get(meeting.id)?.partial_text ?? ''
+  const partialText = liveTranscriptLines.join(' ')
 
   const [title, setTitle] = useState(meeting.title)
   const [notes, setNotes] = useState('')
@@ -261,7 +261,7 @@ export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
             ) : isLive ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  Transcription runs after the recording stops. Your notes appear on the left in real time.
+                  Live transcript will appear here in a moment. Speak clearly and Whisper will pick it up.
                 </p>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {['Local Whisper', 'On-device', 'Private'].map((tag) => (
