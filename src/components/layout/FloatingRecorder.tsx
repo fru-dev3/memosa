@@ -41,6 +41,7 @@ export function FloatingRecorder() {
   useEffect(() => {
     if (recordingStatus.is_recording) {
       setKeepLivePanelOpen(true)
+      setExpanded(true)  // auto-open so waveform + signal state are immediately visible
     } else if (keepLivePanelOpen) {
       const id = setTimeout(() => {
         setKeepLivePanelOpen(false)
