@@ -110,6 +110,24 @@ const WHY_REASONS = [
 
 const WEBSITE_URL = 'https://www.memosa.dev'
 
+const SHORTCUTS = [
+  {
+    group: 'Navigation',
+    rows: [
+      { keys: ['⌘', '1'], label: 'Home' },
+      { keys: ['⌘', '2'], label: 'Memos' },
+      { keys: ['⌘', '3'], label: 'Search' },
+    ],
+  },
+  {
+    group: 'Recording',
+    rows: [
+      { keys: ['⇧', '⌘', 'R'], label: 'Start / stop recording' },
+      { keys: ['⌘', 'K'], label: 'Open command palette' },
+    ],
+  },
+] as const
+
 // ─── Tab panels ───────────────────────────────────────────────────────────────
 
 function OverviewPanel() {
@@ -236,14 +254,49 @@ function WhyPanel() {
   )
 }
 
+function ShortcutsPanel() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '16px 0 4px' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>Keyboard shortcuts</div>
+        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text-primary)' }}>Work faster with your hands.</div>
+      </div>
+      {SHORTCUTS.map(({ group, rows }) => (
+        <div key={group}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>{group}</div>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10, overflow: 'hidden' }}>
+            {rows.map(({ keys, label }, i) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: i < rows.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{label}</span>
+                <span style={{ display: 'flex', gap: 3 }}>
+                  {keys.map((k) => (
+                    <kbd key={k} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, padding: '2px 5px', background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: 5, fontSize: 11, fontFamily: 'inherit', color: 'var(--text-secondary)', boxShadow: '0 1px 0 var(--border-subtle)' }}>{k}</kbd>
+                  ))}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{ padding: '12px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Global shortcuts</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          Configure a system-wide shortcut to start and stop recording from any app — even when Memosa is in the background. Set it in Settings → Recording.
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-type AboutTab = 'overview' | 'how' | 'integrations' | 'why'
+type AboutTab = 'overview' | 'how' | 'integrations' | 'why' | 'shortcuts'
 const TABS: { id: AboutTab; label: string; icon: string }[] = [
   { id: 'overview',     label: 'Overview',     icon: '✦' },
   { id: 'how',          label: 'How it works', icon: '→' },
   { id: 'integrations', label: 'Integrations', icon: '⟡' },
   { id: 'why',          label: 'Why Memosa',   icon: '◎' },
+  { id: 'shortcuts',    label: 'Shortcuts',    icon: '⌘' },
 ]
 
 export function AboutView() {
@@ -281,6 +334,7 @@ export function AboutView() {
             {activeTab === 'how' && <HowPanel />}
             {activeTab === 'integrations' && <IntegrationsPanel onRequest={() => void api.openExternalUrl(WEBSITE_URL)} />}
             {activeTab === 'why' && <WhyPanel />}
+            {activeTab === 'shortcuts' && <ShortcutsPanel />}
           </div>
         </div>
       </div>
