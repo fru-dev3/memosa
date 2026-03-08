@@ -191,7 +191,8 @@ export function TranscriptViewer({
   onDelete?: (meeting: Meeting) => void
   onRetranscribe?: (meeting: Meeting) => void
 }) {
-  const { audioLevel, recordingStatus, setActiveView, setSearchSeed, transcriptionErrors, availableModels } = useMemosaStore()
+  const { audioLevel, profiles, recordingStatus, setActiveView, setSearchSeed, transcriptionErrors, availableModels } = useMemosaStore()
+  const meetingProfile = profiles.find(p => p.id === meeting.profile_id)
   const transcriptionFailureError = transcriptionErrors.get(meeting.id)
   const hasDownloadedModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
   const isThisMeetingRecording = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
@@ -380,9 +381,17 @@ export function TranscriptViewer({
             style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 650, color: 'var(--text-primary)', cursor: 'text', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >{titleDraft}</h2>
         )}
-        <p style={{ margin: '0 0 10px', fontSize: 11, color: 'var(--text-secondary)' }}>
-          {formatDateLong(meeting.date, meeting.start_time)}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 10px', flexWrap: 'wrap' }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)' }}>
+            {formatDateLong(meeting.date, meeting.start_time)}
+          </p>
+          {meetingProfile && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 100, background: `${meetingProfile.accent}18`, border: `1px solid ${meetingProfile.accent}30`, fontSize: 10, fontWeight: 600, color: meetingProfile.accent, letterSpacing: '0.3px' }}>
+              <span style={{ width: 4, height: 4, borderRadius: '50%', background: meetingProfile.accent, display: 'inline-block', flexShrink: 0 }} />
+              {meetingProfile.name}
+            </span>
+          )}
+        </div>
         {/* Underline tab bar */}
         <div style={{ display: 'flex' }}>
           {(['transcript', 'timeline'] as TranscriptViewMode[]).map((mode) => (
