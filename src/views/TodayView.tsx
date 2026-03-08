@@ -149,8 +149,27 @@ export function TodayView() {
       recorded: duration,
       pending: meetings.filter((meeting) => meeting.transcription_status === 'processing').length,
       summaries: meetings.filter((meeting) => meeting.summary).length,
+      hasAnyMeetings: meetings.length > 0,
     }
   }, [meetings])
+
+  const heroTitle = recordingStatus.is_recording
+    ? 'Recording is live.'
+    : loading
+    ? 'Preparing your capture space.'
+    : stats.conversations > 0
+    ? `${stats.conversations} ${stats.conversations === 1 ? 'conversation' : 'conversations'} captured today.`
+    : stats.hasAnyMeetings
+    ? 'Quiet day so far.'
+    : 'A cleaner way to start the moment.'
+
+  const heroSubtext = recordingStatus.is_recording
+    ? 'Memosa is capturing locally on this Mac right now.'
+    : stats.conversations > 0
+    ? `${formatDuration(stats.recorded)} recorded locally today.`
+    : stats.hasAnyMeetings
+    ? 'Your previous recordings are in the library when you need them.'
+    : 'Make recording the center of the page, then let everything else support it.'
 
   const openSearchFor = (value: string) => {
     setSearchSeed(value)
@@ -183,14 +202,8 @@ export function TodayView() {
         <div className="today-stage-main">
           <div className="today-stage-copy">
             <div className="eyebrow">Today</div>
-            <div className="today-stage-title">
-              {recordingStatus.is_recording ? 'Recording is live.' : loading ? 'Preparing your capture space.' : 'A cleaner way to start the moment.'}
-            </div>
-            <div className="today-stage-text">
-              {recordingStatus.is_recording
-                ? 'Memosa is capturing locally on this Mac right now.'
-                : 'Make recording the center of the page, then let everything else support it.'}
-            </div>
+            <div className="today-stage-title">{heroTitle}</div>
+            <div className="today-stage-text">{heroSubtext}</div>
             <div className="today-hero-note-band">
               <div className="today-date-pill">{todayLabel}</div>
               <div className="living-note" key={quoteIndex}>
@@ -220,10 +233,10 @@ export function TodayView() {
         </div>
 
         <div className="today-stage-stats">
-          <StatCard label="Conversations" value={String(stats.conversations)} detail="Today" />
-          <StatCard label="Recorded time" value={formatDuration(stats.recorded)} detail="Saved locally" />
-          <StatCard label="In queue" value={String(stats.pending)} detail="Transcription jobs" />
-          <StatCard label="Summaries" value={String(stats.summaries)} detail="Available now" />
+          <StatCard label="Conversations" value={stats.conversations > 0 ? String(stats.conversations) : '—'} detail="Today" />
+          <StatCard label="Recorded time" value={stats.recorded > 0 ? formatDuration(stats.recorded) : '—'} detail="Saved locally" />
+          <StatCard label="In queue" value={stats.pending > 0 ? String(stats.pending) : '—'} detail="Transcription jobs" />
+          <StatCard label="Summaries" value={stats.summaries > 0 ? String(stats.summaries) : '—'} detail="Available now" />
         </div>
       </section>
 
@@ -236,7 +249,9 @@ export function TodayView() {
           {loading ? (
             <div className="skeleton" style={{ height: 48, borderRadius: 10 }} />
           ) : recentByDay.length === 0 ? (
-            <div className="minimal-empty-state" aria-label="No recordings yet" />
+            <div style={{ padding: '14px 0 4px', fontSize: 12, color: 'var(--text-muted)' }}>
+              {stats.hasAnyMeetings ? 'Nothing recorded today. Previous recordings are in the library.' : 'No recordings yet. Press record to start your first capture.'}
+            </div>
           ) : (
             recentByDay.map(({ date, shown, extra }) => (
               <div key={date} className="today-day-group">

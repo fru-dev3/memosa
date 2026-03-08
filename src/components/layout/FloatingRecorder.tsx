@@ -36,12 +36,19 @@ function ChevronRightIcon() {
 export function FloatingRecorder() {
   const { activeView, activeFolderId, assignMeetingToProject, folders, recordingStatus, selectedProfileId } = useMemosaStore()
   const [expanded, setExpanded] = useState(false)
+  const [keepLivePanelOpen, setKeepLivePanelOpen] = useState(false)
 
   useEffect(() => {
-    if (!recordingStatus.is_recording) {
-      setExpanded(false)
+    if (recordingStatus.is_recording) {
+      setKeepLivePanelOpen(true)
+    } else if (keepLivePanelOpen) {
+      const id = setTimeout(() => {
+        setKeepLivePanelOpen(false)
+        setExpanded(false)
+      }, 2200)
+      return () => clearTimeout(id)
     }
-  }, [recordingStatus.is_recording])
+  }, [recordingStatus.is_recording]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (activeView === 'settings' || activeView === 'profiles' || activeView === 'templates' || activeView === 'about' || activeView === 'privacy') {
     return null
@@ -57,7 +64,7 @@ export function FloatingRecorder() {
     }
   }
 
-  if (recordingStatus.is_recording) {
+  if (recordingStatus.is_recording || keepLivePanelOpen) {
     return (
       <div className="side-bookmark side-bookmark-live">
         <button
