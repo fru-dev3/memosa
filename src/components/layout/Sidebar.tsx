@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import memosaIcon from '../../assets/memosa-icon.png'
 import * as api from '../../lib/tauri'
 import type { AppView } from '../../lib/types'
@@ -75,28 +76,16 @@ export function Sidebar() {
     api.getAppVersion().then(setAppVersion).catch(() => {})
   }, [])
 
+  const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0) void invoke('start_window_drag')
+  }, [])
+
   return (
     <aside className={`app-sidebar${sidebarCollapsed ? ' is-collapsed' : ''}`}>
 
-      {/* ── Header: logo + name + toggle ── */}
-      <div className="sb-header" data-tauri-drag-region>
-        {sidebarCollapsed ? (
-          <div className="sb-collapsed-header">
-            <button
-              className="sb-toggle"
-              onClick={toggleSidebarCollapsed}
-              title="Expand sidebar"
-            >
-              {/* Expand icon: mirror of collapse — divider on right, arrow points right */}
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                <rect x="1.75" y="2" width="12.5" height="12" rx="2.1" stroke="currentColor" strokeWidth="1.35" />
-                <path d="M10.75 2v12" stroke="currentColor" strokeWidth="1.35" />
-                <path d="M9.1 8L7.2 6.2M9.1 8L7.2 9.8" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <img src={memosaIcon} alt="Memosa" className="sb-logo" />
-          </div>
-        ) : (
+      {/* ── Drag strip (matches main content drag bar height) ── */}
+      <div className="sb-header" onMouseDown={handleDragMouseDown} style={{ cursor: 'grab' }}>
+        {!sidebarCollapsed && (
           <>
             <button
               className="sb-brand"
@@ -108,6 +97,7 @@ export function Sidebar() {
             <button
               className="sb-toggle"
               onClick={toggleSidebarCollapsed}
+              onMouseDown={e => e.stopPropagation()}
               title="Collapse sidebar"
             >
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -119,6 +109,24 @@ export function Sidebar() {
           </>
         )}
       </div>
+
+      {/* ── Collapsed: toggle + logo sit below the drag strip ── */}
+      {sidebarCollapsed && (
+        <div className="sb-collapsed-header">
+          <button
+            className="sb-toggle"
+            onClick={toggleSidebarCollapsed}
+            title="Expand sidebar"
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <rect x="1.75" y="2" width="12.5" height="12" rx="2.1" stroke="currentColor" strokeWidth="1.35" />
+              <path d="M10.75 2v12" stroke="currentColor" strokeWidth="1.35" />
+              <path d="M9.1 8L7.2 6.2M9.1 8L7.2 9.8" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <img src={memosaIcon} alt="Memosa" className="sb-logo" />
+        </div>
+      )}
 
       {/* ── Primary nav ── */}
       <nav className="sb-nav">

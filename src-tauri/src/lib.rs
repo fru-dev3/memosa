@@ -25,6 +25,11 @@ fn get_app_version() -> &'static str {
 }
 
 #[tauri::command]
+fn start_window_drag(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
     if !url.starts_with("https://") && !url.starts_with("http://") {
         return Err(format!("Blocked non-http URL: {url}"));
@@ -214,6 +219,7 @@ pub fn run() {
             screenshot::stop_screenshot_capture,
             get_app_version,
             open_external_url,
+            start_window_drag,
         ])
         .run({
             diagnostics::log("run: entering tauri runtime");
