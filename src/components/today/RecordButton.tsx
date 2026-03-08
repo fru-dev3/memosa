@@ -29,8 +29,9 @@ function StopSquare() {
 // ─── RecordButton ─────────────────────────────────────────────────
 
 export function RecordButton() {
-  const { recordingGuardMessage, recordingStatus, selectedProfileId, setRecordingGuardMessage } = useMemosaStore()
+  const { availableModels, recordingGuardMessage, recordingStatus, selectedProfileId, setActiveView, setRecordingGuardMessage } = useMemosaStore()
   const { startRecording } = useRecording()
+  const hasModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
   const [titleInput, setTitleInput] = useState('')
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -150,7 +151,22 @@ export function RecordButton() {
         </button>
       </div>
 
-      {!error && !recordingGuardMessage && (
+      {!error && !recordingGuardMessage && !hasModel && (
+        <div style={{ marginTop: 4, padding: '8px 12px', borderRadius: 9, background: 'rgba(226,153,45,0.1)', border: '1px solid rgba(226,153,45,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--warning-amber)', lineHeight: 1.4 }}>
+            No Whisper model downloaded — audio will be captured but not transcribed.
+          </p>
+          <button
+            type="button"
+            onClick={() => setActiveView('settings')}
+            style={{ fontSize: 11, fontWeight: 600, color: 'var(--warning-amber)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap', fontFamily: 'inherit', textDecoration: 'underline' }}
+          >
+            Download
+          </button>
+        </div>
+      )}
+
+      {!error && !recordingGuardMessage && hasModel && (
         <div className="quick-record-hint-row">
           <span>Press return to start</span>
           <span>Saved locally</span>

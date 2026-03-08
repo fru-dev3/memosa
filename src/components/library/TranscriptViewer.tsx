@@ -193,12 +193,16 @@ export function TranscriptViewer({
 }) {
   const { audioLevel, profiles, recordingStatus, setActiveView, setSearchSeed, transcriptionErrors, availableModels } = useMemosaStore()
   const meetingProfile = profiles.find(p => p.id === meeting.profile_id)
+  const profileDefaultViewMode: TranscriptViewMode =
+    meetingProfile?.summary_template === 'action_items' || meetingProfile?.summary_template === 'decision_log'
+      ? 'timeline'
+      : 'transcript'
   const transcriptionFailureError = transcriptionErrors.get(meeting.id)
   const hasDownloadedModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
   const isThisMeetingRecording = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
   const [transcriptContent, setTranscriptContent] = useState<string | null>(null)
   const [draftContent, setDraftContent] = useState('')
-  const [viewMode, setViewMode] = useState<TranscriptViewMode>('transcript')
+  const [viewMode, setViewMode] = useState<TranscriptViewMode>(profileDefaultViewMode)
   const [textMode, setTextMode] = useState<TranscriptTextMode>('clean')
   const [editing, setEditing] = useState(false)
   const [loadingTranscript, setLoadingTranscript] = useState(false)
@@ -458,9 +462,33 @@ export function TranscriptViewer({
               </div>
             </div>
           ) : meeting.transcription_status === 'not_started' ? (
-            <div className="search-empty-state" style={{ gap: 12 }}>
-              <div className="minimal-empty-state" aria-label="No transcript" />
-              {meeting.audio_path && <button onClick={() => onRetranscribe?.(meeting)} className="ghost-pill">Transcribe now</button>}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 20, padding: 32, textAlign: 'center' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--bg-hover)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <circle cx="9" cy="9" r="7.5" stroke="var(--text-muted)" strokeWidth="1.2" />
+                  <path d="M9 5.5V9.5L11.5 11" stroke="var(--text-muted)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 240 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {hasDownloadedModel ? 'Ready to transcribe' : 'No model downloaded'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  {hasDownloadedModel
+                    ? 'Audio is saved locally. Start transcription when ready.'
+                    : 'Download a Whisper model in Settings → Models to transcribe this recording.'}
+                </div>
+              </div>
+              {meeting.audio_path && hasDownloadedModel && (
+                <button onClick={() => onRetranscribe?.(meeting)} className="ghost-pill is-selected-pill">
+                  Transcribe now
+                </button>
+              )}
+              {!hasDownloadedModel && (
+                <button onClick={() => setActiveView('settings')} className="ghost-pill">
+                  Download a model
+                </button>
+              )}
             </div>
           ) : meeting.transcription_status === 'processing' ? (
             <TranscribingState />
