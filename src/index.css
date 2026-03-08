@@ -161,6 +161,11 @@ textarea {
   40%           { transform: translateY(-7px); opacity: 1; }
 }
 
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
 /* Legacy record pulse — for RecordingSession */
 @keyframes pulse-record {
   0%, 100% { box-shadow: 0 0 0 0 rgba(240,92,92,0.5); }

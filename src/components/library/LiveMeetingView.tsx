@@ -255,13 +255,26 @@ export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
               <>
                 <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--text-primary)' }}>
                   {partialText}
+                  {isLive && (
+                    <span style={{
+                      display: 'inline-block', width: 2, height: '1em',
+                      background: 'var(--accent)', borderRadius: 1, marginLeft: 2,
+                      verticalAlign: 'text-bottom',
+                      animation: 'cursor-blink 1s ease-in-out infinite',
+                    }} />
+                  )}
                 </p>
                 <div ref={transcriptEndRef} />
               </>
             ) : isLive ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, display: 'flex', alignItems: 'center', gap: 6 }}>
                   Live transcript will appear here in a moment. Speak clearly and Whisper will pick it up.
+                  <span style={{
+                    display: 'inline-block', width: 2, height: 14, flexShrink: 0,
+                    background: 'var(--accent)', borderRadius: 1,
+                    animation: 'cursor-blink 1s ease-in-out infinite',
+                  }} />
                 </p>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {['Local Whisper', 'On-device', 'Private'].map((tag) => (
