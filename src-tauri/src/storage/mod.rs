@@ -283,6 +283,24 @@ pub async fn read_meeting_transcript(
     })
 }
 
+/// Find the notes file for a meeting. Prefers the timestamped format
+/// (`notes-YYYY-MM-DD.md`) but falls back to the legacy `notes.md`.
+fn resolve_notes_path(folder: &str, meeting_date: &str) -> std::path::PathBuf {
+    let dir = std::path::Path::new(folder);
+    // Date portion only (YYYY-MM-DD)
+    let date_part = &meeting_date[..10.min(meeting_date.len())];
+    let timestamped = dir.join(format!("notes-{}.md", date_part));
+    if timestamped.exists() {
+        return timestamped;
+    }
+    let legacy = dir.join("notes.md");
+    if legacy.exists() {
+        return legacy;
+    }
+    // New file → use timestamped name
+    timestamped
+}
+
 #[tauri::command]
 pub async fn read_meeting_notes(
     id: String,
@@ -291,7 +309,9 @@ pub async fn read_meeting_notes(
     let folder = db
         .get_folder_path(&id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
-    let notes_path = std::path::Path::new(&folder).join("notes.md");
+    let meeting = db.get_meeting(&id)?
+        .ok_or_else(|| "Meeting not found".to_string())?;
+    let notes_path = resolve_notes_path(&folder, &meeting.date);
     if !notes_path.exists() {
         return Ok(String::new());
     }
@@ -313,18 +333,32 @@ pub async fn save_meeting_notes(
     let folder = db
         .get_folder_path(&id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
-    let notes_path = std::path::Path::new(&folder).join("notes.md");
+    let meeting = db.get_meeting(&id)?
+        .ok_or_else(|| "Meeting not found".to_string())?;
+    let notes_path = resolve_notes_path(&folder, &meeting.date);
 
     if content.trim().is_empty() {
+        // Clean up both legacy and timestamped if they exist
+        let dir = std::path::Path::new(&folder);
+        let legacy = dir.join("notes.md");
         if notes_path.exists() {
             std::fs::remove_file(&notes_path)
                 .map_err(|e| format!("Failed to clear meeting notes: {}", e))?;
         }
+        if legacy.exists() && legacy != notes_path {
+            let _ = std::fs::remove_file(&legacy);
+        }
         return Ok(());
     }
 
-    std::fs::write(&notes_path, content)
+    std::fs::write(&notes_path, &content)
         .map_err(|e| format!("Failed to save meeting notes: {}", e))?;
+
+    // Migrate: if we wrote to timestamped and legacy still exists, remove legacy
+    let legacy = std::path::Path::new(&folder).join("notes.md");
+    if legacy.exists() && legacy != notes_path {
+        let _ = std::fs::remove_file(&legacy);
+    }
     Ok(())
 }
 

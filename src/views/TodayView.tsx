@@ -112,14 +112,19 @@ export function TodayView() {
   const recentByDay = useMemo(() => {
     const sorted = [...meetings].sort((a, b) => `${b.date}${b.start_time}`.localeCompare(`${a.date}${a.start_time}`))
     const groups: { date: string; shown: typeof meetings; extra: number }[] = []
-    const seen = new Set<string>()
+    const dayMap = new Map<string, typeof meetings>()
+    const dayOrder: string[] = []
     for (const meeting of sorted) {
-      if (!seen.has(meeting.date)) {
-        seen.add(meeting.date)
-        const dayMeetings = sorted.filter((m) => m.date === meeting.date)
-        groups.push({ date: meeting.date, shown: dayMeetings.slice(0, 3), extra: Math.max(0, dayMeetings.length - 3) })
-        if (groups.length >= 4) break
+      if (!dayMap.has(meeting.date)) {
+        dayMap.set(meeting.date, [])
+        dayOrder.push(meeting.date)
+        if (dayOrder.length > 4) break
       }
+      dayMap.get(meeting.date)!.push(meeting)
+    }
+    for (const date of dayOrder.slice(0, 4)) {
+      const dayMeetings = dayMap.get(date)!
+      groups.push({ date, shown: dayMeetings.slice(0, 3), extra: Math.max(0, dayMeetings.length - 3) })
     }
     return groups
   }, [meetings])

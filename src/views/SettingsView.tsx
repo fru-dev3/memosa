@@ -323,6 +323,8 @@ export function SettingsView() {
     profiles,
     selectedProfileId,
     setActiveView,
+    folders,
+    meetingFolderAssignments,
     setAutoRecord,
     setAvailableModels,
     setSelectedProfileId,
@@ -807,6 +809,82 @@ export function SettingsView() {
             </div>
           </div>
         )}
+
+        {/* Per-collection storage breakdown */}
+        {(() => {
+          const meetingMap = new Map(meetings.map(m => [m.id, m]))
+          const folderStats = folders.map(folder => {
+            const meetingIds = Object.entries(meetingFolderAssignments)
+              .filter(([, fids]) => fids.includes(folder.id))
+              .map(([mid]) => mid)
+            const folderMeetings = meetingIds.map(id => meetingMap.get(id)).filter(Boolean) as typeof meetings
+            const memoCount = folderMeetings.length
+            const totalDuration = folderMeetings.reduce((sum, m) => sum + m.duration_seconds, 0)
+            const starredCount = folderMeetings.filter(m => m.is_favorite).length
+            // Approximate: audio ~600 bytes/sec, transcript ~17 bytes/sec, metadata ~1KB
+            const estimatedBytes = totalDuration * 617 + memoCount * 1024
+            return { id: folder.id, name: folder.name, color: folder.color, memoCount, totalDuration, starredCount, estimatedBytes }
+          }).filter(f => f.memoCount > 0).sort((a, b) => b.estimatedBytes - a.estimatedBytes)
+
+          // Count unassigned memos
+          const assignedIds = new Set(Object.keys(meetingFolderAssignments).filter(
+            mid => meetingFolderAssignments[mid].length > 0
+          ))
+          const unassignedCount = meetings.length - assignedIds.size
+
+          if (folderStats.length === 0 && unassignedCount === 0) return null
+
+          return (
+            <>
+              <SectionLabel>Usage by collection</SectionLabel>
+              <div style={{ padding: '4px 0 8px', borderBottom: '1px solid var(--border-subtle)' }}>
+                {folderStats.map(f => (
+                  <div key={f.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '5px 0', fontSize: 12,
+                  }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: f.color || 'var(--text-muted)', flexShrink: 0,
+                    }} />
+                    <span style={{ flex: 1, color: 'var(--text-primary)', fontWeight: 500 }}>
+                      {f.name}
+                    </span>
+                    {f.starredCount > 0 && (
+                      <span style={{ fontSize: 10, color: '#d97706' }}>
+                        {f.starredCount} starred
+                      </span>
+                    )}
+                    <span style={{ color: 'var(--text-muted)', fontSize: 11, minWidth: 60 }}>
+                      {f.memoCount} memo{f.memoCount !== 1 ? 's' : ''}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 11, minWidth: 55, textAlign: 'right' }}>
+                      ~{formatBytes(f.estimatedBytes)}
+                    </span>
+                  </div>
+                ))}
+                {unassignedCount > 0 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '5px 0', fontSize: 12,
+                  }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: 'var(--border)', flexShrink: 0,
+                    }} />
+                    <span style={{ flex: 1, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      Unassigned
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 11, minWidth: 60 }}>
+                      {unassignedCount} memo{unassignedCount !== 1 ? 's' : ''}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 11, minWidth: 55, textAlign: 'right' }} />
+                  </div>
+                )}
+              </div>
+            </>
+          )
+        })()}
 
         <SectionLabel>Retention</SectionLabel>
 

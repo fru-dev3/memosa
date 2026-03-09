@@ -18,9 +18,10 @@ import { SearchView } from './views/SearchView'
 import { SettingsView } from './views/SettingsView'
 import { TemplatesView } from './views/TemplatesView'
 import { TodayView } from './views/TodayView'
+import { ExportView } from './views/ExportView'
 import { SetupView } from './views/SetupView'
 
-type PrimaryView = 'today' | 'calendar' | 'projects' | 'search'
+type PrimaryView = 'today' | 'calendar' | 'projects' | 'search' | 'export'
 
 type SafeModalView = 'settings' | 'profiles' | 'templates' | 'about' | null
 
@@ -232,10 +233,11 @@ export default function App() {
     calendar: <CalendarView />,
     projects: <ProjectsView />,
     search:   <SearchView />,
+    export:   <ExportView />,
   }
 
   const modalViews = new Set(['settings', 'profiles', 'templates', 'about', 'privacy'] as const)
-  const primaryViews = new Set<PrimaryView>(['today', 'calendar', 'projects', 'search'])
+  const primaryViews = new Set<PrimaryView>(['today', 'calendar', 'projects', 'search', 'export'])
 
   useEffect(() => {
     if (!primaryViews.has(activeView as PrimaryView) && !modalViews.has(activeView as typeof modalViews extends Set<infer T> ? T : never)) {

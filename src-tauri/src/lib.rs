@@ -211,6 +211,8 @@ pub fn run() {
             storage::assign_meeting_folder,
             storage::remove_meeting_folder,
             export::export_meeting_bundle,
+            export::export_meetings_markdown,
+            export::reveal_export_in_finder,
             import::pick_import_folder,
             import::scan_voice_memos,
             import::import_voice_memos,

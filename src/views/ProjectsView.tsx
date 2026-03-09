@@ -356,12 +356,14 @@ export function ProjectsView() {
   const setSelectedFolderId = (id: string | null) => {
     setSelectedFolderIdLocal(id)
     setActiveFolderId(id)
+    setDisplayLimit(50)
   }
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null)
   const [showFolderPanel, setShowFolderPanel] = useState(false)
   const [showMeetingPanel, setShowMeetingPanel] = useState(true)
   const [folderSearch, setFolderSearch] = useState('')
   const [meetingSearch, setMeetingSearch] = useState('')
+  const [displayLimit, setDisplayLimit] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
   const [dragType, setDragType] = useState<'meeting' | 'folder' | null>(null)
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
@@ -465,8 +467,17 @@ export function ProjectsView() {
     dragRef.current = { type: 'folder', id: folder.id, title: folder.name, startX: e.clientX, startY: e.clientY, active: false }
   }
 
-  const meetingCount = (folderId: string) =>
-    Object.values(meetingFolderAssignments).filter((fids) => fids.includes(folderId)).length
+  const folderMeetingCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const fids of Object.values(meetingFolderAssignments)) {
+      for (const fid of fids) {
+        counts.set(fid, (counts.get(fid) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [meetingFolderAssignments])
+
+  const meetingCount = (folderId: string) => folderMeetingCounts.get(folderId) ?? 0
 
   const rootFolders = useMemo(() => folders.filter((f) => f.parentId === null), [folders])
 
@@ -476,9 +487,12 @@ export function ProjectsView() {
     return folders.filter((f) => f.name.toLowerCase().includes(q))
   }, [folders, folderSearch])
 
-  const baseMeetings = selectedFolderId === null
-    ? meetings
-    : meetings.filter((m) => (meetingFolderAssignments[m.id] ?? []).includes(selectedFolderId))
+  const baseMeetings = useMemo(() =>
+    selectedFolderId === null
+      ? meetings
+      : meetings.filter((m) => (meetingFolderAssignments[m.id] ?? []).includes(selectedFolderId)),
+    [selectedFolderId, meetings, meetingFolderAssignments]
+  )
 
   const visibleMeetings = useMemo(() => {
     const q = meetingSearch.trim().toLowerCase()
@@ -500,12 +514,17 @@ export function ProjectsView() {
       `${b.date}${b.start_time}`.localeCompare(`${a.date}${a.start_time}`)
     )
     const groups: { label: string; meetings: typeof sorted }[] = []
-    const seen = new Set<string>()
+    const groupMap = new Map<string, typeof sorted>()
+    const groupOrder: string[] = []
     for (const m of sorted) {
-      if (!seen.has(m.date)) {
-        seen.add(m.date)
-        groups.push({ label: fmtCardDate(m.date), meetings: sorted.filter(x => x.date === m.date) })
+      if (!groupMap.has(m.date)) {
+        groupMap.set(m.date, [])
+        groupOrder.push(m.date)
       }
+      groupMap.get(m.date)!.push(m)
+    }
+    for (const date of groupOrder) {
+      groups.push({ label: fmtCardDate(date), meetings: groupMap.get(date)! })
     }
     return groups
   }, [selectedFolderId, visibleMeetings])
@@ -730,26 +749,56 @@ export function ProjectsView() {
             {folders.length > 0 && (
               <div className="proj-drag-tip">Hold and drag a memo onto a collection to assign it</div>
             )}
-            {dateGroups.map(({ label, meetings: dayMeetings }) => (
-              <div key={label}>
-                <div style={{ padding: '8px 10px 4px', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>{label}</div>
-                {dayMeetings.map((meeting) => {
-                  const assignedIds = meetingFolderAssignments[meeting.id] ?? []
-                  const isSelected = selectedMeeting?.id === meeting.id
-                  const isLiveMeeting = liveMeetingId === meeting.id
-                  return renderMeetingRow(meeting, isSelected, isLiveMeeting, assignedIds)
-                })}
-              </div>
-            ))}
+            {(() => {
+              let rendered = 0
+              let truncated = false
+              return dateGroups.map(({ label, meetings: dayMeetings }) => {
+                if (truncated) return null
+                const remaining = displayLimit - rendered
+                if (remaining <= 0) { truncated = true; return null }
+                const toShow = dayMeetings.slice(0, remaining)
+                rendered += toShow.length
+                const isLastGroup = rendered >= displayLimit
+                return (
+                  <div key={label}>
+                    <div style={{ padding: '8px 10px 4px', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>{label}</div>
+                    {toShow.map((meeting) => {
+                      const assignedIds = meetingFolderAssignments[meeting.id] ?? []
+                      const isSelected = selectedMeeting?.id === meeting.id
+                      const isLiveMeeting = liveMeetingId === meeting.id
+                      return renderMeetingRow(meeting, isSelected, isLiveMeeting, assignedIds)
+                    })}
+                    {isLastGroup && visibleMeetings.length > displayLimit && (
+                      <button
+                        className="ghost-pill"
+                        onClick={() => setDisplayLimit(prev => prev + 50)}
+                        style={{ margin: '12px auto', display: 'block', fontSize: 11 }}
+                      >
+                        Show more ({visibleMeetings.length - displayLimit} remaining)
+                      </button>
+                    )}
+                  </div>
+                )
+              })
+            })()}
           </div>
         ) : (
           <div className="proj-meeting-list">
-            {visibleMeetings.map((meeting) => {
+            {visibleMeetings.slice(0, displayLimit).map((meeting) => {
               const assignedIds = meetingFolderAssignments[meeting.id] ?? []
               const isSelected = selectedMeeting?.id === meeting.id
               const isLiveMeeting = liveMeetingId === meeting.id
               return renderMeetingRow(meeting, isSelected, isLiveMeeting, assignedIds)
             })}
+            {visibleMeetings.length > displayLimit && (
+              <button
+                className="ghost-pill"
+                onClick={() => setDisplayLimit(prev => prev + 50)}
+                style={{ margin: '12px auto', display: 'block', fontSize: 11 }}
+              >
+                Show more ({visibleMeetings.length - displayLimit} remaining)
+              </button>
+            )}
           </div>
         )}
       </div>
