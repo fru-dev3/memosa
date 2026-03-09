@@ -238,6 +238,7 @@ export type AppView =
   | 'library'
   | 'projects'
   | 'search'
+  | 'export'
 // 'library' is kept for backwards compat — all navigation uses 'projects'
   | 'about'
   | 'profiles'
@@ -278,6 +279,24 @@ export interface RecordingProfile {
   default_tags: string[]
   privacy_mode: 'strict' | 'balanced' | 'shareable'
   retention_days?: number
+}
+
+// Bulk Markdown Export
+export type MarkdownExportMode = 'by_folder' | 'by_date_range' | 'all'
+
+export interface MarkdownExportRequest {
+  mode: MarkdownExportMode
+  folder_ids?: string[]
+  include_subfolders?: boolean
+  from_date?: string
+  to_date?: string
+  starred_only?: boolean
+}
+
+export interface MarkdownExportResult {
+  output_path: string
+  meeting_count: number
+  total_bytes: number
 }
 
 export interface AmbientModeSettings {

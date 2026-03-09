@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useMemosaStore } from '../store'
 import { useMeetings } from '../hooks/useMeetings'
 import { useTranscription } from '../hooks/useTranscription'
@@ -99,6 +100,32 @@ export function LibraryView() {
   const dayGroups = useMemo(() => groupByDay(searchedMeetings), [searchedMeetings])
 
   const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set())
+
+  // Flatten day groups + expanded meetings into a single virtual list
+  type VirtualRow =
+    | { type: 'day-header'; dayGroup: DayGroup }
+    | { type: 'meeting'; meeting: Meeting; dayKey: string }
+
+  const flatRows = useMemo<VirtualRow[]>(() => {
+    const rows: VirtualRow[] = []
+    for (const dayGroup of dayGroups) {
+      rows.push({ type: 'day-header', dayGroup })
+      if (expandedDays.has(dayGroup.key)) {
+        for (const meeting of dayGroup.meetings) {
+          rows.push({ type: 'meeting', meeting, dayKey: dayGroup.key })
+        }
+      }
+    }
+    return rows
+  }, [dayGroups, expandedDays])
+
+  const listParentRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: flatRows.length,
+    getScrollElement: () => listParentRef.current,
+    estimateSize: (index) => flatRows[index].type === 'day-header' ? 30 : 50,
+    overscan: 15,
+  })
 
   // When the active month changes, expand only the day of the selected meeting (or the first day)
   useEffect(() => {
@@ -351,55 +378,77 @@ export function LibraryView() {
                 )}
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div ref={listParentRef} style={{ flex: 1, overflowY: 'auto' }}>
               {loading ? (
                 <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
               ) : searchedMeetings.length === 0 ? (
                 <EmptyPanel message={listSearch ? 'No matches' : meetings.length === 0 ? 'No memos yet' : 'No memos in this month'} />
               ) : (
-                <div>
-                  {dayGroups.map(dayGroup => {
-                    const isOpen = expandedDays.has(dayGroup.key)
-                    const hasSelected = dayGroup.meetings.some(m => m.id === selectedMeetingId)
-                    return (
-                      <div key={dayGroup.key}>
-                        <button
-                          onClick={() => toggleDay(dayGroup.key)}
-                          className="lib-day-header"
-                          style={{ background: hasSelected ? 'var(--bg-selected)' : undefined }}
+                <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
+                  {virtualizer.getVirtualItems().map(virtualItem => {
+                    const row = flatRows[virtualItem.index]
+                    if (row.type === 'day-header') {
+                      const { dayGroup } = row
+                      const isOpen = expandedDays.has(dayGroup.key)
+                      const hasSelected = dayGroup.meetings.some(m => m.id === selectedMeetingId)
+                      return (
+                        <div
+                          key={`day-${dayGroup.key}`}
+                          data-index={virtualItem.index}
+                          ref={virtualizer.measureElement}
+                          style={{
+                            position: 'absolute', top: 0, left: 0, width: '100%',
+                            transform: `translateY(${virtualItem.start}px)`,
+                          }}
                         >
-                          <span className="lib-day-chevron" style={{ transform: isOpen ? 'rotate(90deg)' : undefined }}>›</span>
-                          <span className="lib-day-label">{dayGroup.label}</span>
-                          <span className="lib-day-count">{dayGroup.meetings.length}</span>
-                        </button>
-                        {isOpen && dayGroup.meetings.map(meeting => {
-                          const isLiveMeeting = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
-                          return (
-                            <div key={meeting.id} style={{ position: 'relative' }}>
-                              {isLiveMeeting && (
-                                <div style={{ position: 'absolute', top: 0, bottom: 0, right: 38, zIndex: 1, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-                                  <div style={{ width: 54, height: 24, borderRadius: 5, background: 'var(--live-dim)', border: '1px solid var(--live-border)', overflow: 'hidden', padding: '2px 4px' }}>
-                                    <Waveform color="var(--live)" height={18} />
-                                  </div>
+                          <button
+                            onClick={() => toggleDay(dayGroup.key)}
+                            className="lib-day-header"
+                            style={{ background: hasSelected ? 'var(--bg-selected)' : undefined }}
+                          >
+                            <span className="lib-day-chevron" style={{ transform: isOpen ? 'rotate(90deg)' : undefined }}>›</span>
+                            <span className="lib-day-label">{dayGroup.label}</span>
+                            <span className="lib-day-count">{dayGroup.meetings.length}</span>
+                          </button>
+                        </div>
+                      )
+                    } else {
+                      const { meeting } = row
+                      const isLiveMeeting = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
+                      return (
+                        <div
+                          key={`meeting-${meeting.id}`}
+                          data-index={virtualItem.index}
+                          ref={virtualizer.measureElement}
+                          style={{
+                            position: 'absolute', top: 0, left: 0, width: '100%',
+                            transform: `translateY(${virtualItem.start}px)`,
+                          }}
+                        >
+                          <div style={{ position: 'relative' }}>
+                            {isLiveMeeting && (
+                              <div style={{ position: 'absolute', top: 0, bottom: 0, right: 38, zIndex: 1, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+                                <div style={{ width: 54, height: 24, borderRadius: 5, background: 'var(--live-dim)', border: '1px solid var(--live-border)', overflow: 'hidden', padding: '2px 4px' }}>
+                                  <Waveform color="var(--live)" height={18} />
                                 </div>
-                              )}
-                              <MeetingEntry
-                                meeting={meeting}
-                                selected={selectedMeetingId === meeting.id}
-                                selecting={selectMode}
-                                checked={selectedIds.includes(meeting.id)}
-                                progress={progressMap.get(meeting.id)?.progress}
-                                onClick={() => handleSelectMeetingWithExpand(meeting)}
-                                onDelete={handleDeleteMeeting}
-                                onOpenFolder={openFolder}
-                                onToggleFavorite={toggleFavorite}
-                                onToggleChecked={toggleSelected}
-                              />
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
+                              </div>
+                            )}
+                            <MeetingEntry
+                              meeting={meeting}
+                              selected={selectedMeetingId === meeting.id}
+                              selecting={selectMode}
+                              checked={selectedIds.includes(meeting.id)}
+                              progress={progressMap.get(meeting.id)?.progress}
+                              onClick={() => handleSelectMeetingWithExpand(meeting)}
+                              onDelete={handleDeleteMeeting}
+                              onOpenFolder={openFolder}
+                              onToggleFavorite={toggleFavorite}
+                              onToggleChecked={toggleSelected}
+                            />
+                          </div>
+                        </div>
+                      )
+                    }
                   })}
                 </div>
               )}

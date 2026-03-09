@@ -6,6 +6,7 @@ import type {
   SearchResult, MeetingFilter, AppSettings
   , StorageUsage, CleanupPreview, CleanupRunResult, CleanupLogEntry
   , ExportRequest, ExportResult
+  , MarkdownExportRequest, MarkdownExportResult
   , AmbientStatus
 } from './types'
 
@@ -180,6 +181,12 @@ export const getCleanupLog = () =>
 
 export const exportMeetingBundle = (request: ExportRequest) =>
   invoke<ExportResult>('export_meeting_bundle', { request })
+
+export const exportMeetingsMarkdown = (request: MarkdownExportRequest) =>
+  invoke<MarkdownExportResult>('export_meetings_markdown', { request })
+
+export const revealExportInFinder = (path: string) =>
+  invoke<void>('reveal_export_in_finder', { path })
 
 export const openMeetingFolder = (id: string) =>
   invoke<void>('open_meeting_folder', { id })

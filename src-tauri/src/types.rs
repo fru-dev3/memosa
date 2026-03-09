@@ -168,6 +168,34 @@ pub struct ExportResult {
     pub note: String,
 }
 
+// ─── Bulk Markdown Export ──────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum MarkdownExportMode {
+    ByFolder,
+    ByDateRange,
+    All,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MarkdownExportRequest {
+    pub mode: MarkdownExportMode,
+    pub folder_ids: Option<Vec<String>>,
+    pub include_subfolders: Option<bool>,
+    pub from_date: Option<String>,
+    pub to_date: Option<String>,
+    #[serde(default)]
+    pub starred_only: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MarkdownExportResult {
+    pub output_path: String,
+    pub meeting_count: usize,
+    pub total_bytes: usize,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AmbientModeState {

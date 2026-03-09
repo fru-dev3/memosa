@@ -27,6 +27,9 @@ function SettingsIcon() {
 function AboutIcon() {
   return <IconWrap><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5"/><path d="M8 7.2V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="4.8" r="0.9" fill="currentColor"/></svg></IconWrap>
 }
+function ExportIcon() {
+  return <IconWrap><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 10v3a1 1 0 001 1h8a1 1 0 001-1v-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></IconWrap>
+}
 
 function navIcon(view: AppView) {
   switch (view) {
@@ -34,6 +37,7 @@ function navIcon(view: AppView) {
     case 'calendar': return <CalendarIcon />
     case 'projects': return <ProjectsIcon />
     case 'search': return <SearchIcon />
+    case 'export': return <ExportIcon />
     case 'settings': return <SettingsIcon />
     case 'about': return <AboutIcon />
     default: return null
@@ -133,6 +137,7 @@ export function Sidebar() {
         <NavItem label="Home"   view="today"    activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
         <NavItem label="Memos"  view="projects" activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
         <NavItem label="Search" view="search"   activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
+        <NavItem label="Export" view="export"   activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
       </nav>
 
       <div className="sb-spacer" />

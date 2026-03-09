@@ -227,6 +227,7 @@ const SAFE_APP_VIEWS: AppView[] = [
   'library',
   'projects',
   'search',
+  'export',
   'about',
   'profiles',
   'templates',
@@ -527,10 +528,8 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
   partialize: (state) => ({
     ambientMode: state.ambientMode,
     favoriteMeetingIds: state.favoriteMeetingIds,
-    folders: state.folders,
     hotkeys: state.hotkeys,
     libraryViewMode: state.libraryViewMode,
-    meetingFolderAssignments: state.meetingFolderAssignments,
     privacyDashboard: state.privacyDashboard,
     profiles: state.profiles,
     searchSeed: state.searchSeed,
