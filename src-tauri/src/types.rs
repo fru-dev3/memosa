@@ -196,20 +196,6 @@ pub struct MarkdownExportResult {
     pub total_bytes: usize,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum AmbientModeState {
-    Idle,
-    Capturing,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct AmbientStatus {
-    pub active: bool,
-    pub last_saved_meeting_id: Option<String>,
-    pub mode: AmbientModeState,
-}
-
 // Transcription
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "snake_case")]
@@ -226,38 +212,6 @@ pub struct ModelInfo {
     pub size_mb: u64,
     pub downloaded: bool,
     pub path: Option<String>,
-}
-
-// Calendar
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct CalendarEvent {
-    pub id: String,
-    pub title: String,
-    pub start: String, // ISO 8601
-    pub end: String,   // ISO 8601
-    pub attendees: Vec<String>,
-    pub location: Option<String>,
-    pub description: Option<String>,
-    pub calendar_name: String,
-    #[serde(default)]
-    pub recording_candidate: bool,
-    #[serde(default)]
-    pub candidate_reason: Option<String>,
-    #[serde(default)]
-    pub meeting_platform: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "snake_case")]
-pub enum CalendarProvider {
-    GoogleApi,
-    LocalMacos,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct AuthStatus {
-    pub connected: bool,
-    pub email: Option<String>,
 }
 
 // Meetings (stored)
@@ -329,28 +283,6 @@ pub struct CustomSummaryTemplate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct AmbientModeSettings {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_ambient_buffer_minutes")]
-    pub buffer_minutes: u64,
-    #[serde(default)]
-    pub capture_microphone: bool,
-    #[serde(default)]
-    pub capture_system_audio: bool,
-    #[serde(default = "default_ambient_active_start_hour")]
-    pub active_start_hour: u8,
-    #[serde(default = "default_ambient_active_end_hour")]
-    pub active_end_hour: u8,
-    #[serde(default)]
-    pub excluded_apps: Vec<String>,
-    #[serde(default = "default_ambient_daily_storage_mb")]
-    pub max_daily_storage_mb: u64,
-    #[serde(default = "default_ambient_hotkey")]
-    pub save_hotkey: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RetentionPolicy {
     #[serde(default)]
     pub enabled: bool,
@@ -369,11 +301,11 @@ pub struct RetentionPolicy {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AppSettings {
     pub storage_path: String,
+    /// macOS security-scoped bookmark (base64). Managed by Rust only — frontend should
+    /// pass this field through unchanged when saving settings.
+    #[serde(default)]
+    pub storage_path_bookmark: Option<String>,
     pub default_model: WhisperModel,
-    pub auto_record: bool,
-    pub pre_meeting_notice_seconds: u64, // default 120
-    #[serde(default = "default_calendar_provider")]
-    pub calendar_provider: CalendarProvider,
     pub capture_system_audio: bool,
     pub audio_input_device: Option<String>,
     pub launch_at_login: bool,
@@ -381,8 +313,6 @@ pub struct AppSettings {
     pub appearance_mode: AppearanceMode,
     #[serde(default = "default_retention_policy")]
     pub retention_policy: RetentionPolicy,
-    #[serde(default = "default_ambient_mode")]
-    pub ambient_mode: AmbientModeSettings,
     #[serde(default = "default_integration_states")]
     pub integration_states: HashMap<String, IntegrationState>,
     #[serde(default = "default_summary_template_prompts")]
@@ -390,17 +320,11 @@ pub struct AppSettings {
     #[serde(default)]
     pub custom_summary_templates: Vec<CustomSummaryTemplate>,
     #[serde(default)]
-    pub excluded_calendar_names: Vec<String>,
-    #[serde(default)]
     pub has_completed_setup: bool,
 }
 
 fn default_appearance_mode() -> AppearanceMode {
     AppearanceMode::Light
-}
-
-fn default_calendar_provider() -> CalendarProvider {
-    CalendarProvider::LocalMacos
 }
 
 fn default_recordings_delete_after_days() -> u64 {
@@ -444,40 +368,6 @@ fn default_integration_states() -> HashMap<String, IntegrationState> {
         ("postgresql".to_string(), IntegrationState { enabled: false }),
         ("webhook".to_string(), IntegrationState { enabled: false }),
     ])
-}
-
-fn default_ambient_buffer_minutes() -> u64 {
-    30
-}
-
-fn default_ambient_active_start_hour() -> u8 {
-    9
-}
-
-fn default_ambient_active_end_hour() -> u8 {
-    18
-}
-
-fn default_ambient_daily_storage_mb() -> u64 {
-    1024
-}
-
-fn default_ambient_hotkey() -> String {
-    "Cmd+Shift+S".to_string()
-}
-
-fn default_ambient_mode() -> AmbientModeSettings {
-    AmbientModeSettings {
-        enabled: false,
-        buffer_minutes: default_ambient_buffer_minutes(),
-        capture_microphone: true,
-        capture_system_audio: false,
-        active_start_hour: default_ambient_active_start_hour(),
-        active_end_hour: default_ambient_active_end_hour(),
-        excluded_apps: vec!["1Password".to_string(), "Messages".to_string()],
-        max_daily_storage_mb: default_ambient_daily_storage_mb(),
-        save_hotkey: default_ambient_hotkey(),
-    }
 }
 
 fn default_summary_template_prompts() -> HashMap<String, String> {

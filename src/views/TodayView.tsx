@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RecordButton } from '../components/today/RecordButton'
-import { useCalendar } from '../hooks/useCalendar'
 import { useMemosaStore } from '../store'
 
 
@@ -49,7 +48,7 @@ function NoModelBanner({ onGoToSettings }: { onGoToSettings: () => void }) {
       <div>
         <div className="section-label" style={{ color: 'var(--accent)' }}>No transcription model</div>
         <div style={{ marginTop: 4, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-          Download a Whisper model to transcribe on-device — no internet needed. Models range from 150 MB (fast) to 500 MB (most accurate).
+          Download a Whisper model (150–500 MB) to transcribe on-device.
         </div>
       </div>
       <button className="ghost-pill is-selected-pill" onClick={onGoToSettings} style={{ flexShrink: 0 }}>
@@ -59,30 +58,8 @@ function NoModelBanner({ onGoToSettings }: { onGoToSettings: () => void }) {
   )
 }
 
-function WarningBanner({
-  title, minutes, onDismiss, onSkip,
-}: {
-  title: string; minutes: number; onDismiss: () => void; onSkip: () => void
-}) {
-  return (
-    <div className="surface-panel" style={{ background: 'linear-gradient(180deg, rgba(232,168,56,0.12), rgba(255,255,255,0.015))' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-        <div>
-          <div className="section-label" style={{ color: 'var(--upcoming)' }}>Auto-record warning</div>
-          <div style={{ marginTop: 6, fontSize: 15, fontWeight: 600 }}>{title} starts in {minutes} minutes</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="ghost-pill" onClick={onSkip}>Skip once</button>
-          <button className="ghost-pill" onClick={onDismiss}>Dismiss</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function TodayView() {
   const {
-    autoRecord,
     availableModels,
     meetings,
     profiles,
@@ -93,7 +70,6 @@ export function TodayView() {
     setSearchSeed,
   } = useMemosaStore()
   const hasModel = availableModels.length > 0 && availableModels.some(m => m.downloaded)
-  const { warning, dismissWarning, dismissAndSkipRecord } = useCalendar()
   const [loading, setLoading] = useState(true)
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * LIVING_QUOTES.length))
 
@@ -172,16 +148,6 @@ const openMeeting = (meetingId: string) => {
   return (
     <div className="page-shell">
       {!loading && !hasModel && <NoModelBanner onGoToSettings={() => setActiveView('settings')} />}
-      {warning && (
-        <div style={{ marginBottom: 0 }}>
-          <WarningBanner
-            title={warning.event.title}
-            minutes={Math.round(warning.seconds_until / 60)}
-            onDismiss={dismissWarning}
-            onSkip={dismissAndSkipRecord}
-          />
-        </div>
-      )}
 
       {/* ── Hero stage ── */}
       <section className="today-stage">
@@ -194,7 +160,6 @@ const openMeeting = (meetingId: string) => {
             <span className={`chip ${recordingStatus.is_recording ? 'chip-danger' : 'chip-success'}`}>
               {recordingStatus.is_recording ? 'recording' : 'idle'}
             </span>
-            {autoRecord && <span className="chip chip-success">auto-record on</span>}
             <span className="stat-inline">{activeProfile?.name ?? 'Default'}</span>
           </div>
 

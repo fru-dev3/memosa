@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useCalendar } from '../hooks/useCalendar'
 import { useTranscription } from '../hooks/useTranscription'
 import { VoiceMemosImport } from '../components/settings/VoiceMemosImport'
 import * as api from '../lib/tauri'
@@ -22,9 +21,6 @@ import { useMemosaStore } from '../store'
 const DEFAULT_SETTINGS: AppSettings = {
   storage_path: '/Users/user/Documents/Memosa',
   default_model: 'small',
-  auto_record: false,
-  pre_meeting_notice_seconds: 120,
-  calendar_provider: 'local_macos',
   capture_system_audio: true,
   launch_at_login: false,
   appearance_mode: 'light',
@@ -36,33 +32,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     keep_starred: true,
     keep_profiles: [],
   },
-  ambient_mode: {
-    enabled: false,
-    buffer_minutes: 30,
-    capture_microphone: true,
-    capture_system_audio: false,
-    active_start_hour: 9,
-    active_end_hour: 18,
-    excluded_apps: ['1Password', 'Messages'],
-    max_daily_storage_mb: 1024,
-    save_hotkey: 'Cmd+Shift+S',
-  },
-  integration_states: {
-    google_drive: { enabled: false },
-    box: { enabled: false },
-    dropbox: { enabled: false },
-    notion: { enabled: false },
-    obsidian: { enabled: false },
-    notebooklm: { enabled: false },
-    snowflake: { enabled: false },
-    supabase: { enabled: false },
-    mysql: { enabled: false },
-    postgresql: { enabled: false },
-    webhook: { enabled: false },
-  },
+  integration_states: {},
   summary_template_prompts: {},
   custom_summary_templates: [],
-  excluded_calendar_names: [],
   has_completed_setup: false,
 }
 
@@ -73,11 +45,6 @@ const MODEL_NOTES: Record<WhisperModel, string> = {
   small: 'Better accuracy',
   medium: 'Best accuracy',
 }
-const NOTICE_OPTIONS = [
-  { label: '1 min', value: 60 },
-  { label: '2 min', value: 120 },
-  { label: '5 min', value: 300 },
-]
 const WHISPER_REPO_URL = 'https://github.com/openai/whisper'
 
 // ─── Small SVG icons ──────────────────────────────────────────────────────────
@@ -315,7 +282,6 @@ function HotkeyBadge({ value }: { value: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function SettingsView() {
-  const { autoRecord, setAutoRecordEnabled } = useCalendar()
   const {
     availableModels,
     hotkeys,
@@ -325,16 +291,10 @@ export function SettingsView() {
     setActiveView,
     folders,
     meetingFolderAssignments,
-    setAutoRecord,
     setAvailableModels,
     setSelectedProfileId,
     setSettings,
     settings,
-    todayEvents,
-    screenshotCaptureEnabled,
-    screenshotIntervalMinutes,
-    setScreenshotCaptureEnabled,
-    setScreenshotIntervalMinutes,
     createProfile,
     deleteProfile,
     updateProfile,
@@ -398,12 +358,10 @@ export function SettingsView() {
     setSaved(false)
     try {
       await api.saveSettings(draftRef.current)
-      await setAutoRecordEnabled(draftRef.current.auto_record)
       const refreshed = await api.getSettings()
       setSettings(refreshed)
       setDraft(refreshed)
       draftRef.current = refreshed
-      setAutoRecord(refreshed.auto_record)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
@@ -411,7 +369,7 @@ export function SettingsView() {
     } finally {
       setSaving(false)
     }
-  }, [setAutoRecord, setAutoRecordEnabled, setSettings])
+  }, [setSettings])
 
   const updateDraft = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     const next = { ...draftRef.current, [key]: value }
@@ -516,11 +474,6 @@ export function SettingsView() {
 
   const downloadedModels = useMemo(() => availableModels.filter((m) => m.downloaded), [availableModels])
 
-  const calendarNames = useMemo(
-    () => Array.from(new Set(todayEvents.map((e) => e.calendar_name).filter(Boolean))).sort(),
-    [todayEvents]
-  )
-
   // ── Tab content renderers ──────────────────────────────────────────────────
 
   function renderCapture() {
@@ -610,68 +563,6 @@ export function SettingsView() {
               </div>
             )}
           </div>
-        )}
-
-        <SectionLabel>Screenshots</SectionLabel>
-
-        <Row label="Auto-capture" hint="Takes a screenshot at regular intervals during recording">
-          <Toggle value={screenshotCaptureEnabled} onChange={setScreenshotCaptureEnabled} label="On" />
-        </Row>
-
-        {screenshotCaptureEnabled && (
-          <Row label="Interval" borderless>
-            <div style={{ display: 'flex', gap: 5 }}>
-              {[1, 2, 5, 10].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setScreenshotIntervalMinutes(m)}
-                  className={`ghost-pill${screenshotIntervalMinutes === m ? ' is-selected-pill' : ''}`}
-                  style={{ minWidth: 40, textAlign: 'center' }}
-                >
-                  {m}m
-                </button>
-              ))}
-            </div>
-          </Row>
-        )}
-
-        <SectionLabel>Auto-record</SectionLabel>
-
-        <Row label="Auto-record meetings" hint="Starts recording automatically when a calendar event begins">
-          <Toggle value={draft.auto_record} onChange={(v) => updateDraft('auto_record', v)} label="On" />
-        </Row>
-
-        {draft.auto_record && (
-          <Row label="Lead time">
-            <Sel value={draft.pre_meeting_notice_seconds} onChange={(v) => updateDraft('pre_meeting_notice_seconds', Number(v))}>
-              {NOTICE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </Sel>
-          </Row>
-        )}
-
-        {calendarNames.length > 0 && (
-          <>
-            <SectionLabel>Calendar sources</SectionLabel>
-            {calendarNames.map((name, i) => {
-              const excluded = (draft.excluded_calendar_names ?? []).includes(name)
-              return (
-                <Row key={name} label={name} borderless={i === calendarNames.length - 1}>
-                  <button
-                    type="button"
-                    className={`ghost-pill ${excluded ? '' : 'is-selected-pill'}`}
-                    onClick={() => {
-                      const cur = draft.excluded_calendar_names ?? []
-                      const next = cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name]
-                      updateDraft('excluded_calendar_names', next)
-                    }}
-                  >
-                    {excluded ? 'Hidden' : 'Shown'}
-                  </button>
-                </Row>
-              )
-            })}
-          </>
         )}
 
         <SectionLabel>Hotkeys</SectionLabel>
@@ -970,10 +861,6 @@ export function SettingsView() {
         )}
 
         <SectionLabel>App</SectionLabel>
-
-        <Row label="Launch at login">
-          <Toggle value={draft.launch_at_login} onChange={(v) => updateDraft('launch_at_login', v)} label="On" />
-        </Row>
 
         <Row label="Appearance" borderless>
           <Sel value={draft.appearance_mode} onChange={(v) => updateDraft('appearance_mode', v as AppSettings['appearance_mode'])}>

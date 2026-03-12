@@ -2,11 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { invoke } from '@tauri-apps/api/core'
 import type {
-  AmbientModeSettings,
   AppSettings,
   AppView,
-  AuthStatus,
-  CalendarEvent,
   Folder,
   HotkeyConfig,
   Meeting,
@@ -16,11 +13,6 @@ import type {
   RecordingStatus,
 } from '../lib/types'
 import * as api from '../lib/tauri'
-
-interface AutoRecordWarning {
-  event: CalendarEvent
-  seconds_until: number
-}
 
 interface TranscriptionProgress {
   progress: number
@@ -38,14 +30,6 @@ interface MemosaStore {
   setRecordingGuardMessage: (message: string | null) => void
   appendLiveTranscriptLine: (text: string) => void
   clearLiveTranscript: () => void
-
-  // Calendar
-  todayEvents: CalendarEvent[]
-  authStatus: AuthStatus
-  autoRecord: boolean
-  setTodayEvents: (events: CalendarEvent[]) => void
-  setAuthStatus: (status: AuthStatus) => void
-  setAutoRecord: (enabled: boolean) => void
 
   // Meetings
   meetings: Meeting[]
@@ -81,7 +65,6 @@ interface MemosaStore {
   // Product configuration
   profiles: RecordingProfile[]
   selectedProfileId: string
-  ambientMode: AmbientModeSettings
   hotkeys: HotkeyConfig
   privacyDashboard: PrivacyDashboard
   setProfiles: (profiles: RecordingProfile[]) => void
@@ -89,18 +72,8 @@ interface MemosaStore {
   createProfile: () => void
   deleteProfile: (id: string) => void
   setSelectedProfileId: (id: string) => void
-  setAmbientMode: (ambientMode: AmbientModeSettings) => void
   setHotkeys: (hotkeys: HotkeyConfig) => void
   setPrivacyDashboard: (dashboard: PrivacyDashboard) => void
-  screenshotCaptureEnabled: boolean
-  screenshotIntervalMinutes: number
-  setScreenshotCaptureEnabled: (enabled: boolean) => void
-  setScreenshotIntervalMinutes: (minutes: number) => void
-  // ephemeral — not persisted
-  screenshotCount: number
-  screenshotCountdown: number | null
-  setScreenshotCount: (n: number) => void
-  setScreenshotCountdown: (n: number | null) => void
 
   // Folders / Projects
   folders: Folder[]
@@ -121,13 +94,11 @@ interface MemosaStore {
   sidebarCollapsed: boolean
   searchSeed: string
   commandPaletteOpen: boolean
-  autoRecordWarning: AutoRecordWarning | null
   setActiveView: (view: AppView) => void
   setSidebarCollapsed: (collapsed: boolean) => void
   toggleSidebarCollapsed: () => void
   setSearchSeed: (seed: string) => void
   setCommandPaletteOpen: (open: boolean) => void
-  setAutoRecordWarning: (warning: AutoRecordWarning | null) => void
 }
 
 const systemDefaultProfile: RecordingProfile = {
@@ -195,18 +166,6 @@ function normalizeProfiles(profiles: RecordingProfile[]) {
   ]
 }
 
-const defaultAmbientMode: AmbientModeSettings = {
-  enabled: false,
-  buffer_minutes: 30,
-  capture_microphone: true,
-  capture_system_audio: false,
-  active_start_hour: 9,
-  active_end_hour: 18,
-  excluded_apps: ['1Password', 'Messages'],
-  max_daily_storage_mb: 1024,
-  save_hotkey: 'Cmd+Shift+S',
-}
-
 const defaultHotkeys: HotkeyConfig = {
   start_stop_recording: 'Cmd+Shift+R',
   open_command_palette: 'Cmd+Shift+P',
@@ -223,7 +182,6 @@ const defaultPrivacyDashboard: PrivacyDashboard = {
 
 const SAFE_APP_VIEWS: AppView[] = [
   'today',
-  'calendar',
   'library',
   'projects',
   'search',
@@ -245,13 +203,6 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
   setRecordingGuardMessage: (message) => set({ recordingGuardMessage: message }),
   appendLiveTranscriptLine: (text) => set((s) => ({ liveTranscriptLines: [...s.liveTranscriptLines, text] })),
   clearLiveTranscript: () => set({ liveTranscriptLines: [] }),
-
-  todayEvents: [],
-  authStatus: { connected: false },
-  autoRecord: false,
-  setTodayEvents: (events) => set({ todayEvents: events }),
-  setAuthStatus: (status) => set({ authStatus: status }),
-  setAutoRecord: (enabled) => set({ autoRecord: enabled }),
 
   meetings: [],
   currentMeeting: null,
@@ -439,7 +390,6 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
 
   profiles: normalizeProfiles(defaultProfiles),
   selectedProfileId: systemDefaultProfile.id,
-  ambientMode: defaultAmbientMode,
   hotkeys: defaultHotkeys,
   privacyDashboard: defaultPrivacyDashboard,
   setProfiles: (profiles) => set((state) => {
@@ -486,17 +436,8 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
     }
   }),
   setSelectedProfileId: (id) => set({ selectedProfileId: id }),
-  setAmbientMode: (ambientMode) => set({ ambientMode }),
   setHotkeys: (hotkeys) => set({ hotkeys }),
   setPrivacyDashboard: (privacyDashboard) => set({ privacyDashboard }),
-  screenshotCaptureEnabled: false,
-  screenshotIntervalMinutes: 5,
-  setScreenshotCaptureEnabled: (enabled) => set({ screenshotCaptureEnabled: enabled }),
-  setScreenshotIntervalMinutes: (minutes) => set({ screenshotIntervalMinutes: minutes }),
-  screenshotCount: 0,
-  screenshotCountdown: null,
-  setScreenshotCount: (n) => set({ screenshotCount: n }),
-  setScreenshotCountdown: (n) => set({ screenshotCountdown: n }),
 
   activeView: 'today',
   activeFolderId: null,
@@ -504,13 +445,11 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
   sidebarCollapsed: false,
   searchSeed: '',
   commandPaletteOpen: false,
-  autoRecordWarning: null,
   setActiveView: (view) => set({ activeView: view }),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   toggleSidebarCollapsed: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSearchSeed: (seed) => set({ searchSeed: seed }),
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
-  setAutoRecordWarning: (warning) => set({ autoRecordWarning: warning }),
 }), {
   name: 'memosa-ui-state-v2',
   version: 2,
@@ -526,7 +465,6 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
     } as MemosaStore
   },
   partialize: (state) => ({
-    ambientMode: state.ambientMode,
     favoriteMeetingIds: state.favoriteMeetingIds,
     hotkeys: state.hotkeys,
     libraryViewMode: state.libraryViewMode,
@@ -535,7 +473,5 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
     searchSeed: state.searchSeed,
     selectedProfileId: state.selectedProfileId,
     sidebarCollapsed: state.sidebarCollapsed,
-    screenshotCaptureEnabled: state.screenshotCaptureEnabled,
-    screenshotIntervalMinutes: state.screenshotIntervalMinutes,
   }),
 }))

@@ -4,14 +4,12 @@ import { CommandPalette } from './components/layout/CommandPalette'
 import { FloatingRecorder } from './components/layout/FloatingRecorder'
 import { Sidebar } from './components/layout/Sidebar'
 import { StatusBar } from './components/layout/StatusBar'
-import { useCalendarEvents } from './hooks/useCalendar'
 import { useRecordingEvents } from './hooks/useRecording'
 import { useTranscriptionEvents } from './hooks/useTranscription'
 import type { RecordingProfile } from './lib/types'
 import * as api from './lib/tauri'
 import { useMemosaStore } from './store'
 import { AboutView } from './views/AboutView'
-import { CalendarView } from './views/CalendarView'
 import { ProjectsView } from './views/ProjectsView'
 import { ProfilesView } from './views/ProfilesView'
 import { SearchView } from './views/SearchView'
@@ -21,7 +19,7 @@ import { TodayView } from './views/TodayView'
 import { ExportView } from './views/ExportView'
 import { SetupView } from './views/SetupView'
 
-type PrimaryView = 'today' | 'calendar' | 'projects' | 'search' | 'export'
+type PrimaryView = 'today' | 'projects' | 'search' | 'export'
 
 type SafeModalView = 'settings' | 'profiles' | 'templates' | 'about' | null
 
@@ -120,7 +118,6 @@ export default function App() {
   } = useMemosaStore()
 
   useRecordingEvents()
-  useCalendarEvents()
   useTranscriptionEvents()
 
   useEffect(() => {
@@ -230,14 +227,13 @@ export default function App() {
 
   const views: Record<PrimaryView, ReactElement> = {
     today:    <TodayView />,
-    calendar: <CalendarView />,
     projects: <ProjectsView />,
     search:   <SearchView />,
     export:   <ExportView />,
   }
 
   const modalViews = new Set(['settings', 'profiles', 'templates', 'about', 'privacy'] as const)
-  const primaryViews = new Set<PrimaryView>(['today', 'calendar', 'projects', 'search', 'export'])
+  const primaryViews = new Set<PrimaryView>(['today', 'projects', 'search', 'export'])
 
   useEffect(() => {
     if (!primaryViews.has(activeView as PrimaryView) && !modalViews.has(activeView as typeof modalViews extends Set<infer T> ? T : never)) {

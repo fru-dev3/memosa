@@ -1,36 +1,88 @@
-use crate::types::{AmbientModeSettings, AppSettings, AppearanceMode, CalendarProvider, IntegrationState, RetentionPolicy, WhisperModel};
+use crate::types::{AppSettings, AppearanceMode, IntegrationState, RetentionPolicy, WhisperModel};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub struct SettingsManager;
 
 impl SettingsManager {
-    /// Returns the absolute path to the settings file: `~/.memosa/settings.json`.
+    /// Returns the absolute path to the settings file: `Application Support/com.memosa.app/settings.json`.
     pub fn settings_path() -> PathBuf {
-        dirs::home_dir()
-            .unwrap_or_default()
-            .join(".memosa")
-            .join("settings.json")
+        crate::paths::app_data_dir().join("settings.json")
     }
 
     /// Load settings from disk. Returns `AppSettings::default()` if the file
     /// does not exist or cannot be parsed.
+    ///
+    /// On macOS, if a security-scoped bookmark is present, resolves it so that
+    /// `storage_path` points to the bookmarked location and the sandbox grant
+    /// is activated. This ensures all internal callers (import, recorder,
+    /// cleanup, etc.) get the resolved path automatically.
     pub fn load() -> AppSettings {
         let path = Self::settings_path();
-        if path.exists() {
+        let mut settings = if path.exists() {
             if let Ok(json) = std::fs::read_to_string(&path) {
-                if let Ok(mut settings) = serde_json::from_str::<AppSettings>(&json) {
-                    // Existing install: always treat as setup-complete even if the
-                    // field is absent in an older settings.json (serde default = false).
-                    settings.has_completed_setup = true;
-                    return settings;
+                if let Ok(s) = serde_json::from_str::<AppSettings>(&json) {
+                    s
+                } else {
+                    AppSettings::default()
                 }
+            } else {
+                AppSettings::default()
             }
-        }
-        AppSettings::default()
+        } else {
+            AppSettings::default()
+        };
+
+        // Resolve the security-scoped bookmark so every internal caller
+        // gets sandbox access without having to duplicate this logic.
+        #[cfg(target_os = "macos")]
+        Self::resolve_bookmark(&mut settings);
+
+        settings
     }
 
-    /// Persist settings to disk, creating the `~/.memosa/` directory if needed.
+    /// On macOS, resolve a stored security-scoped bookmark. This activates
+    /// the sandbox grant (via `startAccessingSecurityScopedResource`) and
+    /// updates `storage_path` if the resolved URL differs from the stored one.
+    /// If the bookmark is stale it is refreshed and persisted.
+    #[cfg(target_os = "macos")]
+    fn resolve_bookmark(settings: &mut AppSettings) {
+        use super::{base64_decode, base64_encode};
+
+        let bookmark_b64 = match settings.storage_path_bookmark.as_ref() {
+            Some(b) => b.clone(),
+            None => return,
+        };
+        let bookmark_data = match base64_decode(&bookmark_b64) {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+
+        match crate::macos::resolve_security_bookmark(&bookmark_data) {
+            Ok((resolved_path, stale)) => {
+                if stale {
+                    // Refresh the stale bookmark
+                    if let Ok(new_data) = crate::macos::create_security_bookmark(
+                        std::path::Path::new(&resolved_path),
+                    ) {
+                        settings.storage_path_bookmark = Some(base64_encode(&new_data));
+                        let _ = Self::save(settings);
+                    }
+                }
+                if settings.storage_path != resolved_path {
+                    settings.storage_path = resolved_path;
+                    let _ = Self::save(settings);
+                }
+            }
+            Err(e) => {
+                crate::diagnostics::log(format!(
+                    "settings: bookmark resolution failed: {e}"
+                ));
+            }
+        }
+    }
+
+    /// Persist settings to disk, creating the `com.memosa.app/` directory if needed.
     pub fn save(settings: &AppSettings) -> Result<(), String> {
         let path = Self::settings_path();
         std::fs::create_dir_all(path.parent().unwrap())
@@ -50,10 +102,8 @@ impl Default for AppSettings {
                 .join("Memosa")
                 .to_string_lossy()
                 .to_string(),
+            storage_path_bookmark: None,
             default_model: WhisperModel::Small,
-            auto_record: false,
-            pre_meeting_notice_seconds: 120,
-            calendar_provider: CalendarProvider::LocalMacos,
             capture_system_audio: true,
             audio_input_device: None,
             launch_at_login: false,
@@ -65,17 +115,6 @@ impl Default for AppSettings {
                 archive_after_days: 14,
                 keep_starred: true,
                 keep_profiles: Vec::new(),
-            },
-            ambient_mode: AmbientModeSettings {
-                enabled: false,
-                buffer_minutes: 30,
-                capture_microphone: true,
-                capture_system_audio: false,
-                active_start_hour: 9,
-                active_end_hour: 18,
-                excluded_apps: vec!["1Password".to_string(), "Messages".to_string()],
-                max_daily_storage_mb: 1024,
-                save_hotkey: "Cmd+Shift+S".to_string(),
             },
             integration_states: HashMap::from([
                 ("google_drive".to_string(), IntegrationState { enabled: false }),
@@ -133,7 +172,6 @@ impl Default for AppSettings {
                 ),
             ]),
             custom_summary_templates: Vec::new(),
-            excluded_calendar_names: Vec::new(),
             has_completed_setup: false,
         }
     }

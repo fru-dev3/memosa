@@ -164,6 +164,9 @@ export function VoiceMemosImport() {
             Bring in recordings from Mac Voice Memos or any folder.
             Originals are never moved or deleted.
           </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: 280, opacity: 0.75 }}>
+            Tip: To find your Apple Voice Memos, open Voice Memos, drag a recording to a folder on your Mac, then select that folder here.
+          </div>
           {error && (
             <div className="settings-message is-error" style={{ marginTop: 14, textAlign: 'left', width: '100%' }}>{error}</div>
           )}

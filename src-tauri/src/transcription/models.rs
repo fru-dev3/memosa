@@ -7,10 +7,7 @@ use crate::types::{ModelInfo, WhisperModel};
 // ── Directory helpers ─────────────────────────────────────────────────────────
 
 pub fn models_dir() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_default()
-        .join(".memosa")
-        .join("models")
+    crate::paths::app_data_dir().join("models")
 }
 
 pub fn model_path(model: &WhisperModel) -> PathBuf {

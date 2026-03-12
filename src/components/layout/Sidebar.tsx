@@ -15,9 +15,6 @@ function TodayIcon() {
 function SearchIcon() {
   return <IconWrap><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></IconWrap>
 }
-function CalendarIcon() {
-  return <IconWrap><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M1.5 6h13M5 1.5v2M11 1.5v2M4.5 8.8h2.2M9.2 8.8h2.2M4.5 11.3h2.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg></IconWrap>
-}
 function ProjectsIcon() {
   return <IconWrap><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="8" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4"/><path d="M10 4.5l4-1.5v10l-4 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg></IconWrap>
 }
@@ -34,7 +31,6 @@ function ExportIcon() {
 function navIcon(view: AppView) {
   switch (view) {
     case 'today': return <TodayIcon />
-    case 'calendar': return <CalendarIcon />
     case 'projects': return <ProjectsIcon />
     case 'search': return <SearchIcon />
     case 'export': return <ExportIcon />
@@ -144,7 +140,6 @@ export function Sidebar() {
 
       {/* ── Secondary nav ── */}
       <nav className="sb-nav sb-nav-secondary">
-        <NavItem label="Calendar" view="calendar" activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
         <NavItem label="About"    view="about"    activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
         <NavItem label="Settings" view="settings" activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
       </nav>

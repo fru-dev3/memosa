@@ -30,17 +30,7 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
     setCurrentMeeting,
     setRecordingGuardMessage,
     upsertMeeting,
-    screenshotCount,
-    screenshotCountdown,
-    screenshotCaptureEnabled,
-    screenshotIntervalMinutes,
   } = useMemosaStore()
-
-  function fmtCountdown(secs: number): string {
-    const m = Math.floor(secs / 60)
-    const s = secs % 60
-    return `${m}:${String(s).padStart(2, '0')}`
-  }
   const { stopRecording } = useRecording()
   const [stopping, setStopping] = useState(false)
   const [savedInfo, setSavedInfo] = useState<{ title: string; duration: number } | null>(null)
@@ -260,24 +250,6 @@ export function RecordingSession({ compact }: { compact?: boolean } = {}) {
             >
               Go to live →
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {screenshotCaptureEnabled && screenshotCount > 0 && (
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                  {screenshotCount} · {screenshotCountdown != null ? fmtCountdown(screenshotCountdown) : `${screenshotIntervalMinutes}m`}
-                </span>
-              )}
-              <button
-                type="button"
-                title="Capture screenshot"
-                onClick={() => { const f = currentMeeting.audio_path.replace(/[/\\][^/\\]+$/, ''); void api.captureScreenshotNow(f, currentMeeting.title) }}
-                className="rs-compact-screenshot-btn"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-              </button>
-            </div>
           </div>
         )}
       </div>

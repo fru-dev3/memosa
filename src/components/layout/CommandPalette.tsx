@@ -42,7 +42,6 @@ export function CommandPalette() {
 
   const core: PaletteItem[] = [
     { id: 'today', label: 'Open Home', view: 'today' as AppView },
-    { id: 'calendar', label: 'Open Calendar', view: 'calendar' as AppView },
     { id: 'projects', label: 'Open Memos', view: 'projects' as AppView },
     { id: 'search', label: 'Open Search', view: 'search' as AppView },
     { id: 'profiles', label: 'Open Profiles', view: 'profiles' as AppView },

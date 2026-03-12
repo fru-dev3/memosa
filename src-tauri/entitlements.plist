@@ -10,7 +10,7 @@
     <key>com.apple.security.device.audio-input</key>
     <true/>
 
-    <!-- Network: outbound (Google Calendar API, model downloads) -->
+    <!-- Network: outbound — required to download Whisper speech-recognition models from HuggingFace on first use -->
     <key>com.apple.security.network.client</key>
     <true/>
 
@@ -18,8 +18,8 @@
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
 
-    <!-- Downloads folder (export bundles) -->
-    <key>com.apple.security.files.downloads.read-write</key>
+    <!-- Persist access to user-selected storage folder across relaunches -->
+    <key>com.apple.security.files.bookmarks.app-scope</key>
     <true/>
 </dict>
 </plist>

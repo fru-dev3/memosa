@@ -4,8 +4,8 @@ Local-first meeting recorder for macOS. Records audio, transcribes on-device usi
 
 ## What it does
 
-- Records meetings and calls quietly in the background
-- Transcribes audio locally using Whisper (no cloud, no subscription)
+- Records meetings and calls on your Mac
+- Transcribes audio locally using Whisper (on-device after initial model download)
 - Organises recordings by date, tags, people, and custom folders
 - Summarises and extracts key points, action items, and decisions
 - Exports transcripts and notes to any folder or tool you already use
@@ -58,7 +58,6 @@ src/                    React frontend
 src-tauri/src/          Rust backend
   audio/                Recording, mic permissions, CoreAudio helpers
   transcription/        Whisper integration and job queue
-  calendar/             Calendar event polling and auto-record scheduler
   storage/              SQLite DB, file system, settings, cleanup
   export/               Export providers (local bundle)
   macos.rs              ObjC bridge (audio, URL open, Finder reveal)
@@ -70,7 +69,7 @@ src-tauri/Info.plist           macOS metadata and privacy strings
 ## Privacy
 
 All audio and transcripts are stored locally at the path you configure in Settings.
-No data is transmitted anywhere. Whisper runs entirely on-device.
+Whisper models are downloaded from the internet on first use, then all processing runs on-device.
 The app is sandboxed and targets the Mac App Store.
 
 ## License

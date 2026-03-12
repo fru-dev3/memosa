@@ -2,12 +2,11 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import type {
   RecordingStatus, RecordingResult, AudioDiagnostics, AudioFileStatus, MicrophoneProbeResult, WhisperModel, ModelInfo,
-  TranscriptionStatus, CalendarEvent, AuthStatus, Meeting,
+  TranscriptionStatus, Meeting,
   SearchResult, MeetingFilter, AppSettings
   , StorageUsage, CleanupPreview, CleanupRunResult, CleanupLogEntry
   , ExportRequest, ExportResult
   , MarkdownExportRequest, MarkdownExportResult
-  , AmbientStatus
 } from './types'
 
 interface AudioLevelPayload {
@@ -45,20 +44,6 @@ interface ModelDownloadFailedPayload {
   error: string
 }
 
-interface CalendarEventsUpdatedPayload {
-  events: CalendarEvent[]
-}
-
-interface AutoRecordWarningPayload {
-  event: CalendarEvent
-  seconds_until: number
-}
-
-interface AutoRecordStartedPayload {
-  meeting_id: string
-  event_id: string
-}
-
 interface MeetingSavedPayload {
   meeting: Meeting
 }
@@ -82,18 +67,6 @@ export const getInputDevices = () =>
 
 export const getAudioDiagnostics = (selectedInputDevice?: string, captureSystemAudio = true) =>
   invoke<AudioDiagnostics>('get_audio_diagnostics', { selectedInputDevice, captureSystemAudio })
-
-export const getAmbientStatus = () =>
-  invoke<AmbientStatus>('get_ambient_status')
-
-export const startAmbientCapture = (profileId?: string) =>
-  invoke<string>('start_ambient_capture', { profileId: profileId ?? null })
-
-export const stopAmbientCapture = () =>
-  invoke<RecordingResult | null>('stop_ambient_capture')
-
-export const saveLastAmbientSegment = () =>
-  invoke<string | null>('save_last_ambient_segment')
 
 export const testMicrophoneInput = (selectedInputDevice?: string) =>
   invoke<MicrophoneProbeResult>('test_microphone_input', { selectedInputDevice })
@@ -119,28 +92,6 @@ export const getTranscriptionStatus = (meetingId: string) =>
 
 export const cancelTranscription = (meetingId: string) =>
   invoke<void>('cancel_transcription', { meetingId })
-
-// Calendar
-export const getAuthStatus = () =>
-  invoke<AuthStatus>('get_auth_status')
-
-export const getTodayEvents = () =>
-  invoke<CalendarEvent[]>('get_today_events')
-
-export const getUpcomingEvents = (days: number) =>
-  invoke<CalendarEvent[]>('get_upcoming_events', { days })
-
-export const refreshEvents = () =>
-  invoke<void>('refresh_events')
-
-export const setAutoRecord = (enabled: boolean) =>
-  invoke<void>('set_auto_record', { enabled })
-
-export const getAutoRecord = () =>
-  invoke<boolean>('get_auto_record')
-
-export const skipAutoRecordOnce = (eventId: string) =>
-  invoke<void>('skip_auto_record_once', { eventId })
 
 // Storage
 export const getMeetings = (filter: MeetingFilter) =>
@@ -270,21 +221,6 @@ export const onModelDownloadFailed = (
 ): Promise<UnlistenFn> =>
   listen<ModelDownloadFailedPayload>('model-download-failed', (e) => cb(e.payload))
 
-export const onCalendarEventsUpdated = (
-  cb: (events: CalendarEvent[]) => void
-): Promise<UnlistenFn> =>
-  listen<CalendarEventsUpdatedPayload>('calendar-events-updated', (e) => cb(e.payload.events))
-
-export const onAutoRecordWarning = (
-  cb: (data: AutoRecordWarningPayload) => void
-): Promise<UnlistenFn> =>
-  listen<AutoRecordWarningPayload>('auto-record-warning', (e) => cb(e.payload))
-
-export const onAutoRecordStarted = (
-  cb: (data: AutoRecordStartedPayload) => void
-): Promise<UnlistenFn> =>
-  listen<AutoRecordStartedPayload>('auto-record-started', (e) => cb(e.payload))
-
 export const onMeetingSaved = (
   cb: (meeting: Meeting) => void
 ): Promise<UnlistenFn> =>
@@ -341,17 +277,6 @@ export const assignMeetingFolder = (meetingId: string, folderId: string) =>
   invoke<void>('assign_meeting_folder', { meetingId, folderId })
 export const removeMeetingFolder = (meetingId: string, folderId: string) =>
   invoke<void>('remove_meeting_folder', { meetingId, folderId })
-
-// ─── Screenshot capture ───────────────────────────────────────────────────────
-
-export const captureScreenshotNow = (meetingFolder: string, meetingTitle: string) =>
-  invoke<void>('capture_screenshot_now', { meetingFolder, meetingTitle })
-export const startScreenshotCapture = (meetingFolder: string, meetingTitle: string, intervalSecs: number) =>
-  invoke<void>('start_screenshot_capture', { meetingFolder, meetingTitle, intervalSecs })
-export const stopScreenshotCapture = () =>
-  invoke<void>('stop_screenshot_capture')
-export const onScreenshotTaken = (cb: (data: { count: number }) => void): Promise<UnlistenFn> =>
-  listen<{ count: number }>('screenshot-taken', (e) => cb(e.payload))
 
 // ─── Voice Memo Import ────────────────────────────────────────────────────────
 
