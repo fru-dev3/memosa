@@ -1,6 +1,6 @@
 {
   "productName": "Memosa",
-  "identifier": "com.memosa.app",
+  "identifier": "com.app.memosa",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
