@@ -53,14 +53,8 @@ function StopIcon() {
   )
 }
 
-function fmtCountdown(secs: number): string {
-  const m = Math.floor(secs / 60)
-  const s = secs % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
 export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
-  const { audioLevel, recordingStatus, liveTranscriptLines, screenshotCaptureEnabled, screenshotIntervalMinutes, setScreenshotCaptureEnabled, screenshotCount, screenshotCountdown } = useMemosaStore()
+  const { audioLevel, recordingStatus, liveTranscriptLines } = useMemosaStore()
 
   const isLive = recordingStatus.is_recording && recordingStatus.meeting_id === meeting.id
   const partialText = liveTranscriptLines.join(' ')
@@ -105,17 +99,6 @@ export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
     await navigator.clipboard.writeText(notes)
     setCopiedNotes(true)
     setTimeout(() => setCopiedNotes(false), 1600)
-  }
-
-  const handleToggleScreenshot = () => {
-    const next = !screenshotCaptureEnabled
-    setScreenshotCaptureEnabled(next)
-    if (next) {
-      const folder = meeting.audio_path.replace(/[/\\][^/\\]+$/, '')
-      void api.startScreenshotCapture(folder, meeting.title, screenshotIntervalMinutes * 60)
-    } else {
-      void api.stopScreenshotCapture()
-    }
   }
 
   const handleNotesChange = (value: string) => {
@@ -170,50 +153,6 @@ export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
           )}
           {isLive && (
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-              {/* Screenshot controls */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, border: '1px solid var(--border-subtle)', borderRadius: 6, overflow: 'hidden' }}>
-                {/* Auto toggle */}
-                <button
-                  onClick={handleToggleScreenshot}
-                  title={screenshotCaptureEnabled ? 'Stop auto screenshots' : 'Enable auto screenshots'}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 3,
-                    padding: '3px 7px', border: 'none',
-                    background: screenshotCaptureEnabled ? 'var(--accent-dim)' : 'transparent',
-                    color: screenshotCaptureEnabled ? 'var(--accent)' : 'var(--text-muted)',
-                    fontWeight: 600, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                  </svg>
-                  {screenshotCaptureEnabled && screenshotCount > 0
-                    ? `${screenshotCount} · ${screenshotCountdown != null ? fmtCountdown(screenshotCountdown) : `${screenshotIntervalMinutes}m`}`
-                    : `Auto ${screenshotIntervalMinutes}m`}
-                </button>
-                {/* Divider */}
-                <div style={{ width: 1, height: 16, background: 'var(--border-subtle)', flexShrink: 0 }} />
-                {/* Manual snap */}
-                <button
-                  onClick={() => {
-                    const folder = meeting.audio_path.replace(/[/\\][^/\\]+$/, '')
-                    void api.captureScreenshotNow(folder, meeting.title)
-                  }}
-                  title="Capture screenshot now"
-                  style={{
-                    padding: '3px 6px', border: 'none',
-                    background: 'transparent', color: 'var(--text-muted)',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  }}
-                >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M6.343 6.343a8 8 0 1 0 11.314 0"/>
-                    <path d="M12 2v4"/>
-                  </svg>
-                </button>
-              </div>
               <button
                 onClick={() => void api.stopRecording()}
                 style={{
@@ -269,7 +208,7 @@ export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 11, color: notesState === 'saved' ? 'var(--accent)' : 'var(--text-secondary)' }}>
-                {notesState === 'saving' ? 'Saving…' : notesState === 'saved' ? 'Saved' : notes.length > 0 ? 'Stored in this recording' : ''}
+                {notesState === 'saving' ? 'Saving...' : notesState === 'saved' ? 'Saved' : notes.length > 0 ? 'Stored in this recording' : ''}
               </span>
               {notes.length > 0 && (
                 <button
@@ -288,7 +227,7 @@ export function LiveMeetingView({ meeting }: { meeting: Meeting }) {
           <textarea
             value={notes}
             onChange={(e) => handleNotesChange(e.target.value)}
-            placeholder={isLive ? 'Type notes as you listen…' : 'Add notes about this recording…'}
+            placeholder={isLive ? 'Type notes as you listen...' : 'Add notes about this recording...'}
             style={{
               flex: 1, resize: 'none', border: 'none', outline: 'none',
               padding: '14px 16px', fontSize: 13, lineHeight: 1.65,

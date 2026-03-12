@@ -33,19 +33,10 @@ pub struct ImportRequest {
 /// Open a folder picker and return the selected path.
 #[tauri::command]
 pub async fn pick_import_folder(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
-    let default_path = dirs::home_dir()
-        .map(|h| h.join("Library/Application Support/com.apple.voicememos/Recordings"))
-        .filter(|p| p.exists())
-        .map(|p| p.to_string_lossy().into_owned());
-
-    let mut builder = app_handle
+    let builder = app_handle
         .dialog()
         .file()
         .set_title("Select folder containing voice memos");
-
-    if let Some(path) = default_path {
-        builder = builder.set_directory(path);
-    }
 
     let selected = builder.blocking_pick_folder();
     let Some(file_path) = selected else {
@@ -311,23 +302,50 @@ fn humanize_stem(stem: &str) -> String {
     result.trim().to_string()
 }
 
+/// Read actual audio duration from file metadata using symphonia.
+/// Falls back to a file-size estimate if symphonia cannot parse the file.
 fn probe_duration(path: &Path) -> Option<u64> {
-    let output = std::process::Command::new("ffprobe")
-        .args([
-            "-v",
-            "quiet",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            &path.to_string_lossy(),
-        ])
-        .output()
-        .ok()?;
+    if let Some(dur) = probe_duration_symphonia(path) {
+        return Some(dur);
+    }
+    probe_duration_estimate(path)
+}
 
-    let s: f64 = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .parse()
+/// Use symphonia to read the true duration from audio metadata / headers.
+fn probe_duration_symphonia(path: &Path) -> Option<u64> {
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::probe::Hint;
+
+    let file = std::fs::File::open(path).ok()?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
         .ok()?;
-    Some(s as u64)
+    let track = probed.format.default_track()?;
+    let tb = track.codec_params.time_base?;
+    let dur = track.codec_params.n_frames?;
+    Some((tb.numer as u64 * dur) / tb.denom as u64)
+}
+
+/// Fallback: estimate duration from file size using average bitrates per format.
+fn probe_duration_estimate(path: &Path) -> Option<u64> {
+    let size = std::fs::metadata(path).ok()?.len();
+    if size == 0 {
+        return None;
+    }
+    let ext = path.extension()?.to_str()?.to_lowercase();
+    // Average bytes per second for common formats
+    let bytes_per_sec: u64 = match ext.as_str() {
+        "m4a" | "aac" => 16_000,  // ~128 kbps
+        "mp3" => 16_000,          // ~128 kbps
+        "wav" => 176_400,         // 44.1kHz 16-bit stereo
+        "ogg" | "opus" => 12_000, // ~96 kbps
+        "flac" => 88_200,         // ~706 kbps (lossless)
+        _ => 16_000,              // fallback
+    };
+    Some(size / bytes_per_sec)
 }

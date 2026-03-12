@@ -35,8 +35,8 @@ function OpenIcon() {
 
 const ABOUT_POINTS = [
   {
-    title: 'Quiet capture',
-    copy: 'Record calls and meetings on your Mac. No bots, no extra participants. Nobody else knows you\'re recording.',
+    title: 'On-device recording',
+    copy: 'Record calls and meetings on your Mac. No bots, no extra participants — just you and your audio.',
     Icon: RecordIcon,
   },
   {
@@ -51,10 +51,10 @@ const ABOUT_POINTS = [
   },
 ] as const
 
-const USE_CASES = ['Customer calls', 'Team meetings', 'Interviews', 'Sales calls', 'Investor calls', 'Coaching sessions', 'Ambient work'] as const
+const USE_CASES = ['Customer calls', 'Team meetings', 'Interviews', 'Sales calls', 'Investor calls', 'Coaching sessions'] as const
 
 const ABOUT_FLOW = [
-  { label: 'Capture', note: 'Record quietly on your Mac. No bots, no accounts, no notifications to others.' },
+  { label: 'Record', note: 'Start a recording on your Mac. No bots join, no accounts needed.' },
   { label: 'Organise', note: 'Folders, tags, search, and full transcripts — all stored locally.' },
   { label: 'Take it anywhere', note: 'Your files. Your AI. Your workflow. No lock-in, no subscription.' },
 ] as const
@@ -92,11 +92,11 @@ const INTEGRATION_GROUPS = [
 const WHY_REASONS = [
   {
     heading: 'Every other tool sends your voice to the cloud.',
-    body: 'Zoom AI, Otter, Fireflies — they all stream your audio to a server you don\'t control. That\'s your strategy, your clients, your negotiations. Memosa never connects to anyone\'s server. The audio stays on your Mac.',
+    body: 'Zoom AI, Otter, Fireflies — they all stream your audio to a server you don\'t control. Memosa processes everything locally using Whisper. Your recordings stay on your Mac unless you choose to move them.',
   },
   {
-    heading: 'A bot joining your call changes the call.',
-    body: 'The moment a participant named "Notetaker" appears, people get careful. Memosa captures from the OS level — no bot, no extra account, no notification to anyone else. You record as naturally as you take notes.',
+    heading: 'No bots in your meetings.',
+    body: 'Other tools add a visible participant to record. Memosa captures audio directly on your Mac — no extra account, no cloud dependency. You keep full control of your recordings.',
   },
   {
     heading: 'Transcription is infrastructure, not a product.',
@@ -128,6 +128,8 @@ const SHORTCUTS = [
   },
 ] as const
 
+const CONSENT_NOTE = 'Important: Always inform other participants that a call is being recorded. Many jurisdictions require all-party consent for recording conversations.' as const
+
 // ─── Tab panels ───────────────────────────────────────────────────────────────
 
 function OverviewPanel() {
@@ -135,9 +137,9 @@ function OverviewPanel() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ padding: '16px 0 4px' }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>Local-first recording</div>
-        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text-primary)', marginBottom: 8 }}>Capture quietly.<br />Own what's yours.</div>
+        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text-primary)', marginBottom: 8 }}>Record. Transcribe.<br />Own what's yours.</div>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          Record calls and meetings on your Mac with no bots, no cloud upload, and no account required. Everything lives on your machine until you decide to move it.
+          Record calls and meetings on your Mac — no bots join, no cloud upload, no account required. Everything stays on your machine until you decide to move it.
         </p>
       </div>
 
@@ -156,6 +158,10 @@ function OverviewPanel() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {USE_CASES.map((uc) => <span key={uc} className="chip chip-muted">{uc}</span>)}
         </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, padding: '4px 14px' }}>
+        {CONSENT_NOTE}
       </div>
     </div>
   )
@@ -247,7 +253,7 @@ function WhyPanel() {
       <div style={{ padding: '12px 14px', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>The commitment</div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          No audio ever leaves your machine. No account required. No subscription to access your own recordings. That's not a pricing decision — it's the whole point.
+          Audio and transcripts stay on your Mac by default. No account required. No subscription to access your own recordings. That's not a pricing decision — it's the whole point.
         </div>
       </div>
     </div>
@@ -281,7 +287,7 @@ function ShortcutsPanel() {
       <div style={{ padding: '12px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Global shortcuts</div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          Configure a system-wide shortcut to start and stop recording from any app — even when Memosa is in the background. Set it in Settings → Recording.
+          System-wide shortcuts to start and stop recording from any app are planned for a future update.
         </div>
       </div>
     </div>

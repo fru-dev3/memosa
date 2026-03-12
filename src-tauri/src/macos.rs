@@ -34,6 +34,22 @@ unsafe extern "C" {
         error_len: c_int,
     ) -> c_int;
     fn memosa_free_buffer(buf: *mut std::ffi::c_void);
+    fn memosa_create_security_bookmark(
+        path: *const c_char,
+        data_out: *mut *mut u8,
+        len_out: *mut c_int,
+        error_out: *mut c_char,
+        error_len: c_int,
+    ) -> c_int;
+    fn memosa_resolve_security_bookmark(
+        data: *const u8,
+        data_len: c_int,
+        path_out: *mut c_char,
+        path_out_len: c_int,
+        stale_out: *mut c_int,
+        error_out: *mut c_char,
+        error_len: c_int,
+    ) -> c_int;
 }
 
 /// Return the name of the frontmost application, or None if detection fails.
@@ -139,6 +155,69 @@ pub fn convert_to_whisper_format(path: &Path) -> Result<Vec<f32>, String> {
     unsafe { memosa_free_buffer(samples_ptr as *mut std::ffi::c_void) };
 
     Ok(samples)
+}
+
+/// Create an app-scoped security-scoped bookmark from a filesystem path.
+/// Returns the raw bookmark bytes that can be persisted.
+pub fn create_security_bookmark(path: &Path) -> Result<Vec<u8>, String> {
+    let c_path = CString::new(path.to_str().ok_or("Invalid path encoding")?)
+        .map_err(|e| format!("CString error: {e}"))?;
+    let mut data_ptr: *mut u8 = std::ptr::null_mut();
+    let mut data_len: c_int = 0;
+    let mut err_buf = [0u8; 512];
+    let ret = unsafe {
+        memosa_create_security_bookmark(
+            c_path.as_ptr(),
+            &mut data_ptr,
+            &mut data_len,
+            err_buf.as_mut_ptr() as *mut c_char,
+            512,
+        )
+    };
+    if ret != 0 {
+        let msg = std::str::from_utf8(&err_buf)
+            .unwrap_or("unknown error")
+            .trim_end_matches('\0')
+            .to_string();
+        return Err(msg);
+    }
+    if data_ptr.is_null() || data_len <= 0 {
+        return Err("Bookmark creation returned empty data".to_string());
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(data_ptr, data_len as usize) }.to_vec();
+    unsafe { memosa_free_buffer(data_ptr as *mut std::ffi::c_void) };
+    Ok(bytes)
+}
+
+/// Resolve a security-scoped bookmark, calling startAccessingSecurityScopedResource.
+/// Returns (resolved_path, is_stale).
+pub fn resolve_security_bookmark(data: &[u8]) -> Result<(String, bool), String> {
+    let mut path_buf = [0u8; 2048];
+    let mut stale: c_int = 0;
+    let mut err_buf = [0u8; 512];
+    let ret = unsafe {
+        memosa_resolve_security_bookmark(
+            data.as_ptr(),
+            data.len() as c_int,
+            path_buf.as_mut_ptr() as *mut c_char,
+            2048,
+            &mut stale,
+            err_buf.as_mut_ptr() as *mut c_char,
+            512,
+        )
+    };
+    if ret != 0 {
+        let msg = std::str::from_utf8(&err_buf)
+            .unwrap_or("unknown error")
+            .trim_end_matches('\0')
+            .to_string();
+        return Err(msg);
+    }
+    let path = std::str::from_utf8(&path_buf)
+        .unwrap_or("")
+        .trim_end_matches('\0')
+        .to_string();
+    Ok((path, stale != 0))
 }
 
 /// Read an audio file and return its absolute peak level in dBFS.

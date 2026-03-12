@@ -43,9 +43,9 @@ function LiveClock() {
   )
 }
 
-// ─── Ambient waveform ─────────────────────────────────────────────
+// ─── Decorative waveform ──────────────────────────────────────────
 
-function AmbientWaveform() {
+function Waveform() {
   const bars = Array.from({ length: 48 }, (_, i) => {
     const phase = (i / 47) * Math.PI
     const base = Math.sin(phase) * 0.62 + 0.28
@@ -141,7 +141,7 @@ export function RecordButton() {
     <div className="quick-record-shell quick-record-hero">
       <LiveClock />
 
-      <AmbientWaveform />
+      <Waveform />
 
       <div style={{ marginBottom: 14 }}>
         <input

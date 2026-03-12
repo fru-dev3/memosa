@@ -24,8 +24,10 @@
             <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
-                <!-- 3B52.1: Access file timestamps within the app's own container -->
+                <!-- 3B52.1: Access file timestamps within the app's container (Application Support/com.memosa.app) -->
                 <string>3B52.1</string>
+                <!-- C617.1: Access timestamps of files the user granted access to via file picker / security-scoped bookmarks -->
+                <string>C617.1</string>
             </array>
         </dict>
 

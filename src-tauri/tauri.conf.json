@@ -1,6 +1,6 @@
 {
   "productName": "Memosa",
-  "identifier": "com.app.memosa",
+  "identifier": "com.memosa.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -20,8 +20,13 @@
       "devCsp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$HOME/**", "$DOCUMENT/**"]
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$DOCUMENT/Memosa/**"]
       }
+    },
+    "trayIcon": {
+      "iconPath": "icons/tray-icon.png",
+      "iconAsTemplate": true,
+      "tooltip": "Memosa"
     },
     "windows": [
       {
@@ -32,7 +37,7 @@
         "minHeight": 600,
         "resizable": true,
         "decorations": true,
-        "titleBarStyle": "overlay",
+        "titleBarStyle": "Overlay",
         "hiddenTitle": true
       }
     ]

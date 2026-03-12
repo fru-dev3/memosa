@@ -111,12 +111,6 @@ export interface ExportResult {
   note: string
 }
 
-export interface AmbientStatus {
-  active: boolean
-  last_saved_meeting_id?: string
-  mode: 'idle' | 'capturing'
-}
-
 // Transcription
 export type TranscriptionStatus = 'not_started' | 'processing' | 'complete' | 'failed'
 
@@ -125,26 +119,6 @@ export interface ModelInfo {
   size_mb: number
   downloaded: boolean
   path?: string
-}
-
-// Calendar
-export interface CalendarEvent {
-  id: string
-  title: string
-  start: string        // ISO 8601
-  end: string          // ISO 8601
-  attendees: string[]
-  location?: string
-  description?: string
-  calendar_name: string
-  recording_candidate?: boolean
-  candidate_reason?: string
-  meeting_platform?: string
-}
-
-export interface AuthStatus {
-  connected: boolean
-  email?: string
 }
 
 // Meetings (stored)
@@ -203,10 +177,8 @@ export interface MeetingFilter {
 // Settings
 export interface AppSettings {
   storage_path: string
+  storage_path_bookmark?: string  // macOS security-scoped bookmark (base64), managed by Rust
   default_model: WhisperModel
-  auto_record: boolean
-  pre_meeting_notice_seconds: number  // default 120
-  calendar_provider?: 'google_api' | 'local_macos'
   capture_system_audio: boolean
   audio_input_device?: string
   launch_at_login: boolean
@@ -219,7 +191,6 @@ export interface AppSettings {
     keep_starred: boolean
     keep_profiles: string[]
   }
-  ambient_mode: AmbientModeSettings
   integration_states: Record<string, IntegrationState>
   summary_template_prompts: Record<string, string>
   custom_summary_templates: Array<{
@@ -228,13 +199,11 @@ export interface AppSettings {
     detail: string
     prompt: string
   }>
-  excluded_calendar_names: string[]
   has_completed_setup: boolean
 }
 
 export type AppView =
   | 'today'
-  | 'calendar'
   | 'library'
   | 'projects'
   | 'search'
@@ -246,7 +215,7 @@ export type AppView =
   | 'privacy'
   | 'settings'
 
-export type RecordingMode = 'manual' | 'calendar_auto' | 'ambient'
+export type RecordingMode = 'manual'
 export type RecordingInputMode = 'microphone' | 'system' | 'both'
 export type SummaryTemplate =
   | 'general'
@@ -297,18 +266,6 @@ export interface MarkdownExportResult {
   output_path: string
   meeting_count: number
   total_bytes: number
-}
-
-export interface AmbientModeSettings {
-  enabled: boolean
-  buffer_minutes: 15 | 30 | 60
-  capture_microphone: boolean
-  capture_system_audio: boolean
-  active_start_hour: number
-  active_end_hour: number
-  excluded_apps: string[]
-  max_daily_storage_mb: number
-  save_hotkey: string
 }
 
 export interface HotkeyConfig {

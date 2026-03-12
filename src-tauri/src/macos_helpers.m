@@ -389,3 +389,72 @@ int memosa_convert_to_whisper_format(const char *path_str,
 void memosa_free_buffer(void *buf) {
     free(buf);
 }
+
+// ---------------------------------------------------------------------------
+// Security-scoped bookmarks (MAS sandbox persistence)
+// ---------------------------------------------------------------------------
+
+/// Create an app-scoped security-scoped bookmark from a filesystem path.
+/// Returns bookmark bytes via out params. Caller must free *data_out with free().
+/// Returns 0 on success, -1 on error.
+int memosa_create_security_bookmark(const char *path, uint8_t **data_out, int *len_out,
+                                     char *error_out, int error_len) {
+    @autoreleasepool {
+        NSString *nsPath = [NSString stringWithUTF8String:path];
+        NSURL *url = [NSURL fileURLWithPath:nsPath];
+        NSError *err = nil;
+        NSData *bookmark = [url bookmarkDataWithOptions:NSURLBookmarkCreationWithSecurityScope
+                         includingResourceValuesForKeys:nil
+                                          relativeToURL:nil
+                                                  error:&err];
+        if (!bookmark) {
+            snprintf(error_out, error_len, "Failed to create bookmark: %s",
+                     [[err localizedDescription] UTF8String]);
+            return -1;
+        }
+        NSUInteger blen = [bookmark length];
+        uint8_t *copy = (uint8_t *)malloc(blen);
+        if (!copy) {
+            snprintf(error_out, error_len, "Out of memory");
+            return -1;
+        }
+        memcpy(copy, [bookmark bytes], blen);
+        *data_out = copy;
+        *len_out = (int)blen;
+        return 0;
+    }
+}
+
+/// Resolve a security-scoped bookmark back to a path.
+/// Returns 0 on success, -1 on error. *stale_out is set to 1 if the bookmark is stale.
+/// The resolved path is written to path_out (must be at least path_out_len bytes).
+int memosa_resolve_security_bookmark(const uint8_t *data, int data_len,
+                                      char *path_out, int path_out_len,
+                                      int *stale_out,
+                                      char *error_out, int error_len) {
+    @autoreleasepool {
+        NSData *bookmarkData = [NSData dataWithBytes:data length:(NSUInteger)data_len];
+        BOOL isStale = NO;
+        NSError *err = nil;
+        NSURL *url = [NSURL URLByResolvingBookmarkData:bookmarkData
+                                               options:NSURLBookmarkResolutionWithSecurityScope
+                                         relativeToURL:nil
+                                   bookmarkDataIsStale:&isStale
+                                                 error:&err];
+        if (!url) {
+            snprintf(error_out, error_len, "Failed to resolve bookmark: %s",
+                     [[err localizedDescription] UTF8String]);
+            return -1;
+        }
+        *stale_out = isStale ? 1 : 0;
+        // Start accessing the security-scoped resource
+        [url startAccessingSecurityScopedResource];
+        const char *resolved = [[url path] UTF8String];
+        if (!resolved) {
+            snprintf(error_out, error_len, "Resolved URL has no path");
+            return -1;
+        }
+        snprintf(path_out, path_out_len, "%s", resolved);
+        return 0;
+    }
+}

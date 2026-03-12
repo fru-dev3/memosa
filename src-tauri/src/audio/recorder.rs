@@ -1,6 +1,6 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use hound::{WavSpec, WavWriter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 
@@ -12,6 +12,16 @@ use crate::types::{
     AppSettings, AudioDiagnostics, Meeting, MicrophoneProbeResult, RecordingResult, RecordingStatus,
     TranscriptionStatus,
 };
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// Maximum number of samples to keep in the `live_pcm` accumulator before
+/// dropping the oldest data.  At 48 kHz mono this is ~10 minutes of audio.
+/// The live transcriber is expected to drain faster than this, but in case it
+/// falls behind we avoid unbounded memory growth.
+const LIVE_PCM_MAX_SAMPLES: usize = 48_000 * 60 * 10; // ~10 minutes @ 48 kHz
 
 // ---------------------------------------------------------------------------
 // Public handle — returned by start() and held by Tauri state
@@ -292,6 +302,170 @@ impl AudioRecorder {
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Crash recovery — called on app startup to rescue abandoned temp WAVs
+// ---------------------------------------------------------------------------
+
+/// Scan `storage_path` recursively for `*.tmp.wav` files that were left behind
+/// by a crash or forced quit during recording.  For each one that does NOT have
+/// a corresponding `.m4a` already on disk, attempt to encode it.  Returns the
+/// list of recovered `.m4a` paths (best-effort: errors are logged, not fatal).
+///
+/// The naming convention in `start()` is:
+///   final path   = `<dir>/<name>.m4a`
+///   temp WAV     = `<dir>/<name>.tmp.wav`
+///
+/// So for a temp file `meeting.tmp.wav` we check whether `meeting.m4a` exists.
+/// If not, we encode the WAV and produce the M4A.
+///
+/// Call this from application initialisation (e.g. `lib.rs` setup) after the
+/// storage path has been resolved.
+pub fn recover_abandoned_recordings(storage_path: &Path) -> Vec<String> {
+    let mut recovered: Vec<String> = Vec::new();
+
+    if !storage_path.is_dir() {
+        diagnostics::log(format!(
+            "audio:recovery skipped — storage path does not exist: {}",
+            storage_path.display()
+        ));
+        return recovered;
+    }
+
+    diagnostics::log(format!(
+        "audio:recovery scanning for abandoned recordings in {}",
+        storage_path.display()
+    ));
+
+    let tmp_wavs = find_tmp_wavs(storage_path);
+
+    if tmp_wavs.is_empty() {
+        diagnostics::log("audio:recovery no abandoned recordings found");
+        return recovered;
+    }
+
+    diagnostics::log(format!(
+        "audio:recovery found {} abandoned tmp.wav file(s)",
+        tmp_wavs.len()
+    ));
+
+    for wav_path in tmp_wavs {
+        // Derive the expected final M4A path.
+        // tmp WAV:  /dir/name.tmp.wav   (extension added via .with_extension("tmp.wav"))
+        // final:    /dir/name.m4a
+        //
+        // PathBuf::with_extension("tmp.wav") first strips the last extension,
+        // so `name.tmp.wav` has stem = `name.tmp`.  We need to strip `.tmp`
+        // from the stem to get back to `name`.
+        let m4a_path = match derive_m4a_from_tmp_wav(&wav_path) {
+            Some(p) => p,
+            None => {
+                diagnostics::log(format!(
+                    "audio:recovery could not derive m4a path from {}",
+                    wav_path.display()
+                ));
+                continue;
+            }
+        };
+
+        // If the M4A already exists, the recording was finalised and the tmp
+        // WAV is just a leftover.  Clean it up.
+        if m4a_path.exists() {
+            diagnostics::log(format!(
+                "audio:recovery removing orphaned tmp.wav (m4a already exists): {}",
+                wav_path.display()
+            ));
+            let _ = std::fs::remove_file(&wav_path);
+            continue;
+        }
+
+        // Validate that the WAV file is non-empty and readable.
+        match std::fs::metadata(&wav_path) {
+            Ok(meta) if meta.len() > 44 => {} // WAV header is 44 bytes minimum
+            Ok(_) => {
+                diagnostics::log(format!(
+                    "audio:recovery skipping empty/corrupt tmp.wav: {}",
+                    wav_path.display()
+                ));
+                let _ = std::fs::remove_file(&wav_path);
+                continue;
+            }
+            Err(e) => {
+                diagnostics::log(format!(
+                    "audio:recovery cannot stat {}: {e}",
+                    wav_path.display()
+                ));
+                continue;
+            }
+        }
+
+        // Attempt to encode the abandoned WAV to M4A.
+        diagnostics::log(format!(
+            "audio:recovery encoding abandoned recording: {}",
+            wav_path.display()
+        ));
+
+        match encode_to_m4a(&wav_path, &m4a_path) {
+            Ok(()) => {
+                diagnostics::log(format!(
+                    "audio:recovery successfully recovered: {}",
+                    m4a_path.display()
+                ));
+                recovered.push(m4a_path.to_string_lossy().into_owned());
+                // The encode_to_m4a function already removes the source WAV on
+                // success (on macOS).  Remove it here too in case the platform
+                // branch didn't.
+                let _ = std::fs::remove_file(&wav_path);
+            }
+            Err(e) => {
+                // Encoding failed but the WAV itself is still valuable — leave
+                // it on disk so the user can manually recover.
+                diagnostics::log(format!(
+                    "audio:recovery encode failed for {}: {e}",
+                    wav_path.display()
+                ));
+            }
+        }
+    }
+
+    if !recovered.is_empty() {
+        diagnostics::log(format!(
+            "audio:recovery recovered {} recording(s)",
+            recovered.len()
+        ));
+    }
+
+    recovered
+}
+
+/// Recursively find all `*.tmp.wav` files under `dir`.
+fn find_tmp_wavs(dir: &Path) -> Vec<PathBuf> {
+    let mut results = Vec::new();
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return results,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            results.extend(find_tmp_wavs(&path));
+        } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if name.ends_with(".tmp.wav") {
+                results.push(path);
+            }
+        }
+    }
+    results
+}
+
+/// Given a path like `/dir/name.tmp.wav`, return `/dir/name.m4a`.
+fn derive_m4a_from_tmp_wav(wav_path: &Path) -> Option<PathBuf> {
+    let file_name = wav_path.file_name()?.to_str()?;
+    let base = file_name.strip_suffix(".tmp.wav")?;
+    let mut m4a = wav_path.to_path_buf();
+    m4a.set_file_name(format!("{base}.m4a"));
+    Some(m4a)
 }
 
 fn ffmpeg_available() -> bool {
@@ -926,8 +1100,17 @@ fn capture_and_encode(
                 })?;
         }
 
-        // Accumulate for live transcription
-        live_pcm.lock().unwrap().extend_from_slice(&mixed);
+        // Accumulate for live transcription (capped to prevent memory bloat).
+        // If the live transcriber falls behind, drop the oldest samples so the
+        // buffer never exceeds LIVE_PCM_MAX_SAMPLES.
+        {
+            let mut lp = live_pcm.lock().unwrap();
+            lp.extend_from_slice(&mixed);
+            if lp.len() > LIVE_PCM_MAX_SAMPLES {
+                let excess = lp.len() - LIVE_PCM_MAX_SAMPLES;
+                lp.drain(..excess);
+            }
+        }
 
         // Emit audio-level ~10x per second (every 100 ms)
         if last_level_emit.elapsed() >= std::time::Duration::from_millis(100) {
@@ -1115,24 +1298,9 @@ pub async fn start_recording(
     profile_id: Option<String>,
     state: tauri::State<'_, AudioRecorder>,
     db: tauri::State<'_, Database>,
-    ambient: tauri::State<'_, crate::audio::AmbientController>,
-    transcription: tauri::State<'_, crate::transcription::TranscriptionManager>,
+    _transcription: tauri::State<'_, crate::transcription::TranscriptionManager>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    // If ambient is currently capturing, save and stop it before starting manual recording
-    let ambient_status = ambient.status();
-    if ambient_status.active && ambient_status.mode == crate::types::AmbientModeState::Capturing {
-        let _ = crate::audio::ambient::stop_current_ambient_for_manual(
-            state.inner(),
-            db.inner(),
-            transcription.inner(),
-            &app_handle,
-            ambient.inner(),
-        ).await;
-        // Brief pause to ensure the recorder lock is fully released
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    }
-
     // Detect frontmost app before Memosa potentially takes focus
     let source_app = detect_frontmost_app();
     begin_recording_session(

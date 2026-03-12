@@ -142,7 +142,7 @@ export function SetupView() {
               Memosa
             </div>
             <div style={{ fontSize: 13, color: '#218048', fontWeight: 500, lineHeight: 1.5 }}>
-              Quiet capture. Local first. Any AI.
+              Local recording. On-device transcription. Any AI.
             </div>
           </div>
 
@@ -155,7 +155,7 @@ export function SetupView() {
               Where should your memos live?
             </div>
             <div style={{ fontSize: 12, color: '#218048', lineHeight: 1.6, opacity: 0.8 }}>
-              Audio, transcripts, and notes are stored entirely on your Mac. No cloud. Nothing leaves unless you move it.
+              Audio, transcripts, and notes are stored on your Mac.
             </div>
 
             {/* Path row */}
@@ -222,7 +222,7 @@ export function SetupView() {
 
           {/* Fine print */}
           <div style={{ fontSize: 11, color: '#218048', opacity: 0.5, lineHeight: 1.6 }}>
-            No account. No subscription. No cloud.
+            No account. No subscription. Runs locally.
           </div>
         </div>
       </div>

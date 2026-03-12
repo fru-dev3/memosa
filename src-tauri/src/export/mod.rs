@@ -30,9 +30,7 @@ fn build_export_context(request: &ExportRequest, db: &Database) -> Result<Export
         .as_ref()
         .and_then(|path| std::fs::read_to_string(path).ok());
 
-    let output_dir = dirs::home_dir()
-        .unwrap_or_default()
-        .join(".memosa")
+    let output_dir = crate::paths::app_data_dir()
         .join("exports")
         .join(chrono::Local::now().format("%Y-%m").to_string());
 
@@ -249,10 +247,7 @@ pub async fn export_meetings_markdown(
     }
 
     // 6. Save to exports directory
-    let export_dir = dirs::home_dir()
-        .unwrap_or_default()
-        .join(".memosa")
-        .join("exports");
+    let export_dir = crate::paths::app_data_dir().join("exports");
     std::fs::create_dir_all(&export_dir)
         .map_err(|e| format!("Failed to create exports dir: {}", e))?;
 

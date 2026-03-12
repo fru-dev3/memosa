@@ -150,6 +150,32 @@ fn strip_timestamp_brackets(s: &str) -> String {
     out
 }
 
+// ─── Base64 helpers for bookmark persistence ─────────────────────────────────
+
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+
+fn base64_encode(data: &[u8]) -> String {
+    BASE64.encode(data)
+}
+
+fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
+    BASE64.decode(s).map_err(|e| format!("base64 decode error: {e}"))
+}
+
+// ─── Input Validation ────────────────────────────────────────────────────────
+
+/// Sanitize a meeting ID received from the frontend to prevent path traversal.
+/// Meeting IDs are UUIDs or formatted strings — reject anything with path separators.
+fn sanitize_id(id: &str) -> Result<&str, String> {
+    if id.is_empty() {
+        return Err("Meeting ID cannot be empty".to_string());
+    }
+    if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0') {
+        return Err("Invalid meeting ID".to_string());
+    }
+    Ok(id)
+}
+
 // ─── Tauri Commands ──────────────────────────────────────────────────────────
 
 use crate::types::SearchResult;
@@ -165,7 +191,8 @@ pub async fn get_meetings(
 
 #[tauri::command]
 pub async fn get_meeting(id: String, db: tauri::State<'_, Database>) -> Result<Meeting, String> {
-    db.get_meeting(&id)?
+    let id = sanitize_id(&id)?;
+    db.get_meeting(id)?
         .ok_or_else(|| "Meeting not found".to_string())
 }
 
@@ -183,7 +210,8 @@ pub async fn delete_meeting(
     db: tauri::State<'_, Database>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    if let Some(folder_path) = db.delete_meeting(&id)? {
+    let id = sanitize_id(&id)?;
+    if let Some(folder_path) = db.delete_meeting(id)? {
         if std::path::Path::new(&folder_path).exists() {
             std::fs::remove_dir_all(&folder_path)
                 .map_err(|e| format!("Failed to delete meeting folder: {}", e))?;
@@ -197,13 +225,33 @@ pub async fn delete_meeting(
 
 #[tauri::command]
 pub async fn get_storage_path() -> Result<String, String> {
-    Ok(SettingsManager::load().storage_path)
+    // SettingsManager::load() resolves the security-scoped bookmark automatically,
+    // so storage_path is already the resolved, sandbox-accessible path.
+    let settings = SettingsManager::load();
+
+    // If the resolved path is still inaccessible, tell the user to re-select it.
+    if !std::path::Path::new(&settings.storage_path).exists() {
+        return Err(
+            "Storage folder is no longer accessible. Please re-select it in Settings."
+                .to_string(),
+        );
+    }
+
+    Ok(settings.storage_path)
 }
 
 #[tauri::command]
 pub async fn set_storage_path(path: String) -> Result<(), String> {
     let mut settings = SettingsManager::load();
-    settings.storage_path = path;
+    settings.storage_path = path.clone();
+    // Create security-scoped bookmark for sandbox persistence
+    #[cfg(target_os = "macos")]
+    {
+        match crate::macos::create_security_bookmark(std::path::Path::new(&path)) {
+            Ok(data) => settings.storage_path_bookmark = Some(base64_encode(&data)),
+            Err(e) => crate::diagnostics::log(format!("bookmark creation failed: {e}")),
+        }
+    }
     SettingsManager::save(&settings)
 }
 
@@ -212,44 +260,35 @@ pub async fn get_settings(app_handle: tauri::AppHandle) -> Result<AppSettings, S
     crate::diagnostics::log("cmd:get_settings begin");
     let mut settings = SettingsManager::load();
     crate::diagnostics::log("cmd:get_settings loaded settings");
-    settings.launch_at_login = app_handle
-        .autolaunch()
-        .is_enabled()
-        .map_err(|e| format!("Failed to read launch-at-login state: {}", e))?;
-    crate::diagnostics::log(format!(
-        "cmd:get_settings autolaunch={}",
-        settings.launch_at_login
-    ));
+    // Launch-at-login is hard-disabled for the initial release.
+    settings.launch_at_login = false;
     Ok(settings)
 }
 
 #[tauri::command]
 pub async fn save_settings(
-    settings: AppSettings,
+    mut settings: AppSettings,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let autolaunch = app_handle.autolaunch();
-    let currently_enabled = autolaunch
-        .is_enabled()
-        .map_err(|e| format!("Failed to read launch-at-login state: {}", e))?;
-
-    if settings.launch_at_login && !currently_enabled {
-        autolaunch
-            .enable()
-            .map_err(|e| format!("Failed to enable launch at login: {}", e))?;
-    } else if !settings.launch_at_login && currently_enabled {
-        autolaunch
-            .disable()
-            .map_err(|e| format!("Failed to disable launch at login: {}", e))?;
+    // Preserve the existing bookmark if the frontend didn't send one
+    // (TypeScript may omit the optional field when constructing the payload)
+    if settings.storage_path_bookmark.is_none() {
+        let existing = SettingsManager::load();
+        settings.storage_path_bookmark = existing.storage_path_bookmark;
     }
+
+    // Launch-at-login is disabled for the initial release.
+    // The autostart plugin remains available for a future update.
+    settings.launch_at_login = false;
 
     SettingsManager::save(&settings)
 }
 
 #[tauri::command]
 pub async fn open_meeting_folder(id: String, db: tauri::State<'_, Database>) -> Result<(), String> {
+    let id = sanitize_id(&id)?;
     let folder = db
-        .get_folder_path(&id)?
+        .get_folder_path(id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
     fs::open_in_finder(std::path::Path::new(&folder))
 }
@@ -259,11 +298,12 @@ pub async fn read_meeting_transcript(
     id: String,
     db: tauri::State<'_, Database>,
 ) -> Result<String, String> {
+    let id = sanitize_id(&id)?;
     let meeting = db
-        .get_meeting(&id)?
+        .get_meeting(id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
     let folder = db
-        .get_folder_path(&id)?
+        .get_folder_path(id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
 
     let fallback_path = std::path::Path::new(&folder).join("transcript.md");
@@ -306,10 +346,11 @@ pub async fn read_meeting_notes(
     id: String,
     db: tauri::State<'_, Database>,
 ) -> Result<String, String> {
+    let id = sanitize_id(&id)?;
     let folder = db
-        .get_folder_path(&id)?
+        .get_folder_path(id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
-    let meeting = db.get_meeting(&id)?
+    let meeting = db.get_meeting(id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
     let notes_path = resolve_notes_path(&folder, &meeting.date);
     if !notes_path.exists() {
@@ -330,10 +371,11 @@ pub async fn save_meeting_notes(
     content: String,
     db: tauri::State<'_, Database>,
 ) -> Result<(), String> {
+    let id = sanitize_id(&id)?;
     let folder = db
-        .get_folder_path(&id)?
+        .get_folder_path(id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
-    let meeting = db.get_meeting(&id)?
+    let meeting = db.get_meeting(id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
     let notes_path = resolve_notes_path(&folder, &meeting.date);
 
@@ -367,8 +409,9 @@ pub async fn get_meeting_audio_status(
     id: String,
     db: tauri::State<'_, Database>,
 ) -> Result<AudioFileStatus, String> {
+    let id = sanitize_id(&id)?;
     let meeting = db
-        .get_meeting(&id)?
+        .get_meeting(id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
 
     let audio_path = std::path::PathBuf::from(&meeting.audio_path);
@@ -763,10 +806,7 @@ pub async fn run_cleanup_now(
 }
 
 fn cleanup_log_path() -> std::path::PathBuf {
-    dirs::home_dir()
-        .unwrap_or_default()
-        .join(".memosa")
-        .join("cleanup_log.json")
+    crate::paths::app_data_dir().join("cleanup_log.json")
 }
 
 fn append_cleanup_log(result: &CleanupRunResult) {
@@ -813,8 +853,9 @@ pub async fn set_meeting_favorite(
     db: tauri::State<'_, Database>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    db.set_meeting_favorite(&id, is_favorite)?;
-    if let Some(updated) = db.get_meeting(&id)? {
+    let id = sanitize_id(&id)?;
+    db.set_meeting_favorite(id, is_favorite)?;
+    if let Some(updated) = db.get_meeting(id)? {
         app_handle
             .emit("meeting-updated", serde_json::json!({ "meeting": updated }))
             .ok();
@@ -829,11 +870,12 @@ pub async fn save_meeting_transcript(
     db: tauri::State<'_, Database>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let id = sanitize_id(&id)?;
     let meeting = db
-        .get_meeting(&id)?
+        .get_meeting(id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
     let folder = db
-        .get_folder_path(&id)?
+        .get_folder_path(id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
 
     let transcript_path = std::path::Path::new(&folder).join("transcript.md");
@@ -907,6 +949,18 @@ pub async fn pick_storage_folder(
         .into_path()
         .map_err(|e| format!("Failed to resolve selected folder: {}", e))?;
 
+    // Create security-scoped bookmark immediately while Powerbox access is active
+    #[cfg(target_os = "macos")]
+    {
+        let mut settings = SettingsManager::load();
+        settings.storage_path = folder.to_string_lossy().into_owned();
+        match crate::macos::create_security_bookmark(&folder) {
+            Ok(data) => settings.storage_path_bookmark = Some(base64_encode(&data)),
+            Err(e) => crate::diagnostics::log(format!("bookmark creation on pick failed: {e}")),
+        }
+        let _ = SettingsManager::save(&settings);
+    }
+
     Ok(Some(folder.to_string_lossy().into_owned()))
 }
 
@@ -917,12 +971,13 @@ pub async fn rename_meeting(
     db: tauri::State<'_, Database>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let id = sanitize_id(&id)?;
     let title = title.trim().to_string();
     if title.is_empty() {
         return Err("Title cannot be empty".to_string());
     }
-    db.rename_meeting(&id, &title)?;
-    if let Some(updated) = db.get_meeting(&id)? {
+    db.rename_meeting(id, &title)?;
+    if let Some(updated) = db.get_meeting(id)? {
         app_handle
             .emit("meeting-saved", serde_json::json!({ "meeting": updated }))
             .ok();
@@ -937,16 +992,17 @@ pub async fn update_meeting_profile(
     db: tauri::State<'_, Database>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let id = sanitize_id(&id)?;
     let folder = db
-        .get_folder_path(&id)?
+        .get_folder_path(id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
 
-    db.update_meeting_profile(&id, profile_id.as_deref())?;
+    db.update_meeting_profile(id, profile_id.as_deref())?;
     fs::update_metadata(std::path::Path::new(&folder), |stored| {
         stored.profile_id = profile_id.clone();
     })?;
 
-    if let Some(updated) = db.get_meeting(&id)? {
+    if let Some(updated) = db.get_meeting(id)? {
         app_handle
             .emit("meeting-saved", serde_json::json!({ "meeting": updated }))
             .ok();
@@ -958,10 +1014,7 @@ pub async fn update_meeting_profile(
 // ─── Profile persistence ──────────────────────────────────────────────────────
 
 fn profiles_path() -> std::path::PathBuf {
-    dirs::home_dir()
-        .unwrap_or_default()
-        .join(".memosa")
-        .join("profiles.json")
+    crate::paths::app_data_dir().join("profiles.json")
 }
 
 #[tauri::command]
@@ -979,10 +1032,17 @@ pub async fn load_profiles() -> Result<serde_json::Value, String> {
 pub async fn save_profiles(data: serde_json::Value) -> Result<(), String> {
     let path = profiles_path();
     std::fs::create_dir_all(path.parent().unwrap())
-        .map_err(|e| format!("Failed to create .memosa dir: {}", e))?;
+        .map_err(|e| format!("Failed to create app data dir: {}", e))?;
     let json = serde_json::to_string_pretty(&data)
         .map_err(|e| format!("Failed to serialize profiles: {}", e))?;
-    std::fs::write(&path, json).map_err(|e| format!("Failed to write profiles.json: {}", e))
+    std::fs::write(&path, json).map_err(|e| format!("Failed to write profiles.json: {}", e))?;
+    // Restrict permissions — profiles contain meeting titles and attendee names
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -993,11 +1053,19 @@ pub async fn save_text_file(
 ) -> Result<(), String> {
     use tauri_plugin_dialog::DialogExt;
 
+    // Sanitize: use only the file name portion, strip path separators and null bytes
+    let safe_name = filename
+        .rsplit(|c: char| c == '/' || c == '\\')
+        .next()
+        .unwrap_or("export.txt")
+        .replace('\0', "");
+    let safe_name = if safe_name.is_empty() { "export.txt" } else { &safe_name };
+
     let path = app_handle
         .dialog()
         .file()
         .set_title("Save transcript")
-        .set_file_name(&filename)
+        .set_file_name(safe_name)
         .blocking_save_file();
 
     let Some(file_path) = path else {

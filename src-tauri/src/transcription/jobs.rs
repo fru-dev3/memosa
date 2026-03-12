@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use tauri::{Emitter, Manager};
+use tokio::sync::Semaphore;
 
 use super::models::model_path;
 use super::whisper::WhisperTranscriber;
@@ -25,8 +26,16 @@ enum JobState {
 #[derive(Clone)]
 pub struct TranscriptionManager {
     jobs: Arc<Mutex<HashMap<String, JobState>>>,
+    /// Limits concurrent Whisper inferences to 1 to prevent OOM / system freeze.
+    inference_semaphore: Arc<Semaphore>,
 }
 
+/// Build heuristic-based meeting insights from a transcript.
+///
+/// NOTE: These are automatic suggestions generated using keyword matching and
+/// simple heuristics -- they may be inaccurate. All UI surfaces displaying this
+/// data (summary, people, themes, tags, action items, decisions) should make it
+/// clear that these are auto-generated suggestions, not verified facts.
 pub fn build_meeting_insights(
     meeting: &Meeting,
     transcript_markdown: &str,
@@ -430,6 +439,7 @@ impl TranscriptionManager {
     pub fn new() -> Self {
         Self {
             jobs: Arc::new(Mutex::new(HashMap::new())),
+            inference_semaphore: Arc::new(Semaphore::new(1)),
         }
     }
 
@@ -456,10 +466,38 @@ impl TranscriptionManager {
         }
 
         let jobs = Arc::clone(&self.jobs);
+        let semaphore = Arc::clone(&self.inference_semaphore);
         let meeting_id_clone = meeting_id.clone();
         let model_for_failure = model.clone();
 
         tauri::async_runtime::spawn(async move {
+            // Acquire a permit before running inference — only 1 Whisper job at a time.
+            let _permit = match semaphore.acquire().await {
+                Ok(permit) => permit,
+                Err(_) => {
+                    let err_msg = "Transcription queue is shutting down".to_string();
+                    {
+                        let mut jobs = jobs.lock().unwrap();
+                        jobs.insert(meeting_id_clone.clone(), JobState::Failed(err_msg.clone()));
+                    }
+                    let _ = update_transcription_failed(
+                        &meeting_id_clone,
+                        &model_for_failure,
+                        &app_handle,
+                    );
+                    app_handle
+                        .emit(
+                            "transcription-failed",
+                            serde_json::json!({
+                                "meeting_id": meeting_id_clone,
+                                "error": err_msg,
+                            }),
+                        )
+                        .ok();
+                    return;
+                }
+            };
+
             let result = run_transcription_job(
                 meeting_id_clone.clone(),
                 audio_path,
@@ -543,10 +581,18 @@ async fn run_transcription_job(
 ) -> Result<String, String> {
     let model_file = model_path(&model);
     if !model_file.exists() {
-        return Err(format!(
-            "Model file not found: {}. Download it first.",
-            model_file.display()
-        ));
+        return Err(
+            "The transcription model is not downloaded. Please download it in Settings."
+                .to_string(),
+        );
+    }
+
+    // Verify the audio file exists before starting
+    let audio_file_path = std::path::Path::new(&audio_path);
+    if !audio_file_path.exists() {
+        return Err(
+            "The audio file could not be found. It may have been moved or deleted.".to_string(),
+        );
     }
 
     let audio_path_clone = audio_path.clone();
@@ -573,7 +619,10 @@ async fn run_transcription_job(
         })
     })
     .await
-    .map_err(|e| format!("spawn_blocking panicked: {}", e))??;
+    .map_err(|e| {
+        eprintln!("[memosa] transcription task panicked: {}", e);
+        "Transcription failed unexpectedly. Please try again.".to_string()
+    })??;
 
     // Determine the meeting folder from the audio path
     let audio_file = std::path::Path::new(&audio_path);

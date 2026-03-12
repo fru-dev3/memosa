@@ -8,13 +8,10 @@ pub struct Database {
 }
 
 impl Database {
-    /// Open (or create) the SQLite database at `~/.memosa/memosa.db` and
-    /// run the schema migrations.
+    /// Open (or create) the SQLite database at `Application Support/com.memosa.app/memosa.db`
+    /// and run the schema migrations.
     pub fn new() -> Result<Self, String> {
-        let db_path = dirs::home_dir()
-            .unwrap_or_default()
-            .join(".memosa")
-            .join("memosa.db");
+        let db_path = crate::paths::app_data_dir().join("memosa.db");
 
         std::fs::create_dir_all(db_path.parent().unwrap())
             .map_err(|e| format!("Failed to create .memosa dir: {}", e))?;
