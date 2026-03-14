@@ -1,7 +1,7 @@
 [package]
 name = "memosa"
-version = "1.0.0"
-description = "Memosa — Meeting recorder and transcription app"
+version = "1.0.1"
+description = "Memosa - Record and Transcription App"
 authors = ["Ben"]
 edition = "2024"
 
