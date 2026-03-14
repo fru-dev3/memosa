@@ -27,12 +27,16 @@ function ExternalLinkIcon() {
 
 const trustSections = [
   {
+    title: 'No data sent to third parties',
+    body: 'Memosa does not transmit recordings, transcripts, or any personal data to external services. All processing happens on this Mac.',
+  },
+  {
     title: 'What gets recorded',
     body: 'Only the microphone or system audio sources you explicitly enable.',
   },
   {
     title: 'What stays local',
-    body: 'Audio files, transcripts, and search content remain on-device in the current build.',
+    body: 'Audio files, transcripts, and search content remain on-device. Nothing is uploaded.',
   },
   {
     title: 'Local models',

@@ -45,8 +45,8 @@ const ABOUT_POINTS = [
     Icon: PrivacyIcon,
   },
   {
-    title: 'AI agnostic',
-    copy: 'Bring your own model. ChatGPT, Claude, Gemini, NotebookLM — your pick, your terms.',
+    title: 'Your files, your choice',
+    copy: 'Transcripts are plain files on your Mac. Copy them into any tool you like — nothing is sent automatically.',
     Icon: OpenIcon,
   },
 ] as const
@@ -56,35 +56,35 @@ const USE_CASES = ['Customer calls', 'Team meetings', 'Interviews', 'Sales calls
 const ABOUT_FLOW = [
   { label: 'Record', note: 'Start a recording on your Mac. No bots join, no accounts needed.' },
   { label: 'Organise', note: 'Folders, tags, search, and full transcripts — all stored locally.' },
-  { label: 'Take it anywhere', note: 'Your files. Your AI. Your workflow. No lock-in, no subscription.' },
+  { label: 'Take it anywhere', note: 'Your files, your workflow. Export or copy to any tool you choose. No lock-in.' },
 ] as const
 
-const INTEGRATION_GROUPS = [
+const COMPATIBILITY_GROUPS = [
   {
-    heading: 'Cloud sync',
+    heading: 'Cloud sync (manual)',
     items: [
-      { name: 'Google Drive', detail: 'Sync your Memosa folder to Drive, then point any model at it.' },
-      { name: 'Dropbox', detail: 'Files in Dropbox become accessible from any device or AI tool.' },
-      { name: 'iCloud Drive', detail: 'Already in iCloud? Point Memosa there and it just works.' },
+      { name: 'Google Drive', detail: 'Point your Memosa folder at Drive to sync files across devices.' },
+      { name: 'Dropbox', detail: 'Place your storage folder in Dropbox for automatic backup.' },
+      { name: 'iCloud Drive', detail: 'Already using iCloud? Set Memosa\'s storage folder there.' },
       { name: 'OneDrive', detail: 'Works for teams already in the Microsoft ecosystem.' },
     ],
   },
   {
-    heading: 'AI and knowledge tools',
+    heading: 'External tools (copy & paste)',
     items: [
-      { name: 'NotebookLM', detail: 'Upload transcripts and build a notebook on your own meetings.' },
-      { name: 'ChatGPT', detail: 'Drop a transcript into a conversation. Ask it anything.' },
-      { name: 'Claude', detail: 'Summarise a week of calls. Pull out action items. Write follow-ups.' },
-      { name: 'Gemini', detail: 'Google\'s model works well with Drive-synced transcripts.' },
+      { name: 'NotebookLM', detail: 'Upload transcript files to build a notebook on your meetings.' },
+      { name: 'ChatGPT', detail: 'Copy a transcript into a conversation. Memosa never sends data automatically.' },
+      { name: 'Claude', detail: 'Paste transcripts to summarise calls. You choose what to share, manually.' },
+      { name: 'Gemini', detail: 'Works with Drive-synced transcript files you place there yourself.' },
     ],
   },
   {
     heading: 'Notes and PKM',
     items: [
       { name: 'Obsidian', detail: 'Transcripts are markdown files. Drop them straight into your vault.' },
-      { name: 'Notion', detail: 'Paste or automate. The transcript is just text — works anywhere.' },
+      { name: 'Notion', detail: 'Copy and paste. The transcript is just text — works anywhere.' },
       { name: 'Logseq', detail: 'Plain text files work natively in Logseq\'s graph database.' },
-      { name: 'Apple Notes', detail: 'Copy and paste is a valid integration. You own the file.' },
+      { name: 'Apple Notes', detail: 'Copy and paste from your Memosa folder. You own the file.' },
     ],
   },
 ] as const
@@ -197,18 +197,25 @@ function HowPanel() {
   )
 }
 
-function IntegrationsPanel({ onRequest }: { onRequest: () => void }) {
+function CompatibilityPanel({ onRequest }: { onRequest: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ padding: '10px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10, marginBottom: 2 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Memosa does not send your data to any third-party service</div>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          All recording and transcription happens locally on this Mac. The tools listed below are external apps you can manually use with your exported files — Memosa has no connection to them and never transmits data on your behalf.
+        </div>
+      </div>
+
       <div style={{ padding: '16px 0 4px' }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>Open by design</div>
         <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text-primary)', marginBottom: 8 }}>Your data. Your tools.</div>
         <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          Every recording and transcript is a file in a folder on your Mac. Sync that folder to any cloud service and every tool that can read files can use your data. No API keys, no special exports.
+          Every recording and transcript is a file in a folder on your Mac. You can manually copy or sync files to any tool you choose. Memosa never sends data anywhere automatically.
         </p>
       </div>
 
-      {INTEGRATION_GROUPS.map(({ heading, items }) => (
+      {COMPATIBILITY_GROUPS.map(({ heading, items }) => (
         <div key={heading}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>{heading}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -224,8 +231,8 @@ function IntegrationsPanel({ onRequest }: { onRequest: () => void }) {
 
       <div style={{ padding: '12px 14px', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 10, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>Native integrations — based on demand</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>We may build native push integrations if demand is there. Tell us what you need.</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>Feature requests welcome</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>Tell us what tools you want to use with your Memosa files.</div>
         </div>
         <button className="ghost-pill is-selected-pill" style={{ flexShrink: 0 }} onClick={onRequest}>Request</button>
       </div>
@@ -296,11 +303,11 @@ function ShortcutsPanel() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-type AboutTab = 'overview' | 'how' | 'integrations' | 'why' | 'shortcuts'
+type AboutTab = 'overview' | 'how' | 'works-with' | 'why' | 'shortcuts'
 const TABS: { id: AboutTab; label: string; icon: string }[] = [
   { id: 'overview',     label: 'Overview',     icon: '✦' },
   { id: 'how',          label: 'How it works', icon: '→' },
-  { id: 'integrations', label: 'Integrations', icon: '⟡' },
+  { id: 'works-with', label: 'Works with', icon: '⟡' },
   { id: 'why',          label: 'Why Memosa',   icon: '◎' },
   { id: 'shortcuts',    label: 'Shortcuts',    icon: '⌘' },
 ]
@@ -338,7 +345,7 @@ export function AboutView() {
           <div className="cfg-body">
             {activeTab === 'overview' && <OverviewPanel />}
             {activeTab === 'how' && <HowPanel />}
-            {activeTab === 'integrations' && <IntegrationsPanel onRequest={() => void api.openExternalUrl(WEBSITE_URL)} />}
+            {activeTab === 'works-with' && <CompatibilityPanel onRequest={() => void api.openExternalUrl(WEBSITE_URL)} />}
             {activeTab === 'why' && <WhyPanel />}
             {activeTab === 'shortcuts' && <ShortcutsPanel />}
           </div>

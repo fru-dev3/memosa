@@ -9,6 +9,7 @@ use providers::local_stub::LocalStubProvider;
 use providers::StorageProvider;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use tauri_plugin_dialog::DialogExt;
 
 pub struct ExportContext {
     pub meeting: crate::types::Meeting,
@@ -17,7 +18,7 @@ pub struct ExportContext {
     pub output_dir: PathBuf,
 }
 
-fn build_export_context(request: &ExportRequest, db: &Database) -> Result<ExportContext, String> {
+fn build_export_context(request: &ExportRequest, db: &Database, output_dir: PathBuf) -> Result<ExportContext, String> {
     let meeting = db
         .get_meeting(&request.meeting_id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
@@ -29,10 +30,6 @@ fn build_export_context(request: &ExportRequest, db: &Database) -> Result<Export
         .transcript_path
         .as_ref()
         .and_then(|path| std::fs::read_to_string(path).ok());
-
-    let output_dir = crate::paths::app_data_dir()
-        .join("exports")
-        .join(chrono::Local::now().format("%Y-%m").to_string());
 
     Ok(ExportContext {
         meeting,
@@ -56,8 +53,28 @@ fn resolve_provider(id: &str) -> Result<Box<dyn StorageProvider>, String> {
 pub async fn export_meeting_bundle(
     request: ExportRequest,
     db: tauri::State<'_, Database>,
+    app_handle: tauri::AppHandle,
 ) -> Result<ExportResult, String> {
-    let context = build_export_context(&request, db.inner())?;
+    let filename = format!("{}-export.json", request.meeting_id);
+    let chosen = app_handle
+        .dialog()
+        .file()
+        .set_title("Save meeting export")
+        .set_file_name(&filename)
+        .blocking_save_file();
+
+    let Some(file_path) = chosen else {
+        return Err("Export cancelled.".to_string());
+    };
+
+    let output_dir = file_path
+        .into_path()
+        .map_err(|e| format!("Failed to resolve save path: {}", e))?
+        .parent()
+        .map(PathBuf::from)
+        .ok_or_else(|| "Invalid save path".to_string())?;
+
+    let context = build_export_context(&request, db.inner(), output_dir)?;
     let provider = resolve_provider(&request.provider_id)?;
     provider.export(&request, &context)
 }
@@ -108,6 +125,7 @@ fn format_duration(seconds: u64) -> String {
 pub async fn export_meetings_markdown(
     request: MarkdownExportRequest,
     db: tauri::State<'_, Database>,
+    app_handle: tauri::AppHandle,
 ) -> Result<MarkdownExportResult, String> {
     // 1. Get all meetings (we'll filter in memory for flexibility)
     let all_meetings = db.get_meetings(&MeetingFilter {
@@ -246,11 +264,7 @@ pub async fn export_meetings_markdown(
         md.push_str("\n---\n\n");
     }
 
-    // 6. Save to exports directory
-    let export_dir = crate::paths::app_data_dir().join("exports");
-    std::fs::create_dir_all(&export_dir)
-        .map_err(|e| format!("Failed to create exports dir: {}", e))?;
-
+    // 6. Ask the user where to save via standard macOS Save dialog
     let filename = match request.mode {
         MarkdownExportMode::ByFolder => {
             let count = request.folder_ids.as_ref().map(|v| v.len()).unwrap_or(0);
@@ -271,7 +285,21 @@ pub async fn export_meetings_markdown(
         }
     };
 
-    let output_path = export_dir.join(&filename);
+    let chosen = app_handle
+        .dialog()
+        .file()
+        .set_title("Save Memosa export")
+        .set_file_name(&filename)
+        .blocking_save_file();
+
+    let Some(file_path) = chosen else {
+        return Err("Export cancelled.".to_string());
+    };
+
+    let output_path = file_path
+        .into_path()
+        .map_err(|e| format!("Failed to resolve save path: {}", e))?;
+
     let total_bytes = md.len();
     std::fs::write(&output_path, &md)
         .map_err(|e| format!("Failed to write export file: {}", e))?;
