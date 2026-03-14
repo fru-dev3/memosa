@@ -270,7 +270,10 @@ export function ExportView() {
       }
       const res = await api.exportMeetingsMarkdown(request)
       setResult(res)
-    } catch (e) { setError(String(e)) }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('cancelled')) setError(msg)
+    }
     finally { setExporting(false) }
   }, [tab, selectedFolderIds, includeSubfolders, starredOnly, fromDate, toDate])
 
@@ -302,7 +305,7 @@ export function ExportView() {
             Your memos. Your tools. Zero lock-in.
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 10, marginBottom: 0, lineHeight: 1.65, maxWidth: 520 }}>
-            Everything stays on your Mac. We don't build integrations on purpose —
+            Everything stays on your Mac. Memosa never sends data to third-party services —
             your transcript is yours the moment it's captured. Export once, use everywhere.
           </p>
 

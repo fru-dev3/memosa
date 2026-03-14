@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use storage::{Database, SettingsManager};
 use tauri::{Manager, RunEvent};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder};
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use transcription::{LiveTranscriber, TranscriptionManager};
 
 #[tauri::command]
@@ -125,6 +125,37 @@ pub fn run() {
                 .build(app)?;
             diagnostics::log("setup: system tray created");
 
+            // --- Application menu bar (required by macOS App Store for window re-open) ---
+            let app_submenu = {
+                let about = PredefinedMenuItem::about(app, Some("About Memosa"), None)?;
+                let sep = PredefinedMenuItem::separator(app)?;
+                let hide = PredefinedMenuItem::hide(app, None)?;
+                let hide_others = PredefinedMenuItem::hide_others(app, None)?;
+                let show_all = PredefinedMenuItem::show_all(app, None)?;
+                let sep2 = PredefinedMenuItem::separator(app)?;
+                let quit = PredefinedMenuItem::quit(app, Some("Quit Memosa"))?;
+                Submenu::with_items(app, "Memosa", true, &[&about, &sep, &hide, &hide_others, &show_all, &sep2, &quit])?
+            };
+            let edit_submenu = {
+                let undo = PredefinedMenuItem::undo(app, None)?;
+                let redo = PredefinedMenuItem::redo(app, None)?;
+                let sep = PredefinedMenuItem::separator(app)?;
+                let cut = PredefinedMenuItem::cut(app, None)?;
+                let copy = PredefinedMenuItem::copy(app, None)?;
+                let paste = PredefinedMenuItem::paste(app, None)?;
+                let select_all = PredefinedMenuItem::select_all(app, None)?;
+                Submenu::with_items(app, "Edit", true, &[&undo, &redo, &sep, &cut, &copy, &paste, &select_all])?
+            };
+            let window_submenu = {
+                let minimize = PredefinedMenuItem::minimize(app, None)?;
+                let sep = PredefinedMenuItem::separator(app)?;
+                let show_window = MenuItem::with_id(app, "show_window", "Show Memosa", true, Some("CmdOrCtrl+0"))?;
+                Submenu::with_items(app, "Window", true, &[&minimize, &sep, &show_window])?
+            };
+            let app_menu = Menu::with_items(app, &[&app_submenu, &edit_submenu, &window_submenu])?;
+            app.set_menu(app_menu)?;
+            diagnostics::log("setup: application menu bar created");
+
             // Scheduled retention cleanup -- runs once per day if policy is enabled.
             let cleanup_db = database.clone();
             let cleanup_app = app.handle().clone();
@@ -148,6 +179,14 @@ pub fn run() {
             });
 
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            if event.id() == "show_window" {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -255,6 +294,14 @@ pub fn run() {
             std::process::exit(1);
         })
         .run(|app_handle, event| {
+            // Re-show the main window when the dock icon is clicked (macOS standard).
+            if let RunEvent::Reopen { .. } = &event {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+
             if let RunEvent::ExitRequested { api, .. } = &event {
                 let recorder = app_handle.state::<AudioRecorder>();
                 if recorder.get_status().is_recording {
