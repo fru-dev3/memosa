@@ -16,11 +16,16 @@ const QUOTES = [
 
 export function SetupView() {
   const { settings, setSettings, setMeetings } = useMemosaStore()
-  const defaultPath = settings?.storage_path ?? '~/Documents/Memosa'
-  const [storagePath, setStoragePath] = useState(defaultPath)
+  // null = user has not yet picked via the native dialog (no security-scoped bookmark)
+  const [storagePath, setStoragePath] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [quoteIndex, setQuoteIndex] = useState(0)
   const [quoteVisible, setQuoteVisible] = useState(true)
+  const [appVersion, setAppVersion] = useState('')
+
+  useEffect(() => {
+    api.getAppVersion().then(setAppVersion).catch(() => {})
+  }, [])
 
   // Cycle quotes every 4s with fade transition
   useEffect(() => {
@@ -34,13 +39,15 @@ export function SetupView() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleBrowse = async () => {
-    const picked = await api.pickStorageFolder(storagePath)
+  const handlePickFolder = async () => {
+    // Always go through the native folder dialog so macOS grants a
+    // security-scoped bookmark for the selected location (App Sandbox 2.4.5)
+    const picked = await api.pickStorageFolder(storagePath ?? undefined)
     if (picked) setStoragePath(picked)
   }
 
   const handleGetStarted = async () => {
-    if (!settings) return
+    if (!settings || !storagePath) return
     setSaving(true)
     try {
       const updated = { ...settings, storage_path: storagePath, has_completed_setup: true }
@@ -144,6 +151,11 @@ export function SetupView() {
             <div style={{ fontSize: 13, color: '#218048', fontWeight: 500, lineHeight: 1.5 }}>
               Local recording. On-device transcription. Any AI.
             </div>
+            {appVersion && (
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#218048', opacity: 0.5, letterSpacing: '0.04em' }}>
+                v{appVersion}
+              </div>
+            )}
           </div>
 
           {/* Divider */}
@@ -155,46 +167,68 @@ export function SetupView() {
               Where should your memos live?
             </div>
             <div style={{ fontSize: 12, color: '#218048', lineHeight: 1.6, opacity: 0.8 }}>
-              Audio, transcripts, and notes are stored on your Mac.
+              Choose a folder on your Mac to store recordings, transcripts, and notes.
             </div>
 
-            {/* Path row */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: 'rgba(255,255,255,0.7)',
-              border: '1px solid rgba(18, 77, 45, 0.18)',
-              borderRadius: 10,
-              padding: '8px 10px 8px 14px',
-            }}>
-              <span style={{
-                flex: 1,
-                fontSize: 12,
-                color: '#124d2d',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontFamily: 'monospace',
-                opacity: 0.8,
+            {storagePath ? (
+              /* Folder selected — show path with change option */
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'rgba(255,255,255,0.7)',
+                border: '1px solid rgba(18, 77, 45, 0.18)',
+                borderRadius: 10,
+                padding: '8px 10px 8px 14px',
               }}>
-                {storagePath}
-              </span>
+                <span style={{
+                  flex: 1,
+                  fontSize: 12,
+                  color: '#124d2d',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontFamily: 'monospace',
+                  opacity: 0.8,
+                }}>
+                  {storagePath}
+                </span>
+                <button
+                  className="ghost-pill"
+                  style={{ flexShrink: 0 }}
+                  onClick={() => void handlePickFolder()}
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              /* No folder selected yet — show choose button */
               <button
                 className="ghost-pill"
-                style={{ flexShrink: 0 }}
-                onClick={() => void handleBrowse()}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 10,
+                  border: '1px solid rgba(18, 77, 45, 0.25)',
+                  background: 'rgba(255,255,255,0.7)',
+                  color: '#124d2d',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+                onClick={() => void handlePickFolder()}
               >
-                Browse
+                Choose folder...
               </button>
-            </div>
+            )}
 
             <div style={{ fontSize: 11, color: '#218048', opacity: 0.65, textAlign: 'center' }}>
               You can change this at any time in Settings → Storage
             </div>
           </div>
 
-          {/* CTA */}
+          {/* CTA — only enabled after a folder is picked via native dialog */}
           <button
             style={{
               width: '100%',
@@ -203,18 +237,22 @@ export function SetupView() {
               fontWeight: 650,
               borderRadius: 999,
               border: 'none',
-              background: 'linear-gradient(135deg, #1a6b3a 0%, #0f4d28 100%)',
+              background: storagePath
+                ? 'linear-gradient(135deg, #1a6b3a 0%, #0f4d28 100%)'
+                : 'linear-gradient(135deg, #8aab96 0%, #6b8e7b 100%)',
               color: '#fff',
-              cursor: saving ? 'default' : 'pointer',
+              cursor: saving || !storagePath ? 'default' : 'pointer',
               opacity: saving ? 0.7 : 1,
               fontFamily: 'inherit',
               transition: 'opacity 140ms ease, transform 100ms ease',
               letterSpacing: '-0.01em',
-              boxShadow: '0 4px 16px rgba(18, 77, 45, 0.3)',
+              boxShadow: storagePath
+                ? '0 4px 16px rgba(18, 77, 45, 0.3)'
+                : '0 2px 8px rgba(18, 77, 45, 0.15)',
             }}
-            onMouseEnter={(e) => { if (!saving) e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseEnter={(e) => { if (!saving && storagePath) e.currentTarget.style.transform = 'translateY(-1px)' }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'none' }}
-            disabled={saving}
+            disabled={saving || !storagePath}
             onClick={() => void handleGetStarted()}
           >
             {saving ? 'Setting up…' : 'Start capturing →'}
