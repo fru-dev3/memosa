@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as api from '../lib/tauri'
 import { useMemosaStore } from '../store'
 
@@ -315,6 +315,11 @@ const TABS: { id: AboutTab; label: string; icon: string }[] = [
 export function AboutView() {
   const { setActiveView } = useMemosaStore()
   const [activeTab, setActiveTab] = useState<AboutTab>('overview')
+  const [appVersion, setAppVersion] = useState('')
+
+  useEffect(() => {
+    api.getAppVersion().then(setAppVersion).catch(() => {})
+  }, [])
 
   return (
     <div className="settings-modal-backdrop" onClick={() => setActiveView('today')}>
@@ -334,6 +339,11 @@ export function AboutView() {
               ))}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 12 }}>
+              {appVersion && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
+                  v{appVersion}
+                </span>
+              )}
               <button className="ghost-pill is-selected-pill" onClick={() => void api.openExternalUrl(WEBSITE_URL)}>
                 memosa.dev ↗
               </button>

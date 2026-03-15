@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import memosaIcon from '../../assets/memosa-icon.png'
-import * as api from '../../lib/tauri'
 import type { AppView } from '../../lib/types'
 import { useMemosaStore } from '../../store'
 
@@ -70,12 +69,6 @@ export function Sidebar() {
     sidebarCollapsed,
     toggleSidebarCollapsed,
   } = useMemosaStore()
-  const [appVersion, setAppVersion] = useState('')
-
-  useEffect(() => {
-    api.getAppVersion().then(setAppVersion).catch(() => {})
-  }, [])
-
   const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) void invoke('start_window_drag')
   }, [])
@@ -144,10 +137,6 @@ export function Sidebar() {
         <NavItem label="Settings" view="settings" activeView={activeView} collapsed={sidebarCollapsed} setActiveView={setActiveView} />
       </nav>
 
-      {/* ── Footer ── */}
-      {!sidebarCollapsed && appVersion && (
-        <div className="sb-footer">v{appVersion}</div>
-      )}
     </aside>
   )
 }

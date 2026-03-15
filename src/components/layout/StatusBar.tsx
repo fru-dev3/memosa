@@ -1,7 +1,6 @@
+import { useEffect, useState } from 'react'
 import * as api from '../../lib/tauri'
 import { useMemosaStore } from '../../store'
-
-const APP_VERSION = '1.0.0'
 
 function fmtTimer(secs: number): string {
   const h = Math.floor(secs / 3600)
@@ -13,10 +12,13 @@ function fmtTimer(secs: number): string {
 }
 
 export function StatusBar() {
-  const { availableModels, meetings, recordingStatus, settings, setActiveView, setCurrentMeeting } = useMemosaStore()
+  const { meetings, recordingStatus, setActiveView, setCurrentMeeting } = useMemosaStore()
+  const [appVersion, setAppVersion] = useState('')
 
-  const defaultModel = settings?.default_model ?? 'small'
-  const modelInfo = availableModels.find((model) => model.name === defaultModel)
+  useEffect(() => {
+    api.getAppVersion().then(setAppVersion).catch(() => {})
+  }, [])
+
   const pendingTranscriptions = meetings.filter((meeting) => meeting.transcription_status === 'processing').length
   const isRecording = recordingStatus.is_recording
   const currentMeeting = isRecording && recordingStatus.meeting_id
@@ -78,20 +80,13 @@ export function StatusBar() {
         </>
       ) : (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Ready</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {pendingTranscriptions > 0 && (
-              <span>{pendingTranscriptions} transcribing</span>
+              <span style={{ fontWeight: 600 }}>{pendingTranscriptions} transcribing</span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {!modelInfo?.downloaded && (
-              <span style={{ color: 'var(--upcoming)' }}>
-                Whisper {defaultModel} not downloaded
-              </span>
-            )}
-            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Local archive</span>
-            <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>Version {APP_VERSION}</span>
+          <div>
+            {appVersion && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>v{appVersion}</span>}
           </div>
         </>
       )}
