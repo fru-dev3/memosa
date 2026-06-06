@@ -138,7 +138,8 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search transcripts, tags, titles, summaries"
+              onKeyDown={(e) => { if (e.key === 'Enter' && query.trim() && !chatLoading) void handleAskAI() }}
+              placeholder="Search transcripts, or press Enter to ask AI"
               className="search-input"
             />
             {query && (
