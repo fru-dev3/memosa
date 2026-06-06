@@ -8,6 +8,7 @@ mod insights;
 mod macos;
 pub mod paths;
 mod storage;
+mod sync;
 mod transcription;
 mod types;
 
@@ -266,6 +267,8 @@ pub fn run() {
             transcription::cancel_transcription,
             transcription::start_live_transcription,
             transcription::stop_live_transcription,
+            transcription::regenerate_insights,
+            transcription::generate_speaker_transcript,
             storage::get_meetings,
             storage::get_meeting,
             storage::search_meetings,
@@ -317,6 +320,10 @@ pub fn run() {
             insights::generate_insights,
             insights::get_insight_engine_status,
             insights::set_byok_api_key,
+            sync::sync_meeting_to_obsidian,
+            sync::sync_meeting_to_notion,
+            sync::set_notion_token,
+            sync::notion_connected,
             get_app_version,
             open_external_url,
             start_window_drag,

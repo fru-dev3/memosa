@@ -211,6 +211,9 @@ export interface AppSettings {
   ollama_model: string
   ollama_url: string
   byok_provider: 'anthropic' | 'open_ai'
+  // Integrations
+  obsidian_vault_path?: string | null
+  notion_database_id: string
 }
 
 // ─── Calendar ───────────────────────────────────────────────────────────────

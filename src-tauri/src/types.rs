@@ -401,6 +401,15 @@ pub struct AppSettings {
     /// stored in the macOS Keychain, never in this file.
     #[serde(default)]
     pub byok_provider: ByokProvider,
+
+    // ─── Integrations (sync targets) ─────────────────────────────────────────
+    /// Folder of an Obsidian vault to write meeting notes into. None = not configured.
+    #[serde(default)]
+    pub obsidian_vault_path: Option<String>,
+    /// Notion database ID to create meeting pages in. The integration token is in
+    /// the Keychain, not here.
+    #[serde(default)]
+    pub notion_database_id: String,
 }
 
 /// Engine that produces meeting insights.

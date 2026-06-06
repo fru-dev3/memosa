@@ -47,6 +47,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   ollama_model: 'llama3.1',
   ollama_url: 'http://localhost:11434',
   byok_provider: 'anthropic',
+  obsidian_vault_path: null,
+  notion_database_id: '',
 }
 
 const MODEL_OPTIONS: WhisperModel[] = ['tiny', 'base', 'small', 'medium']
@@ -261,12 +263,13 @@ function WaveStrip({ active, level }: { active: boolean; level: number }) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'capture' | 'transcription' | 'ai' | 'calendar' | 'storage' | 'profiles' | 'import'
+type Tab = 'capture' | 'transcription' | 'ai' | 'calendar' | 'integrations' | 'storage' | 'profiles' | 'import'
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'capture',       label: 'Capture',       icon: '🎙️' },
   { id: 'transcription', label: 'Transcription',  icon: '✦' },
   { id: 'ai',            label: 'AI Insights',    icon: '✨' },
   { id: 'calendar',      label: 'Calendar',       icon: '📅' },
+  { id: 'integrations',  label: 'Integrations',   icon: '🔗' },
   { id: 'storage',       label: 'Storage',        icon: '🗂️' },
   { id: 'profiles',      label: 'Profiles',       icon: '👤' },
   { id: 'import',        label: 'Import',         icon: '📥' },
@@ -350,6 +353,12 @@ export function SettingsView() {
   const [savingKey, setSavingKey] = useState(false)
   const [keySaved, setKeySaved] = useState(false)
 
+  // Integrations
+  const [notionTokenInput, setNotionTokenInput] = useState('')
+  const [notionIsConnected, setNotionIsConnected] = useState(false)
+  const [savingNotion, setSavingNotion] = useState(false)
+  const [integrationMsg, setIntegrationMsg] = useState<string | null>(null)
+
   useEffect(() => {
     setDraft(settings ?? DEFAULT_SETTINGS)
     draftRef.current = settings ?? DEFAULT_SETTINGS
@@ -364,6 +373,7 @@ export function SettingsView() {
     api.previewCleanup().then(setCleanupPreview).catch(() => {})
     api.getAuthStatus().then(setAuthStatus).catch(() => {})
     api.getInsightEngineStatus().then(setEngineStatus).catch(() => {})
+    api.notionConnected().then(setNotionIsConnected).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh engine availability whenever the engine selection changes.
@@ -432,6 +442,26 @@ export function SettingsView() {
       setCalError(e instanceof Error ? e.message : String(e))
     }
   }, [])
+
+  const handlePickVault = useCallback(async () => {
+    const folder = await api.pickImportFolder().catch(() => null)
+    if (folder) updateDraft('obsidian_vault_path', folder)
+  }, [updateDraft])
+
+  const handleSaveNotionToken = useCallback(async () => {
+    setSavingNotion(true)
+    setIntegrationMsg(null)
+    try {
+      await api.setNotionToken(notionTokenInput)
+      setNotionTokenInput('')
+      setNotionIsConnected(await api.notionConnected())
+      setIntegrationMsg(notionTokenInput.trim() ? 'Notion token saved.' : 'Notion token cleared.')
+    } catch (e) {
+      setIntegrationMsg(e instanceof Error ? e.message : 'Failed to save token')
+    } finally {
+      setSavingNotion(false)
+    }
+  }, [notionTokenInput])
 
   const handleSaveByokKey = useCallback(async () => {
     setSavingKey(true)
@@ -956,6 +986,19 @@ export function SettingsView() {
           <Inp value={draft.google_client_id} onChange={(v) => updateDraft('google_client_id', v)} style={{ width: 260 }} />
         </Row>
 
+        <details style={{ padding: '4px 0 8px' }}>
+          <summary style={{ fontSize: 11, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>
+            How do I get a client ID?
+          </summary>
+          <ol style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, margin: '8px 0 0', paddingLeft: 18 }}>
+            <li>Open <button type="button" onClick={() => api.openExternalUrl('https://console.cloud.google.com')} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, font: 'inherit' }}>console.cloud.google.com</button> and create/select a project.</li>
+            <li>APIs &amp; Services → Library → enable <strong>Google Calendar API</strong>.</li>
+            <li>OAuth consent screen → External; add your own email under Test users.</li>
+            <li>Credentials → Create Credentials → <strong>OAuth client ID</strong> → type <strong>Desktop app</strong>.</li>
+            <li>Copy the Client ID (no secret needed) and paste it above.</li>
+          </ol>
+        </details>
+
         <Row label="Connection" hint={connected ? (authStatus?.email ?? 'Connected') : 'Not connected'}>
           {connected ? (
             <button className="ghost-pill" onClick={handleDisconnectCalendar}>Disconnect</button>
@@ -1055,6 +1098,52 @@ export function SettingsView() {
             {engineStatus.available ? '✓ ' : '⚠ '}{engineStatus.detail}
           </div>
         )}
+      </>
+    )
+  }
+
+  function renderIntegrations() {
+    return (
+      <>
+        <SectionLabel>Obsidian</SectionLabel>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 8px', lineHeight: 1.5 }}>
+          Write meeting notes (summary + transcript) into a folder inside your Obsidian vault.
+          Fully local — nothing leaves your Mac.
+        </div>
+        <Row label="Vault folder" hint={draft.obsidian_vault_path ?? 'Not set'} borderless>
+          <button className="ghost-pill is-selected-pill" onClick={handlePickVault}>Choose folder…</button>
+        </Row>
+
+        <SectionLabel>Notion</SectionLabel>
+        <div style={{
+          marginTop: 4, marginBottom: 4, padding: '8px 12px', borderRadius: 8,
+          background: 'rgba(180, 83, 9, 0.08)', border: '1px solid rgba(180, 83, 9, 0.25)',
+          fontSize: 11, color: '#b45309', lineHeight: 1.5,
+        }}>
+          ⚠ Pushing to Notion sends the note and transcript to Notion's servers. Your token is
+          stored in the macOS Keychain.
+        </div>
+        <Row
+          label="Integration token"
+          hint={notionIsConnected ? 'Token saved ✓ — create one at notion.so/my-integrations' : 'Create an internal integration at notion.so/my-integrations'}
+        >
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <Inp type="password" value={notionTokenInput} onChange={setNotionTokenInput} style={{ width: 190 }} />
+            <button className="ghost-pill is-selected-pill" onClick={handleSaveNotionToken} disabled={savingNotion}>
+              {savingNotion ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </Row>
+        <Row label="Database ID" hint="Share the target database with your integration, then paste its ID here." borderless>
+          <Inp value={draft.notion_database_id} onChange={(v) => updateDraft('notion_database_id', v)} style={{ width: 240 }} />
+        </Row>
+
+        {integrationMsg && (
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', padding: '8px 0' }}>{integrationMsg}</div>
+        )}
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', paddingTop: 4, lineHeight: 1.5 }}>
+          Sync individual meetings using the Obsidian and Notion buttons in a meeting's transcript view.
+        </div>
       </>
     )
   }
@@ -1213,6 +1302,7 @@ export function SettingsView() {
             {tab === 'transcription' && renderTranscription()}
             {tab === 'ai' && renderAi()}
             {tab === 'calendar' && renderCalendar()}
+            {tab === 'integrations' && renderIntegrations()}
             {tab === 'storage' && renderStorage()}
             {tab === 'profiles' && renderProfiles()}
             {tab === 'import' && renderImport()}
