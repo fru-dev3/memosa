@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Memosa does not track users across apps or websites -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- No tracking domains -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- No data is collected or sent off-device -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <!-- Required API access declarations -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+
+        <!-- File timestamps: used to sort and display recording files by date/time -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- 3B52.1: Access file timestamps within the app's container (Application Support/com.memosa.app) -->
+                <string>3B52.1</string>
+                <!-- C617.1: Access timestamps of files the user granted access to via file picker / security-scoped bookmarks -->
+                <string>C617.1</string>
+            </array>
+        </dict>
+
+        <!-- Disk space: used to display storage usage to the user in Settings -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- E174.1: Display to the user -->
+                <string>E174.1</string>
+            </array>
+        </dict>
+
+        <!-- UserDefaults: used by Tauri/WKWebView to persist app configuration -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- 1C8F.1: Access only information the app itself wrote to UserDefaults -->
+                <string>1C8F.1</string>
+            </array>
+        </dict>
+
+    </array>
+</dict>
+</plist>
