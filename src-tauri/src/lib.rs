@@ -273,6 +273,7 @@ pub fn run() {
             transcription::start_live_transcription,
             transcription::stop_live_transcription,
             transcription::regenerate_insights,
+            transcription::regenerate_all_insights,
             transcription::generate_speaker_transcript,
             storage::get_meetings,
             storage::get_meeting,

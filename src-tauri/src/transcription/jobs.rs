@@ -730,6 +730,8 @@ async fn run_transcription_job(
             stored.people = insights.people.clone();
             stored.themes = insights.themes.clone();
             stored.keywords = insights.keywords.clone();
+            stored.action_items = insights.action_items.clone();
+            stored.decisions = insights.decisions.clone();
         })?;
     }
 

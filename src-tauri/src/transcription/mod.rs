@@ -94,13 +94,22 @@ pub async fn regenerate_insights(
     db: State<'_, crate::storage::Database>,
     app_handle: tauri::AppHandle,
 ) -> Result<crate::types::Meeting, String> {
+    regenerate_meeting_insights(db.inner(), &app_handle, &meeting_id).await
+}
+
+/// Shared routine behind both the single and bulk regenerate commands.
+async fn regenerate_meeting_insights(
+    db: &crate::storage::Database,
+    app_handle: &tauri::AppHandle,
+    meeting_id: &str,
+) -> Result<crate::types::Meeting, String> {
     use tauri::Emitter;
 
     let meeting = db
-        .get_meeting(&meeting_id)?
+        .get_meeting(meeting_id)?
         .ok_or_else(|| "Meeting not found".to_string())?;
     let folder = db
-        .get_folder_path(&meeting_id)?
+        .get_folder_path(meeting_id)?
         .ok_or_else(|| "Meeting folder not found".to_string())?;
 
     let fallback = std::path::Path::new(&folder).join("transcript.md");
@@ -115,7 +124,7 @@ pub async fn regenerate_insights(
 
     let insights = jobs::compute_meeting_insights(&meeting, &md).await;
     db.update_meeting_insights(
-        &meeting_id,
+        meeting_id,
         &insights.brief_summary,
         &insights.tags,
         &insights.people,
@@ -130,15 +139,55 @@ pub async fn regenerate_insights(
         stored.people = insights.people.clone();
         stored.themes = insights.themes.clone();
         stored.keywords = insights.keywords.clone();
+        stored.action_items = insights.action_items.clone();
+        stored.decisions = insights.decisions.clone();
     })?;
 
     let updated = db
-        .get_meeting(&meeting_id)?
+        .get_meeting(meeting_id)?
         .ok_or_else(|| "Meeting not found after update".to_string())?;
     app_handle
         .emit("meeting-saved", serde_json::json!({ "meeting": updated.clone() }))
         .ok();
     Ok(updated)
+}
+
+/// Re-run insight generation across every completed meeting with the engine
+/// selected in Settings. Emits `bulk-insights-progress` as it goes. Returns the
+/// number successfully processed.
+#[tauri::command]
+pub async fn regenerate_all_insights(
+    db: State<'_, crate::storage::Database>,
+    app_handle: tauri::AppHandle,
+) -> Result<usize, String> {
+    use tauri::Emitter;
+
+    let filter = crate::types::MeetingFilter {
+        from_date: None,
+        to_date: None,
+        transcription_status: Some(TranscriptionStatus::Complete),
+        profile_id: None,
+    };
+    let meetings = db.get_meetings(&filter)?;
+    let total = meetings.len();
+    let mut done = 0usize;
+
+    for (i, meeting) in meetings.iter().enumerate() {
+        let _ = app_handle.emit(
+            "bulk-insights-progress",
+            serde_json::json!({ "current": i, "total": total, "title": meeting.title }),
+        );
+        match regenerate_meeting_insights(db.inner(), &app_handle, &meeting.id).await {
+            Ok(_) => done += 1,
+            Err(e) => crate::diagnostics::log(format!("bulk insights: {} failed: {e}", meeting.id)),
+        }
+    }
+
+    let _ = app_handle.emit(
+        "bulk-insights-progress",
+        serde_json::json!({ "current": total, "total": total, "title": "Done", "finished": true }),
+    );
+    Ok(done)
 }
 
 /// Produce a speaker-attributed version of a meeting's transcript using the
