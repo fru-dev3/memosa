@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as api from '../lib/tauri'
 import { useMemosaStore } from '../store'
+import memosaIcon from '../assets/memosa-icon.png'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -135,56 +136,58 @@ const CONSENT_NOTE = 'Important: Always inform other participants that a call is
 function OverviewPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* ── Editorial hero ── */}
-      <div style={{ padding: '20px 0 8px', maxWidth: 640 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 18 }}>
-          Local-first recording
+      {/* ── Hero: copy on the left, app icon as the visual anchor on the right ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 36, padding: '24px 0 30px', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 360px', minWidth: 280 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 14 }}>
+            Local-first recording
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 600, lineHeight: 1.08, margin: 0, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
+            Record. Transcribe.<br />
+            <span style={{ color: 'var(--accent)' }}>Own what's yours.</span>
+          </h1>
+          <p style={{ margin: '16px 0 18px', fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 420 }}>
+            Record calls and meetings on your Mac — no bots, no cloud, no account.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {['macOS 13+', 'Apple Silicon', 'No subscription'].map((m) => (
+              <span key={m} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 999, padding: '4px 11px' }}>{m}</span>
+            ))}
+          </div>
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 42, fontWeight: 600, lineHeight: 1.05, margin: 0, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
-          Record. Transcribe.<br />
-          <span style={{ color: 'var(--accent)' }}>Own what's yours.</span>
-        </h1>
-        <p style={{ margin: '20px 0 0', fontSize: 16, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-          Record calls and meetings on your Mac — no bots join, no cloud upload, no account required.
-          Everything stays on your machine until <em style={{ fontStyle: 'italic', color: 'var(--text-primary)' }}>you</em> decide to move it.
-        </p>
+        <div style={{ flexShrink: 0, position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: -14, borderRadius: 32, background: 'var(--accent)', opacity: 0.07, filter: 'blur(22px)' }} />
+          <div style={{ position: 'relative', width: 132, height: 132, borderRadius: 30, background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', boxShadow: '0 16px 40px rgba(28,26,23,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={memosaIcon} alt="Memosa" style={{ width: 92, height: 92, borderRadius: 22 }} />
+          </div>
+        </div>
       </div>
 
-      {/* ── Three principles, set like chapter points ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, margin: '36px 0 8px', borderTop: '1px solid var(--border-subtle)' }}>
+      {/* ── Three principles: prominent icon badges, scannable ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, borderTop: '1px solid var(--border-subtle)' }}>
         {ABOUT_POINTS.map(({ title, copy, Icon }, i) => (
-          <div
-            key={title}
-            style={{
-              padding: '22px 22px 24px',
-              borderLeft: i > 0 ? '1px solid var(--border-subtle)' : 'none',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, color: 'var(--accent)', opacity: 0.5 }}>
-                0{i + 1}
-              </span>
-              <span style={{ color: 'var(--accent)' }}><Icon /></span>
+          <div key={title} style={{ padding: '24px 22px 24px', borderLeft: i > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--accent-dim)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+              <Icon />
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 600, marginBottom: 7, color: 'var(--text-primary)' }}>{title}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.65 }}>{copy}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }}>{title}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{copy}</div>
           </div>
         ))}
       </div>
 
-      {/* ── What people capture — as flowing prose ── */}
-      <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '24px 0 4px', maxWidth: 680 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 10 }}>
+      {/* ── Footer: use cases as chips + a one-line consent note ── */}
+      <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '20px 0 0', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.9px', textTransform: 'uppercase', color: 'var(--text-muted)', flexShrink: 0 }}>
           What people capture
         </span>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-          {USE_CASES.slice(0, -1).map((uc) => uc.toLowerCase()).join(', ')}, and {USE_CASES[USE_CASES.length - 1].toLowerCase()}.
-        </span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {USE_CASES.map((uc) => <span key={uc} className="chip chip-muted">{uc}</span>)}
+        </div>
       </div>
 
-      {/* ── Consent note as a quiet margin footnote ── */}
-      <div style={{ marginTop: 28, paddingLeft: 14, borderLeft: '2px solid var(--accent-border)', maxWidth: 640 }}>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>{CONSENT_NOTE}</div>
+      <div style={{ marginTop: 22, paddingLeft: 12, borderLeft: '2px solid var(--accent-border)' }}>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.55 }}>{CONSENT_NOTE}</div>
       </div>
     </div>
   )
@@ -385,14 +388,14 @@ export function AboutView() {
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 12, flexShrink: 0 }}>
               {appVersion && (
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
                   v{appVersion}
                 </span>
               )}
-              <button className="ghost-pill is-selected-pill" onClick={() => void api.openExternalUrl(WEBSITE_URL)}>
-                memosa.dev ↗
+              <button className="ghost-pill is-selected-pill" style={{ whiteSpace: 'nowrap' }} onClick={() => void api.openExternalUrl(WEBSITE_URL)}>
+                memosa.dev&nbsp;↗
               </button>
               <button className="ghost-pill" onClick={() => setActiveView('today')}>Done</button>
             </div>
