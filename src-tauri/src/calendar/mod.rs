@@ -1,6 +1,9 @@
+pub mod google;
+pub mod oauth;
 pub mod providers;
 pub mod scheduler;
 pub mod state;
+pub mod tokens;
 
 pub use state::CalendarState;
 
@@ -14,18 +17,101 @@ use tauri::Emitter;
 
 /// Return current authentication status.
 #[tauri::command]
-pub async fn get_auth_status(state: tauri::State<'_, CalendarState>) -> Result<AuthStatus, String> {
+pub async fn get_auth_status(
+    _state: tauri::State<'_, CalendarState>,
+) -> Result<AuthStatus, String> {
     crate::diagnostics::log("cmd:get_auth_status begin");
     let settings = SettingsManager::load();
     let (connected, email) = match settings.calendar_provider {
         CalendarProvider::LocalMacos => (true, Some("Apple Calendar".to_string())),
-        CalendarProvider::GoogleApi => (false, None),
+        CalendarProvider::GoogleApi => (
+            tokens::load_refresh_token().is_some(),
+            settings.calendar_account_email,
+        ),
     };
     crate::diagnostics::log(format!("cmd:get_auth_status connected={connected}"));
+    Ok(AuthStatus { connected, email })
+}
+
+/// Persist the user's Google OAuth desktop client ID (not a secret under PKCE).
+#[tauri::command]
+pub async fn set_google_client_id(client_id: String) -> Result<(), String> {
+    let mut settings = SettingsManager::load();
+    settings.google_client_id = client_id.trim().to_string();
+    SettingsManager::save(&settings)
+}
+
+/// Run the full PKCE OAuth flow: open the browser, capture the redirect on a
+/// loopback port, exchange the code, and store the refresh token in the Keychain.
+/// Returns the connected account email (best-effort).
+#[tauri::command]
+pub async fn start_google_auth(
+    state: tauri::State<'_, CalendarState>,
+) -> Result<AuthStatus, String> {
+    crate::diagnostics::log("cmd:start_google_auth begin");
+    let settings = SettingsManager::load();
+    let client_id = settings.google_client_id.clone();
+    if client_id.is_empty() {
+        return Err("Set your Google client ID first.".to_string());
+    }
+
+    let pkce = oauth::generate_pkce();
+    let auth_url = oauth::build_auth_url(&client_id, &pkce);
+
+    // Start the loopback callback listener BEFORE opening the browser so we
+    // never miss the redirect.
+    let server = tauri::async_runtime::spawn_blocking(oauth::start_local_callback_server_blocking);
+
+    #[cfg(target_os = "macos")]
+    crate::macos::open_url(&auth_url)?;
+    #[cfg(not(target_os = "macos"))]
+    return Err("OAuth is only supported on macOS in this build.".to_string());
+
+    let code = server
+        .await
+        .map_err(|e| format!("Callback server task failed: {e}"))??;
+
+    let token = oauth::exchange_code(&client_id, &code, &pkce.verifier).await?;
+
+    let refresh = token
+        .refresh_token
+        .clone()
+        .ok_or_else(|| "Google did not return a refresh token.".to_string())?;
+    tokens::save_refresh_token(&refresh)?;
+
+    // Cache the access token immediately.
+    let exp = chrono::Utc::now().timestamp() + token.expires_in as i64;
+    *state.access_token.lock().unwrap() = Some((token.access_token.clone(), exp));
+
+    // Best-effort: the "primary" calendar id is the account email.
+    let email = google::GoogleCalendarClient::new(token.access_token.clone())
+        .get_primary_email()
+        .await
+        .ok()
+        .flatten();
+    let mut settings = SettingsManager::load();
+    settings.calendar_account_email = email.clone();
+    settings.calendar_provider = CalendarProvider::GoogleApi;
+    SettingsManager::save(&settings)?;
+
+    crate::diagnostics::log("cmd:start_google_auth success");
     Ok(AuthStatus {
-        connected,
+        connected: true,
         email,
     })
+}
+
+/// Disconnect: clear the Keychain token, cached access token, and stored email.
+#[tauri::command]
+pub async fn revoke_google_auth(state: tauri::State<'_, CalendarState>) -> Result<(), String> {
+    tokens::clear_refresh_token()?;
+    *state.access_token.lock().unwrap() = None;
+    state.cached_events.lock().unwrap().clear();
+    let mut settings = SettingsManager::load();
+    settings.calendar_account_email = None;
+    SettingsManager::save(&settings)?;
+    crate::diagnostics::log("cmd:revoke_google_auth done");
+    Ok(())
 }
 
 /// Return today's events. Uses cache; fetches from API if cache is empty.

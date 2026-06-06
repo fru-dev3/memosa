@@ -694,7 +694,22 @@ async fn run_transcription_job(
     crate::storage::index_transcript(&meeting_id, db.inner())?;
 
     if let Some(meeting) = db.get_meeting(&meeting_id)? {
-        let insights = build_meeting_insights(&meeting, &md, None, None);
+        // Heuristic insights are instant and always succeed; use them as the
+        // baseline and (if the user opted into an AI engine) try to upgrade.
+        let mut insights = build_meeting_insights(&meeting, &md, None, None);
+        if crate::insights::ai_engine_selected() {
+            match crate::insights::generate(md.clone(), None).await {
+                Ok(ai) => {
+                    crate::diagnostics::log("transcription: AI insights generated");
+                    insights = ai;
+                }
+                Err(e) => {
+                    crate::diagnostics::log(format!(
+                        "transcription: AI insights failed, using heuristic: {e}"
+                    ));
+                }
+            }
+        }
         db.update_meeting_insights(
             &meeting_id,
             &insights.brief_summary,

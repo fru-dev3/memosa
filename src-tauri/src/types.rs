@@ -257,6 +257,55 @@ pub struct MeetingInsights {
     pub decisions: Vec<String>,
 }
 
+// ─── Calendar ───────────────────────────────────────────────────────────────
+
+/// Which calendar backend supplies events. `LocalMacos` is a sandbox-safe stub
+/// (returns no events under MAS); `GoogleApi` uses the read-only Google Calendar
+/// API via PKCE OAuth.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CalendarProvider {
+    LocalMacos,
+    GoogleApi,
+}
+
+impl Default for CalendarProvider {
+    fn default() -> Self {
+        CalendarProvider::GoogleApi
+    }
+}
+
+/// Connection status surfaced to the UI.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AuthStatus {
+    pub connected: bool,
+    pub email: Option<String>,
+}
+
+/// A single calendar event, normalized across providers.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CalendarEvent {
+    pub id: String,
+    pub title: String,
+    pub start: String, // RFC3339 or YYYY-MM-DD (all-day)
+    pub end: String,
+    #[serde(default)]
+    pub attendees: Vec<String>,
+    #[serde(default)]
+    pub location: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub calendar_name: String,
+    /// True when the event looks like a recordable meeting (has a video link, etc.).
+    #[serde(default)]
+    pub recording_candidate: bool,
+    #[serde(default)]
+    pub candidate_reason: Option<String>,
+    #[serde(default)]
+    pub meeting_platform: Option<String>,
+}
+
 // Search
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SearchResult {
@@ -321,6 +370,77 @@ pub struct AppSettings {
     pub custom_summary_templates: Vec<CustomSummaryTemplate>,
     #[serde(default)]
     pub has_completed_setup: bool,
+
+    // ─── Calendar ────────────────────────────────────────────────────────────
+    #[serde(default)]
+    pub calendar_provider: CalendarProvider,
+    /// Google OAuth client ID (desktop PKCE — not a secret). Empty until the user sets it.
+    #[serde(default)]
+    pub google_client_id: String,
+    /// The connected account's email, shown in the UI. Populated after auth.
+    #[serde(default)]
+    pub calendar_account_email: Option<String>,
+    /// Enable automatic recording of calendar meetings.
+    #[serde(default)]
+    pub auto_record: bool,
+    /// Calendar names the user has opted out of (never auto-record / show).
+    #[serde(default)]
+    pub excluded_calendar_names: Vec<String>,
+
+    // ─── AI insights engine ──────────────────────────────────────────────────
+    /// Which engine generates summaries/decisions/action-items.
+    #[serde(default)]
+    pub insight_engine: InsightEngine,
+    /// Ollama model tag used when `insight_engine == Ollama` (e.g. "llama3.1").
+    #[serde(default = "default_ollama_model")]
+    pub ollama_model: String,
+    /// Ollama server base URL (local by default).
+    #[serde(default = "default_ollama_url")]
+    pub ollama_url: String,
+    /// Cloud provider used when `insight_engine == Byok`. The API key itself is
+    /// stored in the macOS Keychain, never in this file.
+    #[serde(default)]
+    pub byok_provider: ByokProvider,
+}
+
+/// Engine that produces meeting insights.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InsightEngine {
+    /// Fast, offline, rule-based extraction (the original behavior). No model needed.
+    Heuristic,
+    /// Local LLM via Ollama — private, nothing leaves the machine.
+    Ollama,
+    /// Bring-your-own-key cloud LLM. Sends transcript text to the chosen provider.
+    Byok,
+}
+
+impl Default for InsightEngine {
+    fn default() -> Self {
+        // Privacy-first default: never sends data anywhere until the user opts in.
+        InsightEngine::Heuristic
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ByokProvider {
+    Anthropic,
+    OpenAI,
+}
+
+impl Default for ByokProvider {
+    fn default() -> Self {
+        ByokProvider::Anthropic
+    }
+}
+
+fn default_ollama_model() -> String {
+    "llama3.1".to_string()
+}
+
+fn default_ollama_url() -> String {
+    "http://localhost:11434".to_string()
 }
 
 fn default_appearance_mode() -> AppearanceMode {

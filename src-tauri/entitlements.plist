@@ -18,8 +18,14 @@
     <key>com.apple.security.device.audio-input</key>
     <true/>
 
-    <!-- Network: outbound — required to download Whisper speech-recognition models from HuggingFace on first use -->
+    <!-- Network: outbound — required to download Whisper speech-recognition models from HuggingFace on first use,
+         and (optionally) to reach Google Calendar / a cloud insight provider when the user opts in -->
     <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- Network: inbound (loopback only) — the Google Calendar OAuth flow runs a transient
+         localhost:8899 callback listener to capture the redirect; required under the sandbox -->
+    <key>com.apple.security.network.server</key>
     <true/>
 
     <!-- User-selected file access (storage folder picker, export) -->

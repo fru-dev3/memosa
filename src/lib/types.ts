@@ -200,6 +200,51 @@ export interface AppSettings {
     prompt: string
   }>
   has_completed_setup: boolean
+  // Calendar
+  calendar_provider: 'local_macos' | 'google_api'
+  google_client_id: string
+  calendar_account_email?: string | null
+  auto_record: boolean
+  excluded_calendar_names: string[]
+  // AI insights
+  insight_engine: 'heuristic' | 'ollama' | 'byok'
+  ollama_model: string
+  ollama_url: string
+  byok_provider: 'anthropic' | 'open_ai'
+}
+
+// ─── Calendar ───────────────────────────────────────────────────────────────
+
+export interface AuthStatus {
+  connected: boolean
+  email?: string | null
+}
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  start: string
+  end: string
+  attendees: string[]
+  location?: string | null
+  description?: string | null
+  calendar_name: string
+  recording_candidate: boolean
+  candidate_reason?: string | null
+  meeting_platform?: string | null
+}
+
+export interface AutoRecordWarning {
+  event: CalendarEvent
+  seconds_until: number
+}
+
+// ─── AI insights ──────────────────────────────────────────────────────────────
+
+export interface InsightEngineStatus {
+  engine: 'heuristic' | 'ollama' | 'byok'
+  available: boolean
+  detail: string
 }
 
 export type AppView =

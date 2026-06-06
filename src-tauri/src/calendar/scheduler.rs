@@ -200,3 +200,47 @@ impl AutoRecordScheduler {
     }
 }
 
+/// Background loop: refresh today's events into the cache every 5 minutes so the
+/// auto-record scheduler always has fresh data. Only polls when a provider is
+/// actually connected, so a disconnected user incurs zero network activity.
+pub fn start_polling_loop(state: CalendarState, app_handle: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        sleep(Duration::from_secs(10)).await;
+        loop {
+            let settings = crate::storage::SettingsManager::load();
+            let connected = matches!(
+                settings.calendar_provider,
+                crate::types::CalendarProvider::GoogleApi
+            ) && crate::calendar::tokens::load_refresh_token().is_some();
+
+            if connected {
+                match crate::calendar::providers::get_events_for_provider(
+                    &settings.calendar_provider,
+                    &state,
+                    1,
+                )
+                .await
+                {
+                    Ok(events) => {
+                        let excluded = &settings.excluded_calendar_names;
+                        let events: Vec<_> = events
+                            .into_iter()
+                            .filter(|e| !excluded.contains(&e.calendar_name))
+                            .collect();
+                        *state.cached_events.lock().unwrap() = events.clone();
+                        let _ = app_handle.emit(
+                            "calendar-events-updated",
+                            serde_json::json!({ "events": events }),
+                        );
+                    }
+                    Err(e) => {
+                        crate::diagnostics::log(format!("calendar polling error: {e}"));
+                    }
+                }
+            }
+
+            sleep(Duration::from_secs(300)).await;
+        }
+    });
+}
+

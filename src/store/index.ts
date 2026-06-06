@@ -11,6 +11,9 @@ import type {
   PrivacyDashboard,
   RecordingProfile,
   RecordingStatus,
+  CalendarEvent,
+  AuthStatus,
+  AutoRecordWarning,
 } from '../lib/types'
 import * as api from '../lib/tauri'
 
@@ -30,6 +33,16 @@ interface MemosaStore {
   setRecordingGuardMessage: (message: string | null) => void
   appendLiveTranscriptLine: (text: string) => void
   clearLiveTranscript: () => void
+
+  // Calendar
+  todayEvents: CalendarEvent[]
+  authStatus: AuthStatus | null
+  autoRecord: boolean
+  autoRecordWarning: AutoRecordWarning | null
+  setTodayEvents: (events: CalendarEvent[]) => void
+  setAuthStatus: (status: AuthStatus) => void
+  setAutoRecord: (enabled: boolean) => void
+  setAutoRecordWarning: (warning: AutoRecordWarning | null) => void
 
   // Meetings
   meetings: Meeting[]
@@ -203,6 +216,16 @@ export const useMemosaStore = create<MemosaStore>()(persist((set, get) => ({
   setRecordingGuardMessage: (message) => set({ recordingGuardMessage: message }),
   appendLiveTranscriptLine: (text) => set((s) => ({ liveTranscriptLines: [...s.liveTranscriptLines, text] })),
   clearLiveTranscript: () => set({ liveTranscriptLines: [] }),
+
+  // Calendar
+  todayEvents: [],
+  authStatus: null,
+  autoRecord: false,
+  autoRecordWarning: null,
+  setTodayEvents: (events) => set({ todayEvents: events }),
+  setAuthStatus: (status) => set({ authStatus: status }),
+  setAutoRecord: (enabled) => set({ autoRecord: enabled }),
+  setAutoRecordWarning: (warning) => set({ autoRecordWarning: warning }),
 
   meetings: [],
   currentMeeting: null,
