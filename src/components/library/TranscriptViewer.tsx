@@ -975,6 +975,30 @@ export function TranscriptViewer({
                     Export as Markdown
                   </button>
                 )}
+
+                {meeting.transcription_status === 'complete' && (
+                  <>
+                    <div className="tv-sidebar-divider" />
+                    <button className="tv-sidebar-action-btn" onClick={handleRegenerateInsights} disabled={regenerating}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2.1l1.05 2.6 2.6 1.05-2.6 1.05L8 9.4 6.95 6.8 4.35 5.75 6.95 4.7 8 2.1Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                      {regenerating ? 'Regenerating…' : 'Regenerate insights'}
+                    </button>
+                    <button className="tv-sidebar-action-btn" onClick={handleLabelSpeakers} disabled={labelingSpeakers}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="6" r="2.2"/><circle cx="11" cy="5.5" r="1.7"/><path d="M1.8 13c0-2 1.6-3.3 3.7-3.3S9.2 11 9.2 13"/><path d="M10 9.8c1.8 0 3.2 1.1 3.2 2.8"/></svg>
+                      {labelingSpeakers ? 'Labeling…' : 'Label speakers (AI)'}
+                    </button>
+                    <button className="tv-sidebar-action-btn" onClick={handleSyncObsidian}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M9.2 1.8 4 5.5l-1.5 5.2L6 14.2l4.3-1.1 2.2-4.6-1.6-5.3-1.7-1.4Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                      Save to Obsidian
+                    </button>
+                    <button className="tv-sidebar-action-btn" onClick={handleSyncNotion}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2" width="11" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M5.5 5.5v5l5-5v5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Push to Notion
+                    </button>
+                    <div className="tv-sidebar-divider" />
+                  </>
+                )}
+
                 {meeting.audio_path && (
                   <div ref={modelPickerRef} style={{ position: 'relative' }}>
                     {confirmingRetranscribe ? (
