@@ -264,16 +264,40 @@ function WaveStrip({ active, level }: { active: boolean; level: number }) {
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'capture' | 'transcription' | 'ai' | 'calendar' | 'integrations' | 'storage' | 'profiles' | 'import'
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'capture',       label: 'Capture',       icon: '🎙️' },
-  { id: 'transcription', label: 'Transcription',  icon: '✦' },
-  { id: 'ai',            label: 'AI Insights',    icon: '✨' },
-  { id: 'calendar',      label: 'Calendar',       icon: '📅' },
-  { id: 'integrations',  label: 'Integrations',   icon: '🔗' },
-  { id: 'storage',       label: 'Storage',        icon: '🗂️' },
-  { id: 'profiles',      label: 'Profiles',       icon: '👤' },
-  { id: 'import',        label: 'Import',         icon: '📥' },
+
+const ic = (paths: ReactNode) => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths}</svg>
+)
+const TAB_ICONS: Record<Tab, ReactNode> = {
+  capture: ic(<><rect x="7.5" y="2.5" width="5" height="9" rx="2.5" /><path d="M5 9a5 5 0 0 0 10 0M10 14v3M7.5 17h5" /></>),
+  transcription: ic(<><path d="M4 5.5h12M4 9h12M4 12.5h8" /></>),
+  ai: ic(<><path d="M10 2.5l1.6 4.4 4.4 1.6-4.4 1.6L10 14.5 8.4 10.1 4 8.5l4.4-1.6L10 2.5Z" /></>),
+  calendar: ic(<><rect x="3" y="4" width="14" height="13" rx="2" /><path d="M3 8h14M7 2.5v3M13 2.5v3" /></>),
+  integrations: ic(<><path d="M8 12l4-4M7.5 10.5l-1.8 1.8a2.5 2.5 0 0 0 3.5 3.5L11 14M12.5 9.5l1.8-1.8a2.5 2.5 0 0 0-3.5-3.5L9 6" /></>),
+  storage: ic(<><ellipse cx="10" cy="5" rx="6" ry="2.3" /><path d="M4 5v10c0 1.3 2.7 2.3 6 2.3s6-1 6-2.3V5M4 10c0 1.3 2.7 2.3 6 2.3s6-1 6-2.3" /></>),
+  profiles: ic(<><circle cx="10" cy="6.5" r="3" /><path d="M4.5 16.5a5.5 5.5 0 0 1 11 0" /></>),
+  import: ic(<><path d="M10 3v8M6.5 8L10 11.5 13.5 8M4 14v1.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V14" /></>),
+}
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'capture',       label: 'Capture' },
+  { id: 'transcription', label: 'Transcription' },
+  { id: 'ai',            label: 'AI Insights' },
+  { id: 'calendar',      label: 'Calendar' },
+  { id: 'integrations',  label: 'Integrations' },
+  { id: 'storage',       label: 'Storage' },
+  { id: 'profiles',      label: 'Profiles' },
+  { id: 'import',        label: 'Import' },
 ]
+const TAB_SUBTITLE: Record<Tab, string> = {
+  capture: 'Microphone, system audio, and hotkeys',
+  transcription: 'Whisper models and language',
+  ai: 'Summaries, action items, and decisions',
+  calendar: 'Auto-record from Google Calendar',
+  integrations: 'Obsidian and Notion sync',
+  storage: 'Library location and retention',
+  profiles: 'Recording profiles and templates',
+  import: 'Bring in existing recordings',
+}
 
 // ─── Hotkey badge (read-only) ─────────────────────────────────────────────────
 
@@ -1303,48 +1327,61 @@ export function SettingsView() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const activeTab = TABS.find((t) => t.id === tab)
+
   return (
     <div className="settings-modal-backdrop" onClick={() => setActiveView('today')}>
       <div className="cfg-scene" onClick={(e) => e.stopPropagation()}>
         <div className="cfg-sheet">
-          {/* Header */}
-          <div className="cfg-header">
-            <div className="cfg-tabstrip" style={{ display: 'flex', gap: 2, overflowX: 'auto', flexWrap: 'nowrap', minWidth: 0, flex: '1 1 auto' }}>
+          {/* Left navigation rail */}
+          <nav className="cfg-nav" aria-label="Settings sections">
+            <div className="cfg-nav-title">Settings</div>
+            <div className="cfg-nav-list">
               {TABS.map((t) => (
                 <button
                   key={t.id}
-                  className={`cfg-tab${tab === t.id ? ' is-active' : ''}`}
+                  className={`cfg-nav-item${tab === t.id ? ' is-active' : ''}`}
                   onClick={() => setTab(t.id)}
+                  aria-current={tab === t.id ? 'page' : undefined}
                 >
-                  <span style={{ marginRight: 5, fontSize: 13 }}>{t.icon}</span>{t.label}
+                  <span className="cfg-nav-icon">{TAB_ICONS[t.id]}</span>
+                  <span className="cfg-nav-label">{t.label}</span>
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 12, flexShrink: 0, paddingLeft: 12 }}>
-              {saving && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving…</span>}
-              {saved && !saving && <span style={{ fontSize: 11, color: 'var(--success-green)', fontWeight: 600 }}>Saved</span>}
-              <button className="ghost-pill" onClick={() => setActiveView('today')}>Done</button>
-            </div>
-          </div>
+          </nav>
 
-          {/* Error strip */}
-          {error && (
-            <div style={{ padding: '8px 24px', background: 'rgba(239,68,68,.08)', borderBottom: '1px solid rgba(239,68,68,.2)', fontSize: 12, color: '#ef4444', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {error}
-              <button onClick={() => setError(null)} style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>✕</button>
+          {/* Content pane */}
+          <div className="cfg-main">
+            <div className="cfg-topbar">
+              <div style={{ minWidth: 0 }}>
+                <h2 className="cfg-topbar-title">{activeTab?.label}</h2>
+                <p className="cfg-topbar-sub">{TAB_SUBTITLE[tab]}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                {saving && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving…</span>}
+                {saved && !saving && <span style={{ fontSize: 11, color: 'var(--success-green)', fontWeight: 600 }}>Saved</span>}
+                <button className="ghost-pill" onClick={() => setActiveView('today')}>Done</button>
+              </div>
             </div>
-          )}
 
-          {/* Body */}
-          <div className="cfg-body">
-            {tab === 'capture' && renderCapture()}
-            {tab === 'transcription' && renderTranscription()}
-            {tab === 'ai' && renderAi()}
-            {tab === 'calendar' && renderCalendar()}
-            {tab === 'integrations' && renderIntegrations()}
-            {tab === 'storage' && renderStorage()}
-            {tab === 'profiles' && renderProfiles()}
-            {tab === 'import' && renderImport()}
+            {error && (
+              <div style={{ margin: '0 24px', padding: '8px 12px', borderRadius: 8, background: 'var(--live-dim)', border: '1px solid var(--live-border)', fontSize: 12, color: 'var(--live)', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {error}
+                <button onClick={() => setError(null)} style={{ border: 'none', background: 'transparent', color: 'var(--live)', cursor: 'pointer', fontSize: 12 }}>✕</button>
+              </div>
+            )}
+
+            <div className="cfg-body">
+              {tab === 'capture' && renderCapture()}
+              {tab === 'transcription' && renderTranscription()}
+              {tab === 'ai' && renderAi()}
+              {tab === 'calendar' && renderCalendar()}
+              {tab === 'integrations' && renderIntegrations()}
+              {tab === 'storage' && renderStorage()}
+              {tab === 'profiles' && renderProfiles()}
+              {tab === 'import' && renderImport()}
+            </div>
           </div>
         </div>
       </div>
