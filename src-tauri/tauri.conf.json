@@ -1,0 +1,56 @@
+{
+  "productName": "Memosa",
+  "identifier": "com.app.memosa",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "security": {
+      "csp": {
+        "default-src": ["'self'", "ipc:", "http://ipc.localhost"],
+        "connect-src": ["'self'", "ipc:", "http://ipc.localhost"],
+        "img-src": ["'self'", "data:", "asset:", "http://asset.localhost"],
+        "media-src": ["'self'", "blob:", "asset:", "http://asset.localhost"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "font-src": ["'self'", "data:"]
+      },
+      "devCsp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$DOCUMENT/Memosa/**"]
+      }
+    },
+    "trayIcon": {
+      "iconPath": "icons/tray-icon.png",
+      "iconAsTemplate": true,
+      "tooltip": "Memosa"
+    },
+    "windows": [
+      {
+        "title": "Memosa — Meeting memory",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "app",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns"],
+    "resources": ["PrivacyInfo.xcprivacy"],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "entitlements": "entitlements.plist",
+      "infoPlist": "Info.plist"
+    }
+  }
+}
