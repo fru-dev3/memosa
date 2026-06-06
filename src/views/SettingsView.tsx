@@ -1309,7 +1309,7 @@ export function SettingsView() {
         <div className="cfg-sheet">
           {/* Header */}
           <div className="cfg-header">
-            <div style={{ display: 'flex', gap: 2 }}>
+            <div className="cfg-tabstrip" style={{ display: 'flex', gap: 2, overflowX: 'auto', flexWrap: 'nowrap', minWidth: 0, flex: '1 1 auto' }}>
               {TABS.map((t) => (
                 <button
                   key={t.id}
@@ -1320,9 +1320,9 @@ export function SettingsView() {
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 12, flexShrink: 0, paddingLeft: 12 }}>
               {saving && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving…</span>}
-              {saved && !saving && <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>Saved</span>}
+              {saved && !saving && <span style={{ fontSize: 11, color: 'var(--success-green)', fontWeight: 600 }}>Saved</span>}
               <button className="ghost-pill" onClick={() => setActiveView('today')}>Done</button>
             </div>
           </div>
