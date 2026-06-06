@@ -813,6 +813,7 @@ export function TranscriptViewer({
               <button
                 className="tv-icon-btn"
                 title="Regenerate summary & insights"
+                aria-label="Regenerate summary and insights"
                 onClick={handleRegenerateInsights}
                 disabled={regenerating}
                 style={regenerating ? { opacity: 0.5 } : undefined}
@@ -829,6 +830,7 @@ export function TranscriptViewer({
               <button
                 className="tv-icon-btn"
                 title="Label speakers (AI)"
+                aria-label="Label speakers using AI"
                 onClick={handleLabelSpeakers}
                 disabled={labelingSpeakers}
                 style={labelingSpeakers ? { opacity: 0.5 } : undefined}
@@ -844,7 +846,7 @@ export function TranscriptViewer({
 
             {/* Sync to Obsidian */}
             {meeting.transcription_status === 'complete' && (
-              <button className="tv-icon-btn" title="Save to Obsidian vault" onClick={handleSyncObsidian}>
+              <button className="tv-icon-btn" title="Save to Obsidian vault" aria-label="Save to Obsidian vault" onClick={handleSyncObsidian}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <path d="M9.2 1.8 4 5.5l-1.5 5.2L6 14.2l4.3-1.1 2.2-4.6-1.6-5.3-1.7-1.4Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
                   <path d="M6 14.2l1.4-4.3 3-1.6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
@@ -854,7 +856,7 @@ export function TranscriptViewer({
 
             {/* Sync to Notion */}
             {meeting.transcription_status === 'complete' && (
-              <button className="tv-icon-btn" title="Push to Notion" onClick={handleSyncNotion}>
+              <button className="tv-icon-btn" title="Push to Notion" aria-label="Push to Notion" onClick={handleSyncNotion}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <rect x="2.5" y="2" width="11" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
                   <path d="M5.5 5.5v5l5-5v5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>

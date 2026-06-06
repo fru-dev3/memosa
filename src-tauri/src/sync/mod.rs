@@ -79,6 +79,44 @@ fn build_markdown(meeting: &Meeting, transcript: &str) -> String {
     md
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn safe_filename_strips_path_chars() {
+        assert_eq!(safe_filename("Q3 Plan: roadmap/risks"), "Q3 Plan- roadmap-risks");
+        assert_eq!(safe_filename(""), "Untitled");
+        assert_eq!(safe_filename("   "), "Untitled");
+    }
+
+    #[test]
+    fn format_duration_h_m() {
+        assert_eq!(format_duration(0), "0m");
+        assert_eq!(format_duration(90), "1m");
+        assert_eq!(format_duration(3661), "1h 1m");
+    }
+
+    #[test]
+    fn paragraph_blocks_chunks_and_caps() {
+        let text = "para one\n\npara two\n\npara three";
+        let (blocks, truncated) = paragraph_blocks(text, 2);
+        assert_eq!(blocks.len(), 2);
+        assert!(truncated);
+        let (all, trunc2) = paragraph_blocks(text, 10);
+        assert_eq!(all.len(), 3);
+        assert!(!trunc2);
+    }
+
+    #[test]
+    fn paragraph_blocks_splits_long_paragraph() {
+        let long = "x".repeat(4100);
+        let (blocks, _) = paragraph_blocks(&long, 10);
+        // 4100 chars / 1900-byte chunks => 3 blocks.
+        assert_eq!(blocks.len(), 3);
+    }
+}
+
 fn load_meeting(db: &Database, meeting_id: &str) -> Result<(Meeting, String), String> {
     let meeting = db
         .get_meeting(meeting_id)?
