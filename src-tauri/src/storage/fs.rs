@@ -163,9 +163,10 @@ mod tests {
 
     #[test]
     fn test_sanitize_title_special_chars() {
+        // Consecutive separators collapse to a single dash (see sanitize_title).
         assert_eq!(
             sanitize_title("Q1 Review: Budget & Goals"),
-            "Q1-Review--Budget---Goals".trim_matches('-').to_string()
+            "Q1-Review-Budget-Goals"
         );
         // collapsed version
         let result = sanitize_title("Q1 Review: Budget & Goals");

@@ -241,6 +241,44 @@ fn parse_insights(raw: &str) -> Result<MeetingInsights, String> {
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_bare_json() {
+        let v = extract_json_object(r#"{"a":1}"#).unwrap();
+        assert_eq!(v, r#"{"a":1}"#);
+    }
+
+    #[test]
+    fn extracts_json_from_code_fence_and_prose() {
+        let raw = "Here you go:\n```json\n{\"summary\":\"hi\"}\n```\nThanks!";
+        let v = extract_json_object(raw).unwrap();
+        assert_eq!(v, r#"{"summary":"hi"}"#);
+    }
+
+    #[test]
+    fn extracts_nested_and_ignores_braces_in_strings() {
+        let raw = r#"prefix {"a": {"b": "}"}} suffix"#;
+        let v = extract_json_object(raw).unwrap();
+        assert_eq!(v, r#"{"a": {"b": "}"}}"#);
+    }
+
+    #[test]
+    fn returns_none_without_object() {
+        assert!(extract_json_object("no json here").is_none());
+    }
+
+    #[test]
+    fn truncate_marks_long_input() {
+        let out = truncate("abcdef", 3);
+        assert!(out.starts_with("abc"));
+        assert!(out.contains("truncated"));
+        assert_eq!(truncate("ab", 5), "ab");
+    }
+}
+
 /// Find the first balanced top-level `{...}` block in a string.
 fn extract_json_object(s: &str) -> Option<&str> {
     let start = s.find('{')?;

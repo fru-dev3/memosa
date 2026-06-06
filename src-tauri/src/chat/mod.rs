@@ -118,3 +118,31 @@ pub async fn chat_with_meetings(
 
     Ok(ChatAnswer { answer, sources })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fts_query_drops_stopwords_and_quotes_terms() {
+        let q = build_fts_query("What did we decide about the budget?");
+        // "what", "did", "we", "the", "about" are stopwords; "decide"/"budget" remain.
+        assert!(q.contains("\"decide\""));
+        assert!(q.contains("\"budget\""));
+        assert!(!q.contains("\"the\""));
+        assert!(q.contains(" OR "));
+    }
+
+    #[test]
+    fn fts_query_empty_when_only_stopwords() {
+        assert_eq!(build_fts_query("what is the"), "");
+    }
+
+    #[test]
+    fn fts_query_strips_punctuation() {
+        let q = build_fts_query("roadmap, timeline & risks!");
+        assert!(q.contains("\"roadmap\""));
+        assert!(q.contains("\"timeline\""));
+        assert!(q.contains("\"risks\""));
+    }
+}
