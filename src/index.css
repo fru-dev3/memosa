@@ -2287,22 +2287,33 @@ button.chip {
 
 /* ── Redesigned settings modal ── */
 .cfg-scene {
+  width: min(700px, calc(100% - 32px));
+  height: min(700px, calc(100vh - 80px));
+}
+/* Settings' left-rail layout needs more width and a shorter, calmer height. */
+.cfg-scene-wide {
   width: min(880px, calc(100% - 32px));
   height: min(640px, calc(100vh - 80px));
 }
 
 .cfg-sheet {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
   height: 100%;
-  border-radius: 18px;
+  border-radius: 20px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  background: rgba(247,241,233,0.94);
   box-shadow:
     0 28px 72px rgba(25, 21, 17, 0.22),
-    inset 0 1px 0 rgba(255,255,255,0.5);
+    inset 0 1px 0 rgba(255,255,255,0.76);
+}
+
+/* Settings uses a left-rail layout; AboutView (and any other consumer) keeps
+   the default header-on-top column layout. */
+.cfg-sheet-nav {
+  flex-direction: row;
 }
 
 /* ── Settings: left navigation rail ── */
@@ -2439,7 +2450,10 @@ button.chip {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 18px 24px 28px;
+  padding: 0 24px 28px;
+}
+.cfg-sheet-nav .cfg-body {
+  padding-top: 18px;
 }
 
 .settings-sheet {

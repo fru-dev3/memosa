@@ -1331,8 +1331,8 @@ export function SettingsView() {
 
   return (
     <div className="settings-modal-backdrop" onClick={() => setActiveView('today')}>
-      <div className="cfg-scene" onClick={(e) => e.stopPropagation()}>
-        <div className="cfg-sheet">
+      <div className="cfg-scene cfg-scene-wide" onClick={(e) => e.stopPropagation()}>
+        <div className="cfg-sheet cfg-sheet-nav">
           {/* Left navigation rail */}
           <nav className="cfg-nav" aria-label="Settings sections">
             <div className="cfg-nav-title">Settings</div>
