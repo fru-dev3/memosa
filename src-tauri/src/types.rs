@@ -242,6 +242,10 @@ pub struct Meeting {
     pub keywords: Vec<String>,
     #[serde(default)]
     pub is_favorite: bool,
+    #[serde(default)]
+    pub action_items: Vec<String>,
+    #[serde(default)]
+    pub decisions: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -619,6 +619,37 @@ export function TranscriptViewer({
             )}
           </div>
         )}
+        {viewMode !== 'notes' && meeting.transcription_status === 'complete' &&
+          (!!meeting.summary || (meeting.action_items?.length ?? 0) > 0 || (meeting.decisions?.length ?? 0) > 0) && (
+          <div style={{ padding: '10px 16px 0', flexShrink: 0 }}>
+            <details open style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '8px 12px', background: 'var(--bg-surface)' }}>
+              <summary style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                AI Insights
+              </summary>
+              {meeting.summary && (
+                <p style={{ fontSize: 13, lineHeight: 1.5, margin: '8px 0 0', color: 'var(--text-primary)' }}>{meeting.summary}</p>
+              )}
+              {(meeting.action_items?.length ?? 0) > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Action items</div>
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
+                    {meeting.action_items!.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+              )}
+              {(meeting.decisions?.length ?? 0) > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Decisions</div>
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
+                    {meeting.decisions!.map((d, i) => <li key={i}>{d}</li>)}
+                  </ul>
+                </div>
+              )}
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>Auto-generated — may be inaccurate.</div>
+            </details>
+          </div>
+        )}
+
         {viewMode !== 'notes' && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
           {loadingTranscript ? (

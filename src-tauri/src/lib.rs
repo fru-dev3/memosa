@@ -94,8 +94,12 @@ pub fn run() {
             let quit_item = MenuItem::with_id(app, "quit", "Quit Memosa", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-            let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().cloned().unwrap())
+            let mut tray_builder = TrayIconBuilder::new();
+            // Use the bundled window icon if present; never panic if it's missing.
+            if let Some(icon) = app.default_window_icon().cloned() {
+                tray_builder = tray_builder.icon(icon);
+            }
+            let _tray = tray_builder
                 .icon_as_template(true)
                 .tooltip("Memosa")
                 .menu(&menu)

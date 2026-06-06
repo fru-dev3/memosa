@@ -236,6 +236,8 @@ fn import_single(
         themes: Vec::new(),
         keywords: Vec::new(),
         is_favorite: false,
+        action_items: Vec::new(),
+        decisions: Vec::new(),
     };
 
     storage_fs::write_metadata(&folder, &meeting)?;

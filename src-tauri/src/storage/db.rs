@@ -176,6 +176,8 @@ impl Database {
             ("themes", "ALTER TABLE meetings ADD COLUMN themes TEXT NOT NULL DEFAULT '[]'"),
             ("keywords", "ALTER TABLE meetings ADD COLUMN keywords TEXT NOT NULL DEFAULT '[]'"),
             ("is_favorite", "ALTER TABLE meetings ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0"),
+            ("action_items", "ALTER TABLE meetings ADD COLUMN action_items TEXT NOT NULL DEFAULT '[]'"),
+            ("decisions", "ALTER TABLE meetings ADD COLUMN decisions TEXT NOT NULL DEFAULT '[]'"),
         ] {
             let has_column = conn
                 .prepare("PRAGMA table_info(meetings)")
@@ -216,6 +218,10 @@ impl Database {
             serde_json::to_string(&meeting.themes).unwrap_or_else(|_| "[]".to_string());
         let keywords_json =
             serde_json::to_string(&meeting.keywords).unwrap_or_else(|_| "[]".to_string());
+        let action_items_json =
+            serde_json::to_string(&meeting.action_items).unwrap_or_else(|_| "[]".to_string());
+        let decisions_json =
+            serde_json::to_string(&meeting.decisions).unwrap_or_else(|_| "[]".to_string());
         let status_str = transcription_status_to_str(&meeting.transcription_status);
         let model_str = meeting.whisper_model.as_ref().map(whisper_model_to_str);
 
@@ -223,8 +229,9 @@ impl Database {
             "INSERT OR REPLACE INTO meetings
               (id, title, date, start_time, duration_seconds, audio_path, transcript_path,
               transcription_status, calendar_event_id, attendees, whisper_model, profile_id,
-              source_app, summary, tags, people, themes, keywords, is_favorite, folder_path, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+              source_app, summary, tags, people, themes, keywords, is_favorite,
+              action_items, decisions, folder_path, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 meeting.id,
                 meeting.title,
@@ -245,6 +252,8 @@ impl Database {
                 themes_json,
                 keywords_json,
                 meeting.is_favorite as i32,
+                action_items_json,
+                decisions_json,
                 folder_path,
                 chrono::Utc::now().to_rfc3339(),
             ],
@@ -348,6 +357,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_meeting_insights(
         &self,
         meeting_id: &str,
@@ -356,15 +366,19 @@ impl Database {
         people: &[String],
         themes: &[String],
         keywords: &[String],
+        action_items: &[String],
+        decisions: &[String],
     ) -> Result<(), String> {
         let conn = self.conn.lock().unwrap();
         let tags_json = serde_json::to_string(tags).unwrap_or_else(|_| "[]".to_string());
         let people_json = serde_json::to_string(people).unwrap_or_else(|_| "[]".to_string());
         let themes_json = serde_json::to_string(themes).unwrap_or_else(|_| "[]".to_string());
         let keywords_json = serde_json::to_string(keywords).unwrap_or_else(|_| "[]".to_string());
+        let action_items_json = serde_json::to_string(action_items).unwrap_or_else(|_| "[]".to_string());
+        let decisions_json = serde_json::to_string(decisions).unwrap_or_else(|_| "[]".to_string());
         conn.execute(
-            "UPDATE meetings SET summary=?1, tags=?2, people=?3, themes=?4, keywords=?5 WHERE id=?6",
-            params![summary, tags_json, people_json, themes_json, keywords_json, meeting_id],
+            "UPDATE meetings SET summary=?1, tags=?2, people=?3, themes=?4, keywords=?5, action_items=?6, decisions=?7 WHERE id=?8",
+            params![summary, tags_json, people_json, themes_json, keywords_json, action_items_json, decisions_json, meeting_id],
         )
         .map_err(|e| format!("Failed to update meeting insights: {}", e))?;
         Ok(())
@@ -442,7 +456,7 @@ impl Database {
             "SELECT id, title, date, start_time, duration_seconds, audio_path,
                     transcript_path, transcription_status, calendar_event_id,
                     attendees, whisper_model, profile_id, source_app, summary, tags, people, themes, keywords,
-                    is_favorite
+                    is_favorite, action_items, decisions
              FROM meetings WHERE id=?1",
             params![id],
             row_to_meeting,
@@ -494,7 +508,7 @@ impl Database {
             "SELECT id, title, date, start_time, duration_seconds, audio_path,
                     transcript_path, transcription_status, calendar_event_id,
                     attendees, whisper_model, profile_id, source_app, summary, tags, people, themes, keywords,
-                    is_favorite
+                    is_favorite, action_items, decisions
              FROM meetings
              {}
              ORDER BY date DESC, start_time DESC",
@@ -530,7 +544,7 @@ impl Database {
                         m.audio_path, m.transcript_path, m.transcription_status,
                         m.calendar_event_id, m.attendees, m.whisper_model, m.profile_id,
                         m.source_app, m.summary, m.tags, m.people, m.themes, m.keywords,
-                        m.is_favorite,
+                        m.is_favorite, m.action_items, m.decisions,
                         snippet(transcripts_fts, 2, '<b>', '</b>', '...', 20) AS snippet
                  FROM transcripts_fts
                  JOIN meetings m ON m.id = transcripts_fts.meeting_id
@@ -543,7 +557,7 @@ impl Database {
         let rows = stmt
             .query_map(params![query], |row| {
                 let meeting = row_to_meeting_indexed(row, 0)?;
-                let snippet: String = row.get(19)?;
+                let snippet: String = row.get(21)?;
                 Ok((meeting, snippet))
             })
             .map_err(|e| format!("Failed to run search: {}", e))?;
@@ -670,12 +684,16 @@ fn row_to_meeting_indexed(row: &rusqlite::Row<'_>, offset: usize) -> rusqlite::R
     let themes_json: String = row.get(offset + 16)?;
     let keywords_json: String = row.get(offset + 17)?;
     let is_favorite: i32 = row.get(offset + 18).unwrap_or(0);
+    let action_items_json: String = row.get(offset + 19).unwrap_or_else(|_| "[]".to_string());
+    let decisions_json: String = row.get(offset + 20).unwrap_or_else(|_| "[]".to_string());
 
     let attendees: Vec<String> = serde_json::from_str(&attendees_json).unwrap_or_default();
     let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
     let people: Vec<String> = serde_json::from_str(&people_json).unwrap_or_default();
     let themes: Vec<String> = serde_json::from_str(&themes_json).unwrap_or_default();
     let keywords: Vec<String> = serde_json::from_str(&keywords_json).unwrap_or_default();
+    let action_items: Vec<String> = serde_json::from_str(&action_items_json).unwrap_or_default();
+    let decisions: Vec<String> = serde_json::from_str(&decisions_json).unwrap_or_default();
 
     let transcription_status = parse_transcription_status(&transcription_status_str);
     let whisper_model = whisper_model_str.as_deref().and_then(parse_whisper_model);
@@ -700,6 +718,8 @@ fn row_to_meeting_indexed(row: &rusqlite::Row<'_>, offset: usize) -> rusqlite::R
         themes,
         keywords,
         is_favorite: is_favorite != 0,
+        action_items,
+        decisions,
     })
 }
 
