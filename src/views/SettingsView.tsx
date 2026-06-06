@@ -352,6 +352,8 @@ export function SettingsView() {
   const [byokKey, setByokKey] = useState('')
   const [savingKey, setSavingKey] = useState(false)
   const [keySaved, setKeySaved] = useState(false)
+  const [bulkRunning, setBulkRunning] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null)
 
   // Integrations
   const [notionTokenInput, setNotionTokenInput] = useState('')
@@ -380,6 +382,29 @@ export function SettingsView() {
   useEffect(() => {
     api.getInsightEngineStatus().then(setEngineStatus).catch(() => {})
   }, [draft.insight_engine, draft.ollama_url, draft.ollama_model, draft.byok_provider])
+
+  // Track bulk-regenerate progress.
+  useEffect(() => {
+    let un: (() => void) | undefined
+    api.onBulkInsightsProgress((d) => {
+      setBulkProgress({ current: d.current, total: d.total })
+      if (d.finished) setBulkRunning(false)
+    }).then((fn) => { un = fn })
+    return () => { un?.() }
+  }, [])
+
+  const handleRegenerateAll = useCallback(async () => {
+    setBulkRunning(true)
+    setBulkProgress(null)
+    try {
+      const n = await api.regenerateAllInsights()
+      setBulkRunning(false)
+      window.dispatchEvent(new CustomEvent('memosa:toast', { detail: { message: `Regenerated insights for ${n} meeting${n === 1 ? '' : 's'}` } }))
+    } catch (e) {
+      setBulkRunning(false)
+      window.dispatchEvent(new CustomEvent('memosa:toast', { detail: { message: e instanceof Error ? e.message : 'Bulk regenerate failed' } }))
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1097,6 +1122,20 @@ export function SettingsView() {
           }}>
             {engineStatus.available ? '✓ ' : '⚠ '}{engineStatus.detail}
           </div>
+        )}
+
+        {engine !== 'heuristic' && (
+          <Row
+            label="Existing meetings"
+            hint="Re-run summaries, action items, and decisions across your whole library with this engine."
+            borderless
+          >
+            <button className="ghost-pill is-selected-pill" onClick={handleRegenerateAll} disabled={bulkRunning}>
+              {bulkRunning
+                ? (bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}…` : 'Starting…')
+                : 'Regenerate all'}
+            </button>
+          </Row>
         )}
       </>
     )

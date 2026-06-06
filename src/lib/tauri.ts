@@ -381,6 +381,17 @@ export const regenerateInsights = (meetingId: string) =>
 export const generateSpeakerTranscript = (meetingId: string) =>
   invoke<string>('generate_speaker_transcript', { meetingId })
 
+export const regenerateAllInsights = () =>
+  invoke<number>('regenerate_all_insights')
+
+export const onBulkInsightsProgress = (
+  cb: (data: { current: number; total: number; title: string; finished?: boolean }) => void
+): Promise<UnlistenFn> =>
+  listen<{ current: number; total: number; title: string; finished?: boolean }>(
+    'bulk-insights-progress',
+    (e) => cb(e.payload)
+  )
+
 export const getInsightEngineStatus = () =>
   invoke<InsightEngineStatus>('get_insight_engine_status')
 
