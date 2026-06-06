@@ -43,7 +43,14 @@ pub async fn get_events_for_provider(
     days: u32,
 ) -> Result<Vec<CalendarEvent>, String> {
     let events = match provider {
-        CalendarProvider::GoogleApi => Vec::new(),
+        CalendarProvider::GoogleApi => {
+            let settings = crate::storage::SettingsManager::load();
+            let token =
+                crate::calendar::tokens::get_access_token(state, &settings.google_client_id).await?;
+            crate::calendar::google::GoogleCalendarClient::new(token)
+                .get_upcoming_events(days)
+                .await?
+        }
         CalendarProvider::LocalMacos => get_local_macos_events(days)?,
     };
 

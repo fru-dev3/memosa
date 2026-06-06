@@ -1,7 +1,9 @@
 mod audio;
+mod calendar;
 mod diagnostics;
 mod export;
 mod import;
+mod insights;
 #[cfg(target_os = "macos")]
 mod macos;
 pub mod paths;
@@ -77,6 +79,8 @@ pub fn run() {
         .manage(live_transcriber)
         .manage(database.clone())
         .manage(ShutdownState::default())
+        .manage(calendar::CalendarState::new())
+        .manage(calendar::scheduler::AutoRecordScheduler::new())
         .setup(move |app| {
             diagnostics::log("setup: begin");
 
@@ -177,6 +181,26 @@ pub fn run() {
                     tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60)).await;
                 }
             });
+
+            // --- Calendar auto-record ---
+            // Hydrate runtime state from settings, then start the 30s auto-record
+            // scheduler and the 5-minute event-polling loop. Both no-op until the
+            // user connects a calendar and enables auto-record, so a disconnected
+            // user pays no cost and nothing leaves the machine.
+            let cal_state = app.state::<calendar::CalendarState>().inner().clone();
+            cal_state.hydrate_from_settings();
+            let cal_recorder = app.state::<AudioRecorder>().inner().clone();
+            let cal_db = app.state::<Database>().inner().clone();
+            let cal_transcription = app.state::<TranscriptionManager>().inner().clone();
+            app.state::<calendar::scheduler::AutoRecordScheduler>().start(
+                cal_state.clone(),
+                cal_recorder,
+                cal_db,
+                cal_transcription,
+                app.handle().clone(),
+            );
+            calendar::scheduler::start_polling_loop(cal_state, app.handle().clone());
+            diagnostics::log("setup: calendar scheduler + polling started");
 
             Ok(())
         })
@@ -280,6 +304,19 @@ pub fn run() {
             import::pick_import_folder,
             import::scan_voice_memos,
             import::import_voice_memos,
+            calendar::get_auth_status,
+            calendar::set_google_client_id,
+            calendar::start_google_auth,
+            calendar::revoke_google_auth,
+            calendar::get_today_events,
+            calendar::get_upcoming_events,
+            calendar::refresh_events,
+            calendar::set_auto_record,
+            calendar::get_auto_record,
+            calendar::skip_auto_record_once,
+            insights::generate_insights,
+            insights::get_insight_engine_status,
+            insights::set_byok_api_key,
             get_app_version,
             open_external_url,
             start_window_drag,

@@ -13,6 +13,8 @@ import type {
   RecordingProfile,
   StorageUsage,
   WhisperModel,
+  AuthStatus,
+  InsightEngineStatus,
 } from '../lib/types'
 import { useMemosaStore } from '../store'
 
@@ -36,6 +38,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   summary_template_prompts: {},
   custom_summary_templates: [],
   has_completed_setup: false,
+  calendar_provider: 'google_api',
+  google_client_id: '',
+  calendar_account_email: null,
+  auto_record: false,
+  excluded_calendar_names: [],
+  insight_engine: 'heuristic',
+  ollama_model: 'llama3.1',
+  ollama_url: 'http://localhost:11434',
+  byok_provider: 'anthropic',
 }
 
 const MODEL_OPTIONS: WhisperModel[] = ['tiny', 'base', 'small', 'medium']
@@ -250,10 +261,12 @@ function WaveStrip({ active, level }: { active: boolean; level: number }) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'capture' | 'transcription' | 'storage' | 'profiles' | 'import'
+type Tab = 'capture' | 'transcription' | 'ai' | 'calendar' | 'storage' | 'profiles' | 'import'
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'capture',       label: 'Capture',       icon: '🎙️' },
   { id: 'transcription', label: 'Transcription',  icon: '✦' },
+  { id: 'ai',            label: 'AI Insights',    icon: '✨' },
+  { id: 'calendar',      label: 'Calendar',       icon: '📅' },
   { id: 'storage',       label: 'Storage',        icon: '🗂️' },
   { id: 'profiles',      label: 'Profiles',       icon: '👤' },
   { id: 'import',        label: 'Import',         icon: '📥' },
@@ -328,6 +341,15 @@ export function SettingsView() {
   const [migrating, setMigrating] = useState(false)
   const [migrationDone, setMigrationDone] = useState(false)
 
+  // Calendar + AI insights
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null)
+  const [connectingCal, setConnectingCal] = useState(false)
+  const [calError, setCalError] = useState<string | null>(null)
+  const [engineStatus, setEngineStatus] = useState<InsightEngineStatus | null>(null)
+  const [byokKey, setByokKey] = useState('')
+  const [savingKey, setSavingKey] = useState(false)
+  const [keySaved, setKeySaved] = useState(false)
+
   useEffect(() => {
     setDraft(settings ?? DEFAULT_SETTINGS)
     draftRef.current = settings ?? DEFAULT_SETTINGS
@@ -340,7 +362,14 @@ export function SettingsView() {
     }
     api.getStorageUsage().then(setStorageUsage).catch(() => {})
     api.previewCleanup().then(setCleanupPreview).catch(() => {})
+    api.getAuthStatus().then(setAuthStatus).catch(() => {})
+    api.getInsightEngineStatus().then(setEngineStatus).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh engine availability whenever the engine selection changes.
+  useEffect(() => {
+    api.getInsightEngineStatus().then(setEngineStatus).catch(() => {})
+  }, [draft.insight_engine, draft.ollama_url, draft.ollama_model, draft.byok_provider])
 
   useEffect(() => {
     let cancelled = false
@@ -379,6 +408,46 @@ export function SettingsView() {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(() => { void doSave() }, 900)
   }, [doSave])
+
+  const handleConnectCalendar = useCallback(async () => {
+    setConnectingCal(true)
+    setCalError(null)
+    try {
+      await api.setGoogleClientId(draftRef.current.google_client_id)
+      const status = await api.startGoogleAuth()
+      setAuthStatus(status)
+    } catch (e) {
+      setCalError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setConnectingCal(false)
+    }
+  }, [])
+
+  const handleDisconnectCalendar = useCallback(async () => {
+    setCalError(null)
+    try {
+      await api.revokeGoogleAuth()
+      setAuthStatus({ connected: false, email: null })
+    } catch (e) {
+      setCalError(e instanceof Error ? e.message : String(e))
+    }
+  }, [])
+
+  const handleSaveByokKey = useCallback(async () => {
+    setSavingKey(true)
+    setCalError(null)
+    try {
+      await api.setByokApiKey(byokKey)
+      setByokKey('')
+      setKeySaved(true)
+      setTimeout(() => setKeySaved(false), 2000)
+      api.getInsightEngineStatus().then(setEngineStatus).catch(() => {})
+    } catch (e) {
+      setCalError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSavingKey(false)
+    }
+  }, [byokKey])
 
   const updateRetention = useCallback(<K extends keyof AppSettings['retention_policy']>(key: K, value: AppSettings['retention_policy'][K]) => {
     updateDraft('retention_policy', { ...draftRef.current.retention_policy, [key]: value })
@@ -873,6 +942,123 @@ export function SettingsView() {
     )
   }
 
+  function renderCalendar() {
+    const connected = authStatus?.connected ?? false
+    return (
+      <>
+        <SectionLabel>Google Calendar</SectionLabel>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 10px', lineHeight: 1.5 }}>
+          Connect a calendar to record meetings automatically. Memosa requests <strong>read-only</strong> access,
+          stores your token in the macOS Keychain, and never sends your events or recordings anywhere.
+        </div>
+
+        <Row label="Google client ID" hint="Desktop OAuth client ID from Google Cloud Console. Not a secret under PKCE.">
+          <Inp value={draft.google_client_id} onChange={(v) => updateDraft('google_client_id', v)} style={{ width: 260 }} />
+        </Row>
+
+        <Row label="Connection" hint={connected ? (authStatus?.email ?? 'Connected') : 'Not connected'}>
+          {connected ? (
+            <button className="ghost-pill" onClick={handleDisconnectCalendar}>Disconnect</button>
+          ) : (
+            <button
+              className="ghost-pill is-selected-pill"
+              onClick={handleConnectCalendar}
+              disabled={connectingCal || !draft.google_client_id.trim()}
+            >
+              {connectingCal ? 'Connecting…' : 'Connect Google'}
+            </button>
+          )}
+        </Row>
+
+        {calError && <div className="settings-message is-error" style={{ marginTop: 8 }}>{calError}</div>}
+
+        <Row
+          label="Auto-record meetings"
+          hint="Start recording automatically when a meeting begins, with a 2-minute warning beforehand."
+          borderless
+        >
+          <Toggle
+            value={draft.auto_record}
+            label="On"
+            onChange={(v) => { updateDraft('auto_record', v); void api.setAutoRecord(v).catch(() => {}) }}
+          />
+        </Row>
+      </>
+    )
+  }
+
+  function renderAi() {
+    const engine = draft.insight_engine
+    return (
+      <>
+        <SectionLabel>Summary engine</SectionLabel>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 8px', lineHeight: 1.5 }}>
+          Choose how Memosa turns transcripts into summaries, decisions, and action items.
+          Insights regenerate automatically the next time a meeting is transcribed.
+        </div>
+
+        <Row label="Engine" hint="Local options keep everything on your Mac.">
+          <Sel value={engine} onChange={(v) => updateDraft('insight_engine', v as AppSettings['insight_engine'])}>
+            <option value="heuristic">Built-in (offline, basic)</option>
+            <option value="ollama">Local AI · Ollama (private)</option>
+            <option value="byok">Cloud · your own API key</option>
+          </Sel>
+        </Row>
+
+        {engine === 'ollama' && (
+          <>
+            <Row label="Ollama model" hint="Must be pulled in Ollama (e.g. `ollama pull llama3.1`).">
+              <Inp value={draft.ollama_model} onChange={(v) => updateDraft('ollama_model', v)} style={{ width: 200 }} />
+            </Row>
+            <Row label="Ollama URL">
+              <Inp value={draft.ollama_url} onChange={(v) => updateDraft('ollama_url', v)} style={{ width: 220 }} />
+            </Row>
+          </>
+        )}
+
+        {engine === 'byok' && (
+          <>
+            <div style={{
+              marginTop: 8, marginBottom: 4, padding: '8px 12px', borderRadius: 8,
+              background: 'rgba(180, 83, 9, 0.08)', border: '1px solid rgba(180, 83, 9, 0.25)',
+              fontSize: 11, color: '#b45309', lineHeight: 1.5,
+            }}>
+              ⚠ With a cloud engine, the meeting transcript text is sent to your chosen provider for
+              summarization. This leaves your Mac. Your API key is stored in the macOS Keychain.
+            </div>
+            <Row label="Provider">
+              <Sel value={draft.byok_provider} onChange={(v) => updateDraft('byok_provider', v as AppSettings['byok_provider'])}>
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="open_ai">OpenAI</option>
+              </Sel>
+            </Row>
+            <Row label="API key" hint="Stored in the macOS Keychain. Leave blank to keep an existing key; clear by saving an empty value.">
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Inp type="password" value={byokKey} onChange={setByokKey} style={{ width: 200 }} />
+                <button
+                  className="ghost-pill is-selected-pill"
+                  onClick={handleSaveByokKey}
+                  disabled={savingKey}
+                >
+                  {savingKey ? 'Saving…' : keySaved ? 'Saved ✓' : 'Save key'}
+                </button>
+              </div>
+            </Row>
+          </>
+        )}
+
+        {engineStatus && engine !== 'heuristic' && (
+          <div style={{
+            fontSize: 11, padding: '8px 0',
+            color: engineStatus.available ? 'var(--text-secondary)' : '#b45309',
+          }}>
+            {engineStatus.available ? '✓ ' : '⚠ '}{engineStatus.detail}
+          </div>
+        )}
+      </>
+    )
+  }
+
   function renderImport() {
     return (
       <>
@@ -1025,6 +1211,8 @@ export function SettingsView() {
           <div className="cfg-body">
             {tab === 'capture' && renderCapture()}
             {tab === 'transcription' && renderTranscription()}
+            {tab === 'ai' && renderAi()}
+            {tab === 'calendar' && renderCalendar()}
             {tab === 'storage' && renderStorage()}
             {tab === 'profiles' && renderProfiles()}
             {tab === 'import' && renderImport()}

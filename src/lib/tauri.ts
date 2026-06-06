@@ -7,6 +7,7 @@ import type {
   , StorageUsage, CleanupPreview, CleanupRunResult, CleanupLogEntry
   , ExportRequest, ExportResult
   , MarkdownExportRequest, MarkdownExportResult
+  , AuthStatus, CalendarEvent, AutoRecordWarning, MeetingInsights, InsightEngineStatus
 } from './types'
 
 interface AudioLevelPayload {
@@ -315,3 +316,66 @@ export const onImportProgress = (
     'import-progress',
     (e) => cb(e.payload)
   )
+
+// ─── Calendar ───────────────────────────────────────────────────────────────
+
+export const getAuthStatus = () =>
+  invoke<AuthStatus>('get_auth_status')
+
+export const setGoogleClientId = (clientId: string) =>
+  invoke<void>('set_google_client_id', { clientId })
+
+export const startGoogleAuth = () =>
+  invoke<AuthStatus>('start_google_auth')
+
+export const revokeGoogleAuth = () =>
+  invoke<void>('revoke_google_auth')
+
+export const getTodayEvents = () =>
+  invoke<CalendarEvent[]>('get_today_events')
+
+export const getUpcomingEvents = (days: number) =>
+  invoke<CalendarEvent[]>('get_upcoming_events', { days })
+
+export const refreshEvents = () =>
+  invoke<void>('refresh_events')
+
+export const setAutoRecord = (enabled: boolean) =>
+  invoke<void>('set_auto_record', { enabled })
+
+export const getAutoRecord = () =>
+  invoke<boolean>('get_auto_record')
+
+export const skipAutoRecordOnce = (eventId: string) =>
+  invoke<void>('skip_auto_record_once', { eventId })
+
+export const onCalendarEventsUpdated = (
+  cb: (events: CalendarEvent[]) => void
+): Promise<UnlistenFn> =>
+  listen<{ events: CalendarEvent[] }>('calendar-events-updated', (e) => cb(e.payload.events))
+
+export const onAutoRecordWarning = (
+  cb: (data: AutoRecordWarning) => void
+): Promise<UnlistenFn> =>
+  listen<AutoRecordWarning>('auto-record-warning', (e) => cb(e.payload))
+
+export const onAutoRecordStarted = (
+  cb: (data: { meeting_id: string; event_id: string }) => void
+): Promise<UnlistenFn> =>
+  listen<{ meeting_id: string; event_id: string }>('auto-record-started', (e) => cb(e.payload))
+
+export const onAutoRecordStopped = (
+  cb: (data: { meeting_id: string }) => void
+): Promise<UnlistenFn> =>
+  listen<{ meeting_id: string }>('auto-record-stopped', (e) => cb(e.payload))
+
+// ─── AI insights ──────────────────────────────────────────────────────────────
+
+export const generateInsights = (transcript: string, customPrompt?: string) =>
+  invoke<MeetingInsights>('generate_insights', { transcript, customPrompt })
+
+export const getInsightEngineStatus = () =>
+  invoke<InsightEngineStatus>('get_insight_engine_status')
+
+export const setByokApiKey = (key: string) =>
+  invoke<void>('set_byok_api_key', { key })

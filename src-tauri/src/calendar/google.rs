@@ -25,6 +25,23 @@ impl GoogleCalendarClient {
         self.get_events_in_range(from, to).await
     }
 
+    /// Return the primary calendar's id, which for Google is the account email.
+    /// Used only to show "connected as <email>" in the UI.
+    pub async fn get_primary_email(&self) -> Result<Option<String>, String> {
+        let client = reqwest::Client::new();
+        let response = client
+            .get("https://www.googleapis.com/calendar/v3/calendars/primary")
+            .bearer_auth(&self.access_token)
+            .send()
+            .await
+            .map_err(|e| format!("Primary calendar request failed: {}", e))?;
+        if !response.status().is_success() {
+            return Ok(None);
+        }
+        let body: Value = response.json().await.map_err(|e| e.to_string())?;
+        Ok(body.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
+    }
+
     /// Fetch events for the next `days` days.
     pub async fn get_upcoming_events(&self, days: u32) -> Result<Vec<CalendarEvent>, String> {
         let from = Local::now().naive_local();

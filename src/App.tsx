@@ -6,6 +6,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { StatusBar } from './components/layout/StatusBar'
 import { useRecordingEvents } from './hooks/useRecording'
 import { useTranscriptionEvents } from './hooks/useTranscription'
+import { useCalendarEvents, useCalendar } from './hooks/useCalendar'
 import type { RecordingProfile } from './lib/types'
 import * as api from './lib/tauri'
 import { useMemosaStore } from './store'
@@ -99,6 +100,51 @@ function Toast() {
   )
 }
 
+function AutoRecordBanner() {
+  const { warning, dismissWarning, dismissAndSkipRecord } = useCalendar()
+  if (!warning) return null
+  const mins = Math.max(1, Math.round(warning.seconds_until / 60))
+  return (
+    <div style={{
+      position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 9998, display: 'flex', alignItems: 'center', gap: 14,
+      padding: '10px 14px 10px 16px', borderRadius: 12,
+      background: 'rgba(28, 26, 23, 0.92)',
+      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      color: '#fff', boxShadow: '0 8px 28px rgba(0,0,0,0.28)',
+      border: '1px solid rgba(255,255,255,0.12)', maxWidth: '90vw',
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          Auto-recording in ~{mins} min
+        </span>
+        <span style={{ fontSize: 12, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {warning.event.title}
+        </span>
+      </div>
+      <button
+        onClick={dismissAndSkipRecord}
+        style={{
+          padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+          background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', cursor: 'pointer',
+        }}
+      >
+        Skip this one
+      </button>
+      <button
+        onClick={dismissWarning}
+        aria-label="Dismiss"
+        style={{
+          padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+          background: 'var(--accent, #218048)', color: '#fff', border: 'none', cursor: 'pointer',
+        }}
+      >
+        Got it
+      </button>
+    </div>
+  )
+}
+
 export default function App() {
   const {
     activeView,
@@ -119,6 +165,7 @@ export default function App() {
 
   useRecordingEvents()
   useTranscriptionEvents()
+  useCalendarEvents()
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => {})
@@ -280,6 +327,7 @@ export default function App() {
       </div>
       {/* Setup overlay — rendered on top of the main app so backdrop blur has real content */}
       {settings != null && !settings.has_completed_setup && <SetupView />}
+      <AutoRecordBanner />
       <Toast />
     </div>
   )

@@ -173,6 +173,15 @@ impl Default for AppSettings {
             ]),
             custom_summary_templates: Vec::new(),
             has_completed_setup: false,
+            calendar_provider: crate::types::CalendarProvider::default(),
+            google_client_id: String::new(),
+            calendar_account_email: None,
+            auto_record: false,
+            excluded_calendar_names: Vec::new(),
+            insight_engine: crate::types::InsightEngine::default(),
+            ollama_model: "llama3.1".to_string(),
+            ollama_url: "http://localhost:11434".to_string(),
+            byok_provider: crate::types::ByokProvider::default(),
         }
     }
 }
