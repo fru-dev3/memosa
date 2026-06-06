@@ -106,42 +106,35 @@ function AutoRecordBanner() {
   if (!warning) return null
   const mins = Math.max(1, Math.round(warning.seconds_until / 60))
   return (
-    <div style={{
-      position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
-      zIndex: 9998, display: 'flex', alignItems: 'center', gap: 14,
-      padding: '10px 14px 10px 16px', borderRadius: 12,
-      background: 'rgba(28, 26, 23, 0.92)',
-      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      color: '#fff', boxShadow: '0 8px 28px rgba(0,0,0,0.28)',
-      border: '1px solid rgba(255,255,255,0.12)', maxWidth: '90vw',
-    }}>
+    <div
+      role="alert"
+      className="card-reveal"
+      style={{
+        position: 'fixed', top: 'var(--sp-4)', left: '50%', transform: 'translateX(-50%)',
+        zIndex: 9998, display: 'flex', alignItems: 'center', gap: 'var(--sp-4)',
+        padding: '10px 12px 10px 14px', borderRadius: 'var(--radius-md)',
+        background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+        boxShadow: '0 12px 36px rgba(28,26,23,0.20)',
+        border: '1px solid var(--upcoming-border)', maxWidth: '92vw',
+      }}
+    >
+      {/* Pulsing amber dot — ties into the app's "upcoming meeting" semantic */}
+      <span style={{ position: 'relative', flexShrink: 0, width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--upcoming)', opacity: 0.18, animation: 'live-pulse 2s ease-in-out infinite' }} />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--upcoming)' }} />
+      </span>
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
-          Auto-recording in ~{mins} min
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--upcoming)' }}>
+          Recording in ~{mins} min
         </span>
-        <span style={{ fontSize: 12, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '46vw' }}>
           {warning.event.title}
         </span>
       </div>
-      <button
-        onClick={dismissAndSkipRecord}
-        style={{
-          padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-          background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', cursor: 'pointer',
-        }}
-      >
-        Skip this one
-      </button>
-      <button
-        onClick={dismissWarning}
-        aria-label="Dismiss"
-        style={{
-          padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-          background: 'var(--accent, #218048)', color: '#fff', border: 'none', cursor: 'pointer',
-        }}
-      >
-        Got it
-      </button>
+      <div style={{ display: 'flex', gap: 'var(--sp-2)', flexShrink: 0 }}>
+        <button className="ghost-pill" onClick={dismissAndSkipRecord}>Skip this one</button>
+        <button className="ghost-pill is-selected-pill" onClick={dismissWarning} aria-label="Dismiss notice">Got it</button>
+      </div>
     </div>
   )
 }

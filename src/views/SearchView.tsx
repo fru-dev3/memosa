@@ -180,8 +180,8 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
 
         <section className="surface-panel search-results-panel">
           {(chatLoading || chatAnswer || chatError) && (
-            <div style={{
-              marginBottom: 16, padding: '14px 16px', borderRadius: 12,
+            <div className="card-reveal" style={{
+              marginBottom: 16, padding: '14px 16px', borderRadius: 'var(--radius-md)',
               border: '1px solid var(--accent-border)', background: 'var(--accent-dim)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>

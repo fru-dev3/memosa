@@ -287,6 +287,15 @@ textarea {
   animation: card-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Clean disclosure widgets (AI Insights panel, inline help) — hide the default
+   triangle so custom summaries render cleanly. */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
 .spinner {
   animation: spin-smooth 0.85s cubic-bezier(0.4, 0.15, 0.6, 0.85) infinite;
 }

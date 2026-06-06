@@ -387,9 +387,9 @@ export function ExportView() {
           <button onClick={() => setStarredOnly(!starredOnly)} style={{
             display: 'flex', alignItems: 'center', gap: 5,
             padding: '6px 12px', fontSize: 11, fontWeight: 500, borderRadius: 8,
-            border: starredOnly ? '1px solid #e0a800' : '1px solid var(--border)',
-            background: starredOnly ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-            color: starredOnly ? '#b45309' : 'var(--text-muted)',
+            border: starredOnly ? '1px solid var(--upcoming-border)' : '1px solid var(--border)',
+            background: starredOnly ? 'var(--upcoming-dim)' : 'transparent',
+            color: starredOnly ? 'var(--warning-amber)' : 'var(--text-muted)',
             cursor: 'pointer', transition: 'all 0.15s ease',
           }}>
             <StarIcon size={11} />
@@ -646,7 +646,7 @@ export function ExportView() {
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
               memo{selectionSummary.memoCount !== 1 ? 's' : ''} selected
-              {starredOnly && <span style={{ color: '#b45309' }}> (starred)</span>}
+              {starredOnly && <span style={{ color: 'var(--warning-amber)' }}> (starred)</span>}
             </div>
 
             {selectionSummary.memoCount > 0 && (
