@@ -2314,7 +2314,16 @@ button.chip {
   flex-shrink: 0;
 }
 
+/* Tab strip scrolls horizontally (8+ tabs) without clipping the Done button. */
+.cfg-tabstrip {
+  scrollbar-width: none;
+}
+.cfg-tabstrip::-webkit-scrollbar {
+  display: none;
+}
 .cfg-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
   padding: 8px 14px 10px;
   border: none;
   border-bottom: 2px solid transparent;
