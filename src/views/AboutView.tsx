@@ -134,34 +134,57 @@ const CONSENT_NOTE = 'Important: Always inform other participants that a call is
 
 function OverviewPanel() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ padding: '16px 0 4px' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>Local-first recording</div>
-        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text-primary)', marginBottom: 8 }}>Record. Transcribe.<br />Own what's yours.</div>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          Record calls and meetings on your Mac — no bots join, no cloud upload, no account required. Everything stays on your machine until you decide to move it.
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* ── Editorial hero ── */}
+      <div style={{ padding: '20px 0 8px', maxWidth: 640 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 18 }}>
+          Local-first recording
+        </div>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 42, fontWeight: 600, lineHeight: 1.05, margin: 0, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
+          Record. Transcribe.<br />
+          <span style={{ color: 'var(--accent)' }}>Own what's yours.</span>
+        </h1>
+        <p style={{ margin: '20px 0 0', fontSize: 16, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+          Record calls and meetings on your Mac — no bots join, no cloud upload, no account required.
+          Everything stays on your machine until <em style={{ fontStyle: 'italic', color: 'var(--text-primary)' }}>you</em> decide to move it.
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-        {ABOUT_POINTS.map(({ title, copy, Icon }) => (
-          <div key={title} style={{ padding: '12px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
-            <div style={{ marginBottom: 6, color: 'var(--accent)' }}><Icon /></div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{copy}</div>
+      {/* ── Three principles, set like chapter points ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, margin: '36px 0 8px', borderTop: '1px solid var(--border-subtle)' }}>
+        {ABOUT_POINTS.map(({ title, copy, Icon }, i) => (
+          <div
+            key={title}
+            style={{
+              padding: '22px 22px 24px',
+              borderLeft: i > 0 ? '1px solid var(--border-subtle)' : 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, color: 'var(--accent)', opacity: 0.5 }}>
+                0{i + 1}
+              </span>
+              <span style={{ color: 'var(--accent)' }}><Icon /></span>
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 600, marginBottom: 7, color: 'var(--text-primary)' }}>{title}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.65 }}>{copy}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ padding: '12px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>What people capture</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {USE_CASES.map((uc) => <span key={uc} className="chip chip-muted">{uc}</span>)}
-        </div>
+      {/* ── What people capture — as flowing prose ── */}
+      <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '24px 0 4px', maxWidth: 680 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 10 }}>
+          What people capture
+        </span>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+          {USE_CASES.slice(0, -1).map((uc) => uc.toLowerCase()).join(', ')}, and {USE_CASES[USE_CASES.length - 1].toLowerCase()}.
+        </span>
       </div>
 
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, padding: '4px 14px' }}>
-        {CONSENT_NOTE}
+      {/* ── Consent note as a quiet margin footnote ── */}
+      <div style={{ marginTop: 28, paddingLeft: 14, borderLeft: '2px solid var(--accent-border)', maxWidth: 640 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>{CONSENT_NOTE}</div>
       </div>
     </div>
   )
@@ -242,26 +265,50 @@ function CompatibilityPanel({ onRequest }: { onRequest: () => void }) {
 
 function WhyPanel() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ padding: '16px 0 4px' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>The honest answer</div>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.55, color: 'var(--text-primary)' }}>
-          Most tools that record your meetings are built around keeping you dependent on their cloud. Memosa is built around the opposite idea.
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* ── Pull-quote lead ── */}
+      <div style={{ padding: '20px 0 8px', maxWidth: 680 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 20 }}>
+          The honest answer
+        </div>
+        <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 27, fontWeight: 500, lineHeight: 1.32, letterSpacing: '-0.005em', color: 'var(--text-primary)' }}>
+          Most tools that record your meetings are built around keeping you dependent on their cloud.
+          {' '}<span style={{ color: 'var(--accent)' }}>Memosa is built around the opposite idea.</span>
         </p>
       </div>
 
-      {WHY_REASONS.map(({ heading, body }) => (
-        <div key={heading} style={{ padding: '12px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 5, lineHeight: 1.4 }}>{heading}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>{body}</div>
-        </div>
-      ))}
+      {/* ── Reasons as a numbered editorial list ── */}
+      <div style={{ margin: '32px 0 0' }}>
+        {WHY_REASONS.map(({ heading, body }, i) => (
+          <div
+            key={heading}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '44px 1fr',
+              gap: 16,
+              padding: '20px 0',
+              borderTop: '1px solid var(--border-subtle)',
+              maxWidth: 720,
+            }}
+          >
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600, color: 'var(--accent)', opacity: 0.45, lineHeight: 1.3 }}>
+              0{i + 1}
+            </span>
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.35 }}>{heading}</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.7 }}>{body}</div>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <div style={{ padding: '12px 14px', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>The commitment</div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          Audio and transcripts stay on your Mac by default. No account required. No subscription to access your own recordings. That's not a pricing decision — it's the whole point.
-        </div>
+      {/* ── Closing commitment, set like a signed statement ── */}
+      <div style={{ marginTop: 28, padding: '22px 24px', borderRadius: 14, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', maxWidth: 720 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 10 }}>The commitment</div>
+        <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, lineHeight: 1.55, color: 'var(--text-primary)' }}>
+          Audio and transcripts stay on your Mac by default. No account. No subscription to reach your own
+          recordings. That's not a pricing decision — it's the whole point.
+        </p>
       </div>
     </div>
   )
