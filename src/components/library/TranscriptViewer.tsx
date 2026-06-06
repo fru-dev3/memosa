@@ -221,6 +221,9 @@ export function TranscriptViewer({
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [confirmingRetranscribe, setConfirmingRetranscribe] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [labelingSpeakers, setLabelingSpeakers] = useState(false)
+  const [speakerTranscript, setSpeakerTranscript] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [transcriptSearch, setTranscriptSearch] = useState('')
   const transcriptSearchRef = useRef<HTMLInputElement>(null)
@@ -370,6 +373,57 @@ export function TranscriptViewer({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [viewMode, meeting.transcription_status, transcriptContent])
+
+  const handleRegenerateInsights = async () => {
+    setRegenerating(true)
+    try {
+      const updated = await api.regenerateInsights(meeting.id)
+      upsertMeeting(updated)
+      window.dispatchEvent(new CustomEvent('memosa:toast', { detail: { message: 'Summary & insights regenerated' } }))
+    } catch (e) {
+      window.dispatchEvent(new CustomEvent('memosa:toast', {
+        detail: { message: e instanceof Error ? e.message : 'Could not regenerate insights' },
+      }))
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const handleLabelSpeakers = async () => {
+    setLabelingSpeakers(true)
+    try {
+      const labeled = await api.generateSpeakerTranscript(meeting.id)
+      setSpeakerTranscript(labeled)
+    } catch (e) {
+      window.dispatchEvent(new CustomEvent('memosa:toast', {
+        detail: { message: e instanceof Error ? e.message : 'Could not label speakers' },
+      }))
+    } finally {
+      setLabelingSpeakers(false)
+    }
+  }
+
+  const handleSyncObsidian = async () => {
+    try {
+      await api.syncMeetingToObsidian(meeting.id)
+      window.dispatchEvent(new CustomEvent('memosa:toast', { detail: { message: 'Saved to Obsidian vault' } }))
+    } catch (e) {
+      window.dispatchEvent(new CustomEvent('memosa:toast', {
+        detail: { message: e instanceof Error ? e.message : 'Obsidian sync failed' },
+      }))
+    }
+  }
+
+  const handleSyncNotion = async () => {
+    try {
+      await api.syncMeetingToNotion(meeting.id)
+      window.dispatchEvent(new CustomEvent('memosa:toast', { detail: { message: 'Pushed to Notion' } }))
+    } catch (e) {
+      window.dispatchEvent(new CustomEvent('memosa:toast', {
+        detail: { message: e instanceof Error ? e.message : 'Notion sync failed' },
+      }))
+    }
+  }
 
   const handleRetranscribeClick = () => {
     if (!meeting.audio_path) return
@@ -723,6 +777,60 @@ export function TranscriptViewer({
               </button>
             )}
 
+            {/* Regenerate insights */}
+            {meeting.transcription_status === 'complete' && (
+              <button
+                className="tv-icon-btn"
+                title="Regenerate summary & insights"
+                onClick={handleRegenerateInsights}
+                disabled={regenerating}
+                style={regenerating ? { opacity: 0.5 } : undefined}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2.1l1.05 2.6 2.6 1.05-2.6 1.05L8 9.4 6.95 6.8 4.35 5.75 6.95 4.7 8 2.1Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                  <path d="M12.4 9.4l.5 1.25 1.25.5-1.25.5-.5 1.25-.5-1.25-1.25-.5 1.25-.5.5-1.25Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+
+            {/* Label speakers (AI) */}
+            {meeting.transcription_status === 'complete' && (
+              <button
+                className="tv-icon-btn"
+                title="Label speakers (AI)"
+                onClick={handleLabelSpeakers}
+                disabled={labelingSpeakers}
+                style={labelingSpeakers ? { opacity: 0.5 } : undefined}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="5.5" cy="6" r="2.2"/>
+                  <circle cx="11" cy="5.5" r="1.7"/>
+                  <path d="M1.8 13c0-2 1.6-3.3 3.7-3.3S9.2 11 9.2 13"/>
+                  <path d="M10 9.8c1.8 0 3.2 1.1 3.2 2.8"/>
+                </svg>
+              </button>
+            )}
+
+            {/* Sync to Obsidian */}
+            {meeting.transcription_status === 'complete' && (
+              <button className="tv-icon-btn" title="Save to Obsidian vault" onClick={handleSyncObsidian}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M9.2 1.8 4 5.5l-1.5 5.2L6 14.2l4.3-1.1 2.2-4.6-1.6-5.3-1.7-1.4Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                  <path d="M6 14.2l1.4-4.3 3-1.6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+
+            {/* Sync to Notion */}
+            {meeting.transcription_status === 'complete' && (
+              <button className="tv-icon-btn" title="Push to Notion" onClick={handleSyncNotion}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <rect x="2.5" y="2" width="11" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M5.5 5.5v5l5-5v5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+
             {/* Re-transcribe */}
             {meeting.audio_path && (
               confirmingRetranscribe ? (
@@ -947,6 +1055,45 @@ export function TranscriptViewer({
           />
         </div>
       ) : null}
+
+      {/* Speaker-labeled transcript (AI-inferred) */}
+      {speakerTranscript !== null && (
+        <div
+          onClick={() => setSpeakerTranscript(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9997, background: 'rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-app)', color: 'var(--text-primary)',
+              border: '1px solid var(--border)', borderRadius: 12,
+              width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>Speakers (AI-inferred)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Labels are estimated from the transcript, not acoustic analysis.</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  className="ghost-pill"
+                  onClick={() => { void navigator.clipboard.writeText(speakerTranscript); window.dispatchEvent(new CustomEvent('memosa:toast', { detail: { message: 'Copied' } })) }}
+                >Copy</button>
+                <button className="ghost-pill is-selected-pill" onClick={() => setSpeakerTranscript(null)}>Close</button>
+              </div>
+            </div>
+            <div style={{ padding: 16, overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6 }}>
+              {speakerTranscript}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

@@ -85,3 +85,95 @@ pub async fn stop_live_transcription(
     live.stop();
     Ok(())
 }
+
+/// Re-read a meeting's transcript and recompute its insights with the engine
+/// currently selected in Settings, then persist and emit the updated meeting.
+#[tauri::command]
+pub async fn regenerate_insights(
+    meeting_id: String,
+    db: State<'_, crate::storage::Database>,
+    app_handle: tauri::AppHandle,
+) -> Result<crate::types::Meeting, String> {
+    use tauri::Emitter;
+
+    let meeting = db
+        .get_meeting(&meeting_id)?
+        .ok_or_else(|| "Meeting not found".to_string())?;
+    let folder = db
+        .get_folder_path(&meeting_id)?
+        .ok_or_else(|| "Meeting folder not found".to_string())?;
+
+    let fallback = std::path::Path::new(&folder).join("transcript.md");
+    let transcript_path = meeting
+        .transcript_path
+        .as_deref()
+        .map(std::path::PathBuf::from)
+        .filter(|p| p.exists())
+        .unwrap_or(fallback);
+    let md = std::fs::read_to_string(&transcript_path)
+        .map_err(|e| format!("Failed to read transcript: {e}"))?;
+
+    let insights = jobs::compute_meeting_insights(&meeting, &md).await;
+    db.update_meeting_insights(
+        &meeting_id,
+        &insights.brief_summary,
+        &insights.tags,
+        &insights.people,
+        &insights.themes,
+        &insights.keywords,
+    )?;
+    crate::storage::fs::update_metadata(std::path::Path::new(&folder), |stored| {
+        stored.summary = Some(insights.brief_summary.clone());
+        stored.tags = insights.tags.clone();
+        stored.people = insights.people.clone();
+        stored.themes = insights.themes.clone();
+        stored.keywords = insights.keywords.clone();
+    })?;
+
+    let updated = db
+        .get_meeting(&meeting_id)?
+        .ok_or_else(|| "Meeting not found after update".to_string())?;
+    app_handle
+        .emit("meeting-saved", serde_json::json!({ "meeting": updated.clone() }))
+        .ok();
+    Ok(updated)
+}
+
+/// Produce a speaker-attributed version of a meeting's transcript using the
+/// configured AI engine (Ollama/BYOK). Labels are AI-inferred, not acoustic
+/// diarization. Caches the result alongside the meeting and returns it.
+#[tauri::command]
+pub async fn generate_speaker_transcript(
+    meeting_id: String,
+    db: State<'_, crate::storage::Database>,
+) -> Result<String, String> {
+    let meeting = db
+        .get_meeting(&meeting_id)?
+        .ok_or_else(|| "Meeting not found".to_string())?;
+    let folder = db
+        .get_folder_path(&meeting_id)?
+        .ok_or_else(|| "Meeting folder not found".to_string())?;
+    let fallback = std::path::Path::new(&folder).join("transcript.md");
+    let path = meeting
+        .transcript_path
+        .as_deref()
+        .map(std::path::PathBuf::from)
+        .filter(|p| p.exists())
+        .unwrap_or(fallback);
+    let md = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read transcript: {e}"))?;
+    if md.trim().is_empty() {
+        return Err("Transcript is empty.".into());
+    }
+    let capped: String = md.chars().take(24_000).collect();
+    let prompt = format!(
+        "Rewrite the following meeting transcript with speaker attribution. Identify distinct \
+        speakers and prefix each utterance with a speaker label (use real names if clearly \
+        identifiable from context, otherwise \"Speaker 1\", \"Speaker 2\", etc.). Preserve the \
+        wording. Output plain text, one utterance per line formatted as \"Speaker: text\". Do not \
+        add commentary or headings.\n\nTRANSCRIPT:\n{capped}"
+    );
+    let labeled = crate::insights::generate_text(&prompt).await?;
+    let out = std::path::Path::new(&folder).join("transcript-speakers.md");
+    let _ = std::fs::write(&out, &labeled);
+    Ok(labeled)
+}

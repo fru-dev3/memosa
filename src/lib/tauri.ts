@@ -374,8 +374,28 @@ export const onAutoRecordStopped = (
 export const generateInsights = (transcript: string, customPrompt?: string) =>
   invoke<MeetingInsights>('generate_insights', { transcript, customPrompt })
 
+export const regenerateInsights = (meetingId: string) =>
+  invoke<Meeting>('regenerate_insights', { meetingId })
+
+export const generateSpeakerTranscript = (meetingId: string) =>
+  invoke<string>('generate_speaker_transcript', { meetingId })
+
 export const getInsightEngineStatus = () =>
   invoke<InsightEngineStatus>('get_insight_engine_status')
 
 export const setByokApiKey = (key: string) =>
   invoke<void>('set_byok_api_key', { key })
+
+// ─── Integrations (sync) ───────────────────────────────────────────────────────
+
+export const syncMeetingToObsidian = (meetingId: string) =>
+  invoke<string>('sync_meeting_to_obsidian', { meetingId })
+
+export const syncMeetingToNotion = (meetingId: string) =>
+  invoke<string>('sync_meeting_to_notion', { meetingId })
+
+export const setNotionToken = (token: string) =>
+  invoke<void>('set_notion_token', { token })
+
+export const notionConnected = () =>
+  invoke<boolean>('notion_connected')

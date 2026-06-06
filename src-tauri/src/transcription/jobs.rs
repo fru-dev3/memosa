@@ -36,6 +36,25 @@ pub struct TranscriptionManager {
 /// simple heuristics -- they may be inaccurate. All UI surfaces displaying this
 /// data (summary, people, themes, tags, action items, decisions) should make it
 /// clear that these are auto-generated suggestions, not verified facts.
+/// Compute insights for a meeting using the engine selected in settings:
+/// a heuristic baseline, upgraded to AI (Ollama/BYOK) when configured, and
+/// falling back to the heuristic result on any AI failure.
+pub async fn compute_meeting_insights(meeting: &Meeting, transcript_md: &str) -> MeetingInsights {
+    let heuristic = build_meeting_insights(meeting, transcript_md, None, None);
+    if crate::insights::ai_engine_selected() {
+        match crate::insights::generate(transcript_md.to_string(), None).await {
+            Ok(ai) => {
+                crate::diagnostics::log("insights: AI generated");
+                return ai;
+            }
+            Err(e) => {
+                crate::diagnostics::log(format!("insights: AI failed, using heuristic: {e}"));
+            }
+        }
+    }
+    heuristic
+}
+
 pub fn build_meeting_insights(
     meeting: &Meeting,
     transcript_markdown: &str,
@@ -694,22 +713,7 @@ async fn run_transcription_job(
     crate::storage::index_transcript(&meeting_id, db.inner())?;
 
     if let Some(meeting) = db.get_meeting(&meeting_id)? {
-        // Heuristic insights are instant and always succeed; use them as the
-        // baseline and (if the user opted into an AI engine) try to upgrade.
-        let mut insights = build_meeting_insights(&meeting, &md, None, None);
-        if crate::insights::ai_engine_selected() {
-            match crate::insights::generate(md.clone(), None).await {
-                Ok(ai) => {
-                    crate::diagnostics::log("transcription: AI insights generated");
-                    insights = ai;
-                }
-                Err(e) => {
-                    crate::diagnostics::log(format!(
-                        "transcription: AI insights failed, using heuristic: {e}"
-                    ));
-                }
-            }
-        }
+        let insights = compute_meeting_insights(&meeting, &md).await;
         db.update_meeting_insights(
             &meeting_id,
             &insights.brief_summary,

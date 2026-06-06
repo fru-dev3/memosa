@@ -158,6 +158,25 @@ pub async fn generate(
     parse_insights(&raw)
 }
 
+/// Generate free-form text (not JSON) with the configured AI engine. Errors on
+/// the heuristic engine, which has no language model.
+pub async fn generate_text(prompt: &str) -> Result<String, String> {
+    let settings = SettingsManager::load();
+    match settings.insight_engine {
+        InsightEngine::Heuristic => {
+            Err("This feature needs a local (Ollama) or cloud AI engine. Enable one in Settings → AI Insights.".into())
+        }
+        InsightEngine::Ollama => call_ollama_text(&settings.ollama_url, &settings.ollama_model, prompt).await,
+        InsightEngine::Byok => {
+            let key = load_byok_key().ok_or_else(|| "No API key set for the cloud engine.".to_string())?;
+            match settings.byok_provider {
+                ByokProvider::Anthropic => call_anthropic(&key, prompt).await,
+                ByokProvider::OpenAI => call_openai_text(&key, prompt).await,
+            }
+        }
+    }
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         return s.to_string();
@@ -278,6 +297,56 @@ async fn call_ollama(base_url: &str, model: &str, prompt: &str) -> Result<String
         .and_then(|r| r.as_str())
         .map(|s| s.to_string())
         .ok_or_else(|| "Ollama response missing 'response' field.".to_string())
+}
+
+async fn call_ollama_text(base_url: &str, model: &str, prompt: &str) -> Result<String, String> {
+    let url = format!("{}/api/generate", base_url.trim_end_matches('/'));
+    let body = serde_json::json!({ "model": model, "prompt": prompt, "stream": false });
+    let resp = reqwest::Client::new()
+        .post(&url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Ollama request failed: {e}. Is Ollama running?"))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("Ollama error ({status}): {text}"));
+    }
+    let v: Value = resp.json().await.map_err(|e| format!("Ollama parse error: {e}"))?;
+    v.get("response")
+        .and_then(|r| r.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Ollama response missing 'response' field.".to_string())
+}
+
+async fn call_openai_text(api_key: &str, prompt: &str) -> Result<String, String> {
+    let body = serde_json::json!({
+        "model": OPENAI_MODEL,
+        "messages": [{ "role": "user", "content": prompt }],
+    });
+    let resp = reqwest::Client::new()
+        .post("https://api.openai.com/v1/chat/completions")
+        .header("authorization", format!("Bearer {api_key}"))
+        .header("content-type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("OpenAI request failed: {e}"))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("OpenAI error ({status}): {text}"));
+    }
+    let v: Value = resp.json().await.map_err(|e| format!("OpenAI parse error: {e}"))?;
+    v.get("choices")
+        .and_then(|c| c.as_array())
+        .and_then(|a| a.first())
+        .and_then(|m| m.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(|t| t.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "OpenAI response missing message content.".to_string())
 }
 
 async fn call_anthropic(api_key: &str, prompt: &str) -> Result<String, String> {
