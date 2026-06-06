@@ -621,31 +621,50 @@ export function TranscriptViewer({
         )}
         {viewMode !== 'notes' && meeting.transcription_status === 'complete' &&
           (!!meeting.summary || (meeting.action_items?.length ?? 0) > 0 || (meeting.decisions?.length ?? 0) > 0) && (
-          <div style={{ padding: '10px 16px 0', flexShrink: 0 }}>
-            <details open style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '8px 12px', background: 'var(--bg-surface)' }}>
-              <summary style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ padding: '12px 16px 0', flexShrink: 0 }}>
+            <details open style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px', background: 'var(--bg-surface)' }}>
+              <summary style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em', listStyle: 'none' }}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M8 2.1l1.05 2.6 2.6 1.05-2.6 1.05L8 9.4 6.95 6.8 4.35 5.75 6.95 4.7 8 2.1Z" fill="var(--accent)" opacity="0.85"/>
+                </svg>
                 AI Insights
               </summary>
               {meeting.summary && (
-                <p style={{ fontSize: 13, lineHeight: 1.5, margin: '8px 0 0', color: 'var(--text-primary)' }}>{meeting.summary}</p>
+                <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: '10px 0 0', color: 'var(--text-primary)' }}>{meeting.summary}</p>
               )}
               {(meeting.action_items?.length ?? 0) > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Action items</div>
-                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
-                    {meeting.action_items!.map((a, i) => <li key={i}>{a}</li>)}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Action items</div>
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {meeting.action_items!.map((a, i) => (
+                      <li key={i} style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.5, color: 'var(--text-primary)' }}>
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true">
+                          <circle cx="8" cy="8" r="6.5" stroke="var(--accent)" strokeWidth="1.4" opacity="0.55"/>
+                        </svg>
+                        <span>{a}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
               {(meeting.decisions?.length ?? 0) > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Decisions</div>
-                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
-                    {meeting.decisions!.map((d, i) => <li key={i}>{d}</li>)}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Decisions</div>
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {meeting.decisions!.map((d, i) => (
+                      <li key={i} style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.5, color: 'var(--text-primary)' }}>
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 3 }} aria-hidden="true">
+                          <path d="M8 2.5l5.5 5.5L8 13.5 2.5 8 8 2.5Z" fill="var(--accent)" opacity="0.45"/>
+                        </svg>
+                        <span>{d}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>Auto-generated — may be inaccurate.</div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
+                Auto-generated — may be inaccurate. Use the ✨ button to regenerate.
+              </div>
             </details>
           </div>
         )}
@@ -1094,18 +1113,19 @@ export function TranscriptViewer({
         <div
           onClick={() => setSpeakerTranscript(null)}
           style={{
-            position: 'fixed', inset: 0, zIndex: 9997, background: 'rgba(0,0,0,0.4)',
-            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+            position: 'fixed', inset: 0, zIndex: 9997, background: 'rgba(28,26,23,0.28)',
+            backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
           }}
         >
           <div
+            className="card-reveal"
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: 'var(--bg-app)', color: 'var(--text-primary)',
-              border: '1px solid var(--border)', borderRadius: 12,
+              background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
               width: 'min(720px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              boxShadow: '0 24px 64px rgba(28,26,23,0.28)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>

@@ -1088,8 +1088,8 @@ export function SettingsView() {
           <>
             <div style={{
               marginTop: 8, marginBottom: 4, padding: '8px 12px', borderRadius: 8,
-              background: 'rgba(180, 83, 9, 0.08)', border: '1px solid rgba(180, 83, 9, 0.25)',
-              fontSize: 11, color: '#b45309', lineHeight: 1.5,
+              background: 'var(--upcoming-dim)', border: '1px solid var(--upcoming-border)',
+              fontSize: 11, color: 'var(--warning-amber)', lineHeight: 1.5,
             }}>
               ⚠ With a cloud engine, the meeting transcript text is sent to your chosen provider for
               summarization. This leaves your Mac. Your API key is stored in the macOS Keychain.
@@ -1118,7 +1118,7 @@ export function SettingsView() {
         {engineStatus && engine !== 'heuristic' && (
           <div style={{
             fontSize: 11, padding: '8px 0',
-            color: engineStatus.available ? 'var(--text-secondary)' : '#b45309',
+            color: engineStatus.available ? 'var(--text-secondary)' : 'var(--warning-amber)',
           }}>
             {engineStatus.available ? '✓ ' : '⚠ '}{engineStatus.detail}
           </div>
@@ -1156,8 +1156,8 @@ export function SettingsView() {
         <SectionLabel>Notion</SectionLabel>
         <div style={{
           marginTop: 4, marginBottom: 4, padding: '8px 12px', borderRadius: 8,
-          background: 'rgba(180, 83, 9, 0.08)', border: '1px solid rgba(180, 83, 9, 0.25)',
-          fontSize: 11, color: '#b45309', lineHeight: 1.5,
+          background: 'var(--upcoming-dim)', border: '1px solid var(--upcoming-border)',
+          fontSize: 11, color: 'var(--warning-amber)', lineHeight: 1.5,
         }}>
           ⚠ Pushing to Notion sends the note and transcript to Notion's servers. Your token is
           stored in the macOS Keychain.
