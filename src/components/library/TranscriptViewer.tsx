@@ -389,6 +389,13 @@ export function TranscriptViewer({
     }
   }
 
+  useEffect(() => {
+    if (speakerTranscript === null) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSpeakerTranscript(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [speakerTranscript])
+
   const handleLabelSpeakers = async () => {
     setLabelingSpeakers(true)
     try {
@@ -1144,6 +1151,9 @@ export function TranscriptViewer({
         >
           <div
             className="card-reveal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Speaker-labeled transcript"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--bg-elevated)', color: 'var(--text-primary)',
