@@ -47,6 +47,8 @@ pub fn create_meeting_record_with_id(
         themes: Vec::new(),
         keywords: Vec::new(),
         is_favorite: false,
+        action_items: Vec::new(),
+        decisions: Vec::new(),
     };
 
     fs::write_metadata(&folder, &meeting)?;
@@ -905,6 +907,8 @@ pub async fn save_meeting_transcript(
             &insights.people,
             &insights.themes,
             &insights.keywords,
+            &insights.action_items,
+            &insights.decisions,
         )?;
         fs::update_metadata(std::path::Path::new(&folder), |stored| {
             stored.summary = Some(insights.brief_summary.clone());

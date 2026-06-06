@@ -9,6 +9,7 @@ import { useTranscriptionEvents } from './hooks/useTranscription'
 import { useCalendarEvents, useCalendar } from './hooks/useCalendar'
 import type { RecordingProfile } from './lib/types'
 import * as api from './lib/tauri'
+import { showError } from './lib/notify'
 import { useMemosaStore } from './store'
 import { AboutView } from './views/AboutView'
 import { ProjectsView } from './views/ProjectsView'
@@ -207,9 +208,9 @@ export default function App() {
 
     api.onGlobalHotkeyToggleRecording(() => {
       if (recordingStatus.is_recording) {
-        void api.stopRecording()
+        void api.stopRecording().catch(showError)
       } else {
-        void api.startRecording(`manual-${Date.now()}`, 'Quick Recording', selectedProfileId)
+        void api.startRecording(`manual-${Date.now()}`, 'Quick Recording', selectedProfileId).catch(showError)
       }
     }).then(u => unlisteners.push(u))
 
@@ -219,9 +220,9 @@ export default function App() {
 
     api.onTrayToggleRecording(() => {
       if (recordingStatus.is_recording) {
-        void api.stopRecording()
+        void api.stopRecording().catch(showError)
       } else {
-        void api.startRecording(`manual-${Date.now()}`, 'Quick Recording', selectedProfileId)
+        void api.startRecording(`manual-${Date.now()}`, 'Quick Recording', selectedProfileId).catch(showError)
       }
     }).then(u => unlisteners.push(u))
 
@@ -250,9 +251,9 @@ export default function App() {
       if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'r' && !e.repeat) {
         e.preventDefault()
         if (recordingStatus.is_recording) {
-          void api.stopRecording()
+          void api.stopRecording().catch(showError)
         } else {
-          void api.startRecording(`manual-${Date.now()}`, 'Quick Recording', selectedProfileId)
+          void api.startRecording(`manual-${Date.now()}`, 'Quick Recording', selectedProfileId).catch(showError)
         }
       }
     }

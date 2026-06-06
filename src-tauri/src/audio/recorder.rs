@@ -1131,7 +1131,12 @@ fn capture_and_encode(
         let bh_samples: Vec<f32> = std::mem::take(&mut *bh_buf.lock().unwrap());
         let mixed = mix_streams(&mic_samples, &bh_samples);
         for sample in mixed {
-            let _ = writer.write_sample(sample);
+            // Stop on the first write error rather than appending partial/corrupt
+            // samples; finalize() below still closes the file cleanly.
+            if let Err(e) = writer.write_sample(sample) {
+                diagnostics::log(format!("audio:capture WAV flush write error, stopping: {e}"));
+                break;
+            }
         }
     }
 

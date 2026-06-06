@@ -143,6 +143,8 @@ export interface Meeting {
   is_favorite?: boolean
   profile_id?: string
   local_only?: boolean
+  action_items?: string[]
+  decisions?: string[]
 }
 
 export interface MeetingInsights {

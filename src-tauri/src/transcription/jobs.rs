@@ -721,6 +721,8 @@ async fn run_transcription_job(
             &insights.people,
             &insights.themes,
             &insights.keywords,
+            &insights.action_items,
+            &insights.decisions,
         )?;
         crate::storage::fs::update_metadata(meeting_folder, |stored| {
             stored.summary = Some(insights.brief_summary.clone());

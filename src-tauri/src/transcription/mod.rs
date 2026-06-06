@@ -121,6 +121,8 @@ pub async fn regenerate_insights(
         &insights.people,
         &insights.themes,
         &insights.keywords,
+        &insights.action_items,
+        &insights.decisions,
     )?;
     crate::storage::fs::update_metadata(std::path::Path::new(&folder), |stored| {
         stored.summary = Some(insights.brief_summary.clone());
