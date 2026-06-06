@@ -1,5 +1,6 @@
 mod audio;
 mod calendar;
+mod chat;
 mod diagnostics;
 mod export;
 mod import;
@@ -328,6 +329,7 @@ pub fn run() {
             sync::sync_meeting_to_notion,
             sync::set_notion_token,
             sync::notion_connected,
+            chat::chat_with_meetings,
             get_app_version,
             open_external_url,
             start_window_drag,

@@ -8,6 +8,7 @@ import type {
   , ExportRequest, ExportResult
   , MarkdownExportRequest, MarkdownExportResult
   , AuthStatus, CalendarEvent, AutoRecordWarning, MeetingInsights, InsightEngineStatus
+  , ChatAnswer
 } from './types'
 
 interface AudioLevelPayload {
@@ -399,3 +400,8 @@ export const setNotionToken = (token: string) =>
 
 export const notionConnected = () =>
   invoke<boolean>('notion_connected')
+
+// ─── Chat with meetings ─────────────────────────────────────────────────────
+
+export const chatWithMeetings = (question: string) =>
+  invoke<ChatAnswer>('chat_with_meetings', { question })

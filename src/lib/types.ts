@@ -252,6 +252,19 @@ export interface InsightEngineStatus {
   detail: string
 }
 
+// ─── Chat with meetings ─────────────────────────────────────────────────────
+
+export interface ChatSource {
+  meeting_id: string
+  title: string
+  date: string
+}
+
+export interface ChatAnswer {
+  answer: string
+  sources: ChatSource[]
+}
+
 export type AppView =
   | 'today'
   | 'library'
