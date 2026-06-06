@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { buildAggregateInsight, formatDurationCompact } from '../lib/insights'
 import { useMemosaStore } from '../store'
 import { useSearch } from '../hooks/useSearch'
-import type { SearchResult } from '../lib/types'
+import * as api from '../lib/tauri'
+import type { SearchResult, ChatAnswer } from '../lib/types'
 
 const FALLBACK_PROMPTS = ['action items', 'decisions', 'follow-up', 'next steps']
 
@@ -53,6 +54,23 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
   const [showQuerySummary, setShowQuerySummary] = useState(true)
   const [expandedQuerySummary, setExpandedQuerySummary] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [chatAnswer, setChatAnswer] = useState<ChatAnswer | null>(null)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatError, setChatError] = useState<string | null>(null)
+
+  const handleAskAI = async () => {
+    if (!query.trim()) return
+    setChatLoading(true)
+    setChatError(null)
+    setChatAnswer(null)
+    try {
+      setChatAnswer(await api.chatWithMeetings(query.trim()))
+    } catch (e) {
+      setChatError(e instanceof Error ? e.message : 'Could not answer that')
+    } finally {
+      setChatLoading(false)
+    }
+  }
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -71,6 +89,8 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
     if (!query.trim()) {
       setShowQuerySummary(true)
       setExpandedQuerySummary(false)
+      setChatAnswer(null)
+      setChatError(null)
     }
   }, [query])
 
@@ -144,6 +164,11 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
             <button className={`ghost-pill ${favoritesOnly ? 'is-selected-pill' : ''}`} onClick={() => setFavoritesOnly((value) => !value)}>
               Starred
             </button>
+            {query.trim() && (
+              <button className="ghost-pill is-selected-pill" onClick={handleAskAI} disabled={chatLoading}>
+                {chatLoading ? 'Thinking…' : '✨ Ask AI'}
+              </button>
+            )}
             {query.trim() && displayResults.length > 0 ? (
               <button className={`ghost-pill ${showQuerySummary ? 'is-selected-pill' : ''}`} onClick={() => setShowQuerySummary((value) => !value)}>
                 {showQuerySummary ? `Summary of ${aggregateMeetingCount} conversations` : `Summarize ${aggregateMeetingCount} conversations`}
@@ -153,6 +178,45 @@ export function SearchView({ embedded = false }: { embedded?: boolean }) {
         </section>
 
         <section className="surface-panel search-results-panel">
+          {(chatLoading || chatAnswer || chatError) && (
+            <div style={{
+              marginBottom: 16, padding: '14px 16px', borderRadius: 12,
+              border: '1px solid var(--accent-border)', background: 'var(--accent-dim)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>✨ AI answer</span>
+                {!chatLoading && (
+                  <button onClick={() => { setChatAnswer(null); setChatError(null) }} style={{ marginLeft: 'auto', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>×</button>
+                )}
+              </div>
+              {chatLoading ? (
+                <div className="skeleton" style={{ height: 48, borderRadius: 8 }} />
+              ) : chatError ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{chatError}</div>
+              ) : chatAnswer ? (
+                <>
+                  <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{chatAnswer.answer}</div>
+                  {chatAnswer.sources.length > 0 && (
+                    <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center' }}>Sources:</span>
+                      {chatAnswer.sources.map((s) => (
+                        <button
+                          key={s.meeting_id}
+                          className="chip chip-muted"
+                          onClick={() => {
+                            const m = meetings.find((item) => item.id === s.meeting_id)
+                            if (m) { setCurrentMeeting(m); setActiveView('projects') }
+                          }}
+                        >
+                          {s.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          )}
           {!query.trim() ? (
             <div style={{ padding: '24px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
