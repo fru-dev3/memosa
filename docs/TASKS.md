@@ -15,9 +15,10 @@ Crash-safe task list. Current focus: **open-sourcing Memosa** (mirroring Prevail
 - [x] Add Developer ID entitlements + config overlay (`entitlements-devid.plist`, `tauri.conf.devid.json`)
 - [x] README: open-source framing + download badges
 - [x] memosa-site: add direct `.dmg` download link (App Store stays primary)
+- [x] Flip repo public + push (fru-dev3/memosa, GPL-3.0; old history preserved at branch `legacy/pre-oss-main`)
+- [x] Push website direct-`.dmg` link (fru-dev3/memosa-site; Netlify auto-deploys)
 - [ ] **USER:** create "Developer ID Application" cert + add GitHub secrets (see `docs/RELEASING.md`)
-- [ ] **USER:** push first `v*` tag to produce the signed DMG release
-- [ ] Flip repo public + push
+- [ ] **USER:** push first `v*` tag to produce the signed DMG release (makes the website/README download link resolve)
 
 ## Next (after open-source)
 
