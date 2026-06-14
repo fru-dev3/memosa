@@ -1,6 +1,25 @@
+<div align="center">
+
+<img src="assets/icon.png" alt="Memosa" width="84" />
+
 # Memosa
 
-Local-first meeting recorder for macOS. Records audio, transcribes on-device using Whisper, and organises everything into a searchable library — nothing leaves your machine unless you choose.
+**Local-first meeting recorder for macOS.** Records audio, transcribes on-device with Whisper, and organises everything into a searchable library — nothing leaves your machine unless you choose.
+
+<p>
+  <a href="https://github.com/fru-dev3/memosa/releases/latest/download/Memosa-mac-arm64.dmg"><img src="https://img.shields.io/badge/Download-Memosa%20for%20macOS-2b7a78?style=for-the-badge&logo=apple&logoColor=white" alt="Download Memosa for macOS" /></a>
+  <a href="https://apps.apple.com/us/app/memosa-meeting-memory/id6760445178?mt=12"><img src="https://img.shields.io/badge/Mac%20App%20Store-Memosa-0d96f6?style=for-the-badge&logo=apple&logoColor=white" alt="Mac App Store" /></a>
+</p>
+
+<p>
+  <a href="https://github.com/fru-dev3/memosa/releases/latest"><img src="https://img.shields.io/github/v/release/fru-dev3/memosa?label=latest&color=2b7a78" alt="Latest release" /></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B%20·%20Apple%20Silicon-111111?logo=apple&logoColor=white" alt="macOS 13+ Apple Silicon" />
+  <img src="https://img.shields.io/badge/license-GPL--3.0-555" alt="GPL-3.0 License" />
+</p>
+
+**[⤓ Download the latest `.dmg`](https://github.com/fru-dev3/memosa/releases/latest/download/Memosa-mac-arm64.dmg)** &nbsp;·&nbsp; [Mac App Store](https://apps.apple.com/us/app/memosa-meeting-memory/id6760445178?mt=12) &nbsp;·&nbsp; [all releases](https://github.com/fru-dev3/memosa/releases)
+
+</div>
 
 ## What it does
 
@@ -63,6 +82,9 @@ npm run tauri build
 # Output: target/release/bundle/macos/Memosa.app
 ```
 
+Signed, notarized `.dmg` releases are produced in CI by pushing a `v*` tag — see
+[docs/RELEASING.md](docs/RELEASING.md).
+
 ## Project structure
 
 ```
@@ -105,4 +127,11 @@ The app is sandboxed and targets the Mac App Store.
 
 ## License
 
-Copyright © 2026 Memosa, LLC. All rights reserved.
+Memosa is free software, released under the **GNU General Public License v3.0**.
+You may use, study, share, and modify it; derivative works must also be released
+under the GPL-3.0. See [LICENSE](LICENSE) for the full text.
+
+Copyright © 2026 Fru Louis · fru.dev
+
+The name "Memosa", its logo, and the Mac App Store listing are not covered by the
+code license.

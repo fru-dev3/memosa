@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Developer ID (direct-download) entitlements.
+
+         This is the App-Store entitlements.plist MINUS the
+         `com.apple.application-identifier` key: that entitlement requires a
+         Mac App Store provisioning profile and makes a Developer ID build fail
+         notarization. Everything else (sandbox + the capabilities the app
+         actually uses) is kept, so the direct download has the same local-first
+         privacy posture as the App Store build, under the hardened runtime. -->
+
+    <!-- App sandbox (kept for the same confinement as the App Store build) -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Microphone access (recording) -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <!-- Network: outbound — Whisper model download on first use; opt-in
+         Google Calendar / cloud insight provider -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- Network: inbound (loopback only) — transient localhost:8899 listener
+         for the Google Calendar OAuth redirect -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- User-selected file access (storage folder picker, export) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- Persist access to user-selected storage folder across relaunches -->
+    <key>com.apple.security.files.bookmarks.app-scope</key>
+    <true/>
+</dict>
+</plist>
