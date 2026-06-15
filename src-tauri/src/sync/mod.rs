@@ -258,6 +258,13 @@ pub async fn sync_meeting_to_notion(
     db: tauri::State<'_, Database>,
 ) -> Result<String, String> {
     let settings = SettingsManager::load();
+    if settings.app_mode == crate::types::AppMode::Bunker {
+        return Err(
+            "Bunker mode is on, so cloud sync is disabled. Switch to Cloud mode in \
+             Settings to sync to Notion. (Obsidian sync stays available — it's local.)"
+                .into(),
+        );
+    }
     let database_id = settings.notion_database_id.trim().to_string();
     if database_id.is_empty() {
         return Err("Set your Notion database ID in Settings → Integrations first.".to_string());

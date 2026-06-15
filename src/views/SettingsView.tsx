@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   calendar_account_email: null,
   auto_record: false,
   excluded_calendar_names: [],
+  app_mode: 'bunker',
   insight_engine: 'heuristic',
   ollama_model: 'llama3.1',
   ollama_url: 'http://localhost:11434',
@@ -1081,8 +1082,35 @@ export function SettingsView() {
 
   function renderAi() {
     const engine = draft.insight_engine
+    const bunker = draft.app_mode === 'bunker'
     return (
       <>
+        <SectionLabel>Mode</SectionLabel>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 8px', lineHeight: 1.5 }}>
+          <strong style={{ color: 'var(--text-secondary)' }}>Bunker</strong> keeps everything on your Mac
+          (built-in or local Ollama only — cloud AI and cloud sync are refused). <strong style={{ color: 'var(--text-secondary)' }}>Cloud</strong> lets
+          you bring your own OpenAI or Anthropic key. Switch anytime.
+        </div>
+        <Row
+          label="Privacy mode"
+          hint={bunker ? 'Cloud AI and Notion sync are disabled while on.' : 'Cloud AI (BYOK) and Notion sync are allowed.'}
+        >
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              className={`ghost-pill ${bunker ? 'is-selected-pill' : ''}`}
+              onClick={() => updateDraft('app_mode', 'bunker')}
+            >
+              Bunker
+            </button>
+            <button
+              className={`ghost-pill ${!bunker ? 'is-selected-pill' : ''}`}
+              onClick={() => updateDraft('app_mode', 'cloud')}
+            >
+              Cloud
+            </button>
+          </div>
+        </Row>
+
         <SectionLabel>Summary engine</SectionLabel>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 8px', lineHeight: 1.5 }}>
           Choose how Memosa turns transcripts into summaries, decisions, and action items.
@@ -1093,9 +1121,20 @@ export function SettingsView() {
           <Sel value={engine} onChange={(v) => updateDraft('insight_engine', v as AppSettings['insight_engine'])}>
             <option value="heuristic">Built-in (offline, basic)</option>
             <option value="ollama">Local AI · Ollama (private)</option>
-            <option value="byok">Cloud · your own API key</option>
+            {!bunker && <option value="byok">Cloud · your own API key</option>}
           </Sel>
         </Row>
+
+        {bunker && engine === 'byok' && (
+          <div style={{
+            marginTop: 8, marginBottom: 4, padding: '8px 12px', borderRadius: 8,
+            background: 'var(--upcoming-dim)', border: '1px solid var(--upcoming-border)',
+            fontSize: 11, color: 'var(--warning-amber)', lineHeight: 1.5,
+          }}>
+            ⚠ Bunker mode is on, so this cloud engine is paused. Switch to Cloud mode above,
+            or pick Built-in / Ollama to keep everything local.
+          </div>
+        )}
 
         {engine === 'ollama' && (
           <>
@@ -1108,7 +1147,7 @@ export function SettingsView() {
           </>
         )}
 
-        {engine === 'byok' && (
+        {engine === 'byok' && !bunker && (
           <>
             <div style={{
               marginTop: 8, marginBottom: 4, padding: '8px 12px', borderRadius: 8,

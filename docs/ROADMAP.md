@@ -14,17 +14,17 @@ research run `wf_9e3ab903-2ee`, 23/25 claims verified.)
 
 ## BUILD NOW — P0 (in order)
 
-### 1. Bunker mode / Cloud mode  `[~]`
+### 1. Bunker mode / Cloud mode  `[x]` DONE
 A global app mode that makes the privacy posture explicit and enforceable.
-- [ ] Add `app_mode` setting: `bunker` (default) | `cloud`, persisted in settings store
-- [ ] **Bunker**: AI restricted to Built-in heuristic + local Ollama; all cloud/network AI
-      calls refused (fail-closed); BYOK keys ignored while active
-- [ ] **Cloud**: user configures OpenAI / Anthropic API keys (stored in macOS Keychain),
-      selects cloud models for summaries + chat
-- [ ] Single enforcement gate in the insight/chat engine: every model call checks mode first
-- [ ] Settings UI: prominent Bunker/Cloud switch with explanation; key fields revealed only in Cloud
-- [ ] Persistent in-app indicator (badge) showing current mode
-- [ ] Tests: gate refuses cloud in bunker; round-trips mode setting
+- [x] `app_mode` setting: `bunker` (default) | `cloud` (`types.rs` AppMode, serde default Bunker)
+- [x] **Bunker**: cloud BYOK refused fail-closed via `ensure_cloud_allowed()` in `insights::generate`
+      + `generate_text`; Notion sync refused in `sync_meeting_to_notion`. Ollama/Built-in still work.
+- [x] **Cloud**: BYOK provider + Keychain key flow (unchanged) usable only in Cloud mode
+- [x] Single enforcement chokepoint (`ensure_cloud_allowed`) — the BYOK arms route through it
+- [x] Settings UI (`SettingsView` renderAi): Bunker/Cloud segmented switch; cloud engine option +
+      BYOK fields hidden in Bunker; "paused" note if a stale BYOK selection + Bunker
+- [x] Test: `insights::mode_tests::bunker_refuses_cloud_cloud_allows` (passing)
+- [ ] (deferred polish) persistent app-wide mode badge outside Settings
 
 ### 2. Local-first MCP server (★ highest-leverage differentiator)  `[ ]`
 Expose the meeting corpus to external AI agents (Claude/ChatGPT/Cursor/Ollama) over MCP.
@@ -69,4 +69,6 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 ---
 
 ## Progress log
-- 2026-06-14: roadmap locked (sequencing A). Starting P0.1 (Bunker/Cloud mode). Mapping codebase.
+- 2026-06-14: roadmap locked (sequencing A). Mapped codebase (4 explore agents).
+- 2026-06-14: **P0.1 Bunker/Cloud mode DONE** — fail-closed gate, UI switch, test passing.
+  Next: P0.2 local-first MCP server (`memosa mcp` stdio subcommand over the SQLite corpus).

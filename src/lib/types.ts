@@ -208,6 +208,8 @@ export interface AppSettings {
   calendar_account_email?: string | null
   auto_record: boolean
   excluded_calendar_names: string[]
+  // App mode (privacy posture): bunker = fully local, cloud = BYOK allowed
+  app_mode: 'bunker' | 'cloud'
   // AI insights
   insight_engine: 'heuristic' | 'ollama' | 'byok'
   ollama_model: string
