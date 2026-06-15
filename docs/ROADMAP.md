@@ -1,90 +1,72 @@
-# Memosa — Feature Roadmap (DRAFT, pending founder confirmation)
+# Memosa — Feature Roadmap (LOCKED 2026-06-14)
 
-Branch: `feature/windows-and-roadmap`. Crash-safe to-do list for the next feature wave.
+Branch: `feature/windows-and-roadmap`. **Crash-safe checklist — keep updated after every step.**
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
-> **DRAFT** — backed by deep research (2026-06-14, 102-agent run `wf_9e3ab903-2ee`,
-> 23/25 claims verified). Founder confirms sequencing (see "Decision needed"), then we lock and build.
+**Confirmed decisions:** sequencing = **A (differentiator-first)**; free/OSS (no paid tier yet);
+no required 3rd-party integration; Windows deferred to P1. Build order below is the work order.
 
-## North star
+**North star:** the private, local, open-source memory + context layer for your conversations,
+and the only one your AI tools can use. Differentiator = local-first MCP. (Backed by deep
+research run `wf_9e3ab903-2ee`, 23/25 claims verified.)
 
-Memosa = **the private, local, open-source memory + context layer for your conversations,
-and the only one your AI tools can actually use.** Site positioning: "the context layer for
-your intelligence." The research strongly validates this exact thesis as the moat.
+---
 
-## The single highest-leverage differentiator (verified)
+## BUILD NOW — P0 (in order)
 
-**Expose your meeting corpus to external AI agents via a LOCAL-FIRST MCP server.** This is
-not speculative: Granola shipped an MCP server (Feb 2026) and raised **$125M at a $1.5B
-valuation (Mar 2026)** explicitly to become "meetings → enterprise AI app"; competitor
-**Alice** already ships an MCP server exposing recordings/transcripts to Claude/ChatGPT/Grok/
-Gemini. Neither cloud incumbent can match a corpus that **never leaves the device** and is
-queried by your *local* Ollama/BYOK agents. Ties directly into the fru.dev app network.
+### 1. Bunker mode / Cloud mode  `[~]`
+A global app mode that makes the privacy posture explicit and enforceable.
+- [ ] Add `app_mode` setting: `bunker` (default) | `cloud`, persisted in settings store
+- [ ] **Bunker**: AI restricted to Built-in heuristic + local Ollama; all cloud/network AI
+      calls refused (fail-closed); BYOK keys ignored while active
+- [ ] **Cloud**: user configures OpenAI / Anthropic API keys (stored in macOS Keychain),
+      selects cloud models for summaries + chat
+- [ ] Single enforcement gate in the insight/chat engine: every model call checks mode first
+- [ ] Settings UI: prominent Bunker/Cloud switch with explanation; key fields revealed only in Cloud
+- [ ] Persistent in-app indicator (badge) showing current mode
+- [ ] Tests: gate refuses cloud in bunker; round-trips mode setting
 
-## What the research changed about our plan
+### 2. Local-first MCP server (★ highest-leverage differentiator)  `[ ]`
+Expose the meeting corpus to external AI agents (Claude/ChatGPT/Cursor/Ollama) over MCP.
+- [ ] MCP server over stdio (Rust), reading the existing SQLite DB
+- [ ] Tools: `list_meetings`, `search_meetings` (FTS + semantic), `get_transcript`,
+      `get_summary`, `get_action_items`, `get_decisions`
+- [ ] Opt-in "Enable MCP server" toggle in Settings (off by default) + clear note that a
+      connected cloud AI client may send retrieved data to that client
+- [ ] Connect helper: copy-paste config for Claude Desktop / Claude Code / Cursor with the path
+- [ ] Resolve the server binary path robustly (bundled sidecar or `memosa mcp` subcommand)
+- [ ] Tests: tool calls return correct rows; respects enable toggle
 
-- **MCP > Windows on leverage.** Research recommends shipping the MCP differentiator
-  *before* Windows, because Windows is "parity-without-differentiation on a second platform"
-  and **a free OSS rival (Meetily) already ships Windows + Linux with CUDA/Vulkan.** Windows
-  is real gated TAM but HIGH effort (CoreML diarization/accel paths do NOT port).
-  **→ This conflicts with the founder's stated "Windows first." See Decision needed.**
-- **Our core is now contested, not unique.** OpenWhispr, Meetily, AnythingLLM Meeting
-  Assistant, Natively all ship local transcription + diarization + local RAG/BYOK/Ollama.
-  Transcription/diarization/search = **table stakes (reach parity), not a moat.**
-- **Trust is a cheap, real edge.** Granola trains on user notes **by default** (opt-out,
-  hard-to-find). Memosa (audio never leaves device, no training) can claim a strictly
-  stronger, verifiable posture — high value to **regulated personas** (therapists, lawyers,
-  doctors, journalists). (Do NOT use two refuted attacks: Granola "every note public by URL"
-  = false; Natively "Cluely breach" = false.)
-- **Our GUI is a moat vs the OSS tier.** The strongest local pipelines (HushNote, Trail of
-  Bits' Scribe) are Linux/macOS **CLIs**. Memosa's polished one-click Tauri GUI is a genuine
-  advantage for non-technical users — protect it.
+### 3. Local semantic search (embeddings)  `[ ]`
+Upgrade search/RAG beyond keyword FTS; feeds both in-app chat and the MCP `search_meetings`.
+- [ ] Local embeddings (Ollama `nomic-embed-text` in bunker, or bundled ONNX) over transcript chunks
+- [ ] Vector index (sqlite-vec or equivalent) alongside FTS5; hybrid search
+- [ ] "Ask your meetings" answers cite the source meeting(s)
+- [ ] Tests: embed → index → nearest-neighbour round-trip
 
-## DECISION NEEDED (sequencing)
+### 4. Real on-device speaker diarization + speaker identity  `[ ]` (heaviest)
+Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
+- [ ] Choose engine: sherpa-onnx (cross-platform, helps future Windows) vs WhisperKit/SpeakerKit (macOS CoreML)
+- [ ] Sidecar/bundled models (auto-download on first use), diarization step in the transcription pipeline
+- [ ] Persist speaker segments; UI to name/merge/split speakers; cross-meeting voice fingerprinting
+- [ ] Tests: segment storage round-trip
 
-Founder wanted **Windows first**; research says **MCP differentiator first, Windows second.**
-Pick one:
-- **(A) Differentiator-first** (research pick): MCP + diarization parity + trust, then Windows.
-- **(B) Reach-first** (founder's instinct): Windows first for TAM, then MCP.
-- **(C) Parallel:** Windows is largely independent work; MCP + Windows can run side by side.
+### 5. Trust posture (mostly positioning, pairs with Bunker)  `[ ]`
+- [ ] Explicit "never trained on your data / audio never leaves device" guarantee in-app + on site
+- [ ] Verifiable privacy page; in-app network-activity transparency
 
-## Proposed roadmap (order assumes A; flip if you choose B)
+---
 
-### P0 — differentiator + parity
-- [ ] **Local-first MCP server** — expose corpus (search / fetch transcript / summaries /
-  decisions / segment search) to Claude/ChatGPT/Ollama/agents. Data stays on device. **MEDIUM**
-  effort (already in SQLite/FTS5). Neutralizes Granola + Alice. Persona: founders, consultants,
-  sales, researchers. **★ highest-leverage.**
-- [ ] **Real on-device speaker diarization + speaker identity** (recurring-voice fingerprinting),
-  upgrade from "AI speaker labels." Shippable via WhisperKit/SpeakerKit (Pyannote v4 CoreML),
-  sherpa-onnx, or a Rust path (speakrs). **MEDIUM** (sidecar). Parity vs OpenWhispr/AnythingLLM.
-- [ ] **Local semantic search (embeddings)** over the whole library via sqlite-vec/ONNX, feeding
-  both in-app "ask your meetings" (with citations) and the MCP index. **LOW–MEDIUM.**
-- [ ] **Private-by-default trust posture** — explicit "we never train on your data / audio never
-  leaves your device" guarantee + verifiable privacy page + in-app indicators. **LOW.** Targets
-  regulated personas; neutralizes Granola's soft underbelly.
+## P1 (after P0)
+- [ ] **Windows support** (NSIS + CI; Windows audio, non-CoreML diarization via sherpa-onnx, CUDA/Vulkan/CPU)
+- [ ] Real-time / live transcription + live notes
 
-### P1
-- [ ] **Windows support** (NSIS + CI like Prevail). **HIGH** effort: re-implement audio capture,
-  diarization sidecar, and GPU accel for Windows (CoreML does not port; use CUDA/Vulkan/CPU).
-  Captures TAM Meetily is taking. (Promote to P0 if you choose ordering B.)
-- [ ] **Real-time / live transcription + live notes** (feasible: Moonshine ~107ms, streaming
-  diarization; quality unproven, validate first).
+## P2
+- [ ] Action items → owners/due dates → Reminders/Things/Todoist
+- [ ] Summary/note templates per meeting type · global quick-capture hotkey · Outlook/ICS calendar
+- [ ] On-device translation · redaction / retention / encrypted-at-rest
 
-### P2
-- [ ] Action items → owners/due dates → push to Reminders/Things/Todoist.
-- [ ] Summary/note templates per meeting type. · Global quick-capture hotkey. · More calendar
-  providers (Outlook/ICS). · On-device translation. · Redaction / retention / encrypted-at-rest.
+---
 
-## Research caveats / gaps (worth knowing)
-- The verified corpus is strong on **competitor + technical** evidence but thin on **direct
-  user voice** (no surviving Reddit/G2/App-Store quotes), **persona market-size/WTP**, and a
-  **cloud-bot-joiner matrix** (Otter/Fireflies/Fathom/etc.). Persona priorities below are
-  inference from the privacy-posture finding, not measured demand. A focused follow-up on
-  user complaints + WTP + personas is available if you want it before locking.
-
-## Open questions for founder
-1. **Sequencing A / B / C above** (the big one).
-2. Want a **follow-up research pass** on user-voice + personas + WTP to fill the gap?
-3. Any must-have integration for your own workflow (specific task manager / CRM)?
-4. Stay fully free/OSS, or leave room for a paid pro tier (e.g., hosted/cross-device sync)?
+## Progress log
+- 2026-06-14: roadmap locked (sequencing A). Starting P0.1 (Bunker/Cloud mode). Mapping codebase.
