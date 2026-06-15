@@ -97,6 +97,15 @@ fn tool_specs() -> Value {
             }
         },
         {
+            "name": "semantic_search",
+            "description": "Meaning-based search across transcripts (local embeddings). Use for conceptual queries where exact words may not match. Requires the semantic index to be built.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "query": { "type": "string" }, "limit": { "type": "integer" } },
+                "required": ["query"]
+            }
+        },
+        {
             "name": "get_meeting",
             "description": "Get one meeting's full metadata: summary, action items, decisions, tags, people, attendees.",
             "inputSchema": {
@@ -134,6 +143,7 @@ fn handle_tool_call(id: Option<Value>, req: &Value, enabled: bool) -> Value {
     let result = match name {
         "list_meetings" => tool_list_meetings(&args),
         "search_meetings" => tool_search_meetings(&args),
+        "semantic_search" => tool_semantic_search(&args),
         "get_meeting" => tool_get_meeting(&args),
         "get_transcript" => tool_get_transcript(&args),
         _ => Err(format!("Unknown tool: {name}")),
@@ -204,6 +214,55 @@ fn tool_search_meetings(args: &Value) -> Result<String, String> {
         })
         .map_err(|e| e.to_string())?;
     let out: Vec<Value> = rows.filter_map(|r| r.ok()).collect();
+    Ok(serde_json::to_string_pretty(&json!({ "results": out })).unwrap_or_default())
+}
+
+fn tool_semantic_search(args: &Value) -> Result<String, String> {
+    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("").trim();
+    if query.is_empty() {
+        return Err("query is required".into());
+    }
+    let limit = args.get("limit").and_then(|v| v.as_i64()).unwrap_or(8).clamp(1, 50) as usize;
+    let settings = crate::storage::SettingsManager::load();
+    // Embedding is async; the MCP loop is sync, so run it on a one-shot runtime.
+    let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    let qv = rt.block_on(crate::search::embed(&settings, query))?;
+
+    let conn = open_db()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT e.meeting_id, m.title, m.date, e.text, e.vec
+             FROM embeddings e JOIN meetings m ON m.id = e.meeting_id",
+        )
+        .map_err(|e| e.to_string())?;
+    let mut scored: Vec<(f32, Value)> = stmt
+        .query_map([], |r| {
+            let bytes: Vec<u8> = r.get(4)?;
+            let vec: Vec<f32> = bytes
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect();
+            let score = crate::search::cosine(&qv, &vec);
+            Ok((
+                score,
+                json!({
+                    "meeting_id": r.get::<_, String>(0)?,
+                    "title": r.get::<_, String>(1)?,
+                    "date": r.get::<_, String>(2)?,
+                    "score": score,
+                    "text": r.get::<_, String>(3)?,
+                }),
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if scored.is_empty() {
+        return Err("No semantic index yet. Build it in Memosa Settings, or run `memosa reindex`.".into());
+    }
+    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let out: Vec<Value> = scored.into_iter().take(limit).map(|(_, v)| v).collect();
     Ok(serde_json::to_string_pretty(&json!({ "results": out })).unwrap_or_default())
 }
 

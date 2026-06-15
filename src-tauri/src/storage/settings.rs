@@ -182,6 +182,7 @@ impl Default for AppSettings {
             insight_engine: crate::types::InsightEngine::default(),
             ollama_model: "llama3.1".to_string(),
             ollama_url: "http://localhost:11434".to_string(),
+            embed_model: "nomic-embed-text".to_string(),
             byok_provider: crate::types::ByokProvider::default(),
             obsidian_vault_path: None,
             notion_database_id: String::new(),

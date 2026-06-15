@@ -407,6 +407,9 @@ pub struct AppSettings {
     /// Ollama server base URL (local by default).
     #[serde(default = "default_ollama_url")]
     pub ollama_url: String,
+    /// Ollama embedding model for local semantic search (pulled via Ollama).
+    #[serde(default = "default_embed_model")]
+    pub embed_model: String,
     /// Cloud provider used when `insight_engine == Byok`. The API key itself is
     /// stored in the macOS Keychain, never in this file.
     #[serde(default)]
@@ -477,6 +480,10 @@ impl Default for ByokProvider {
     fn default() -> Self {
         ByokProvider::Anthropic
     }
+}
+
+fn default_embed_model() -> String {
+    "nomic-embed-text".to_string()
 }
 
 fn default_ollama_model() -> String {
