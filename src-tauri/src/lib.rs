@@ -353,7 +353,9 @@ pub fn run() {
             std::process::exit(1);
         })
         .run(|app_handle, event| {
-            // Re-show the main window when the dock icon is clicked (macOS standard).
+            // Re-show the main window when the dock icon is clicked (macOS only;
+            // RunEvent::Reopen does not exist on other platforms).
+            #[cfg(target_os = "macos")]
             if let RunEvent::Reopen { .. } = &event {
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();
