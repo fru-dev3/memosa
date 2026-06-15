@@ -12,7 +12,7 @@ function fmtTimer(secs: number): string {
 }
 
 export function StatusBar() {
-  const { meetings, recordingStatus, setActiveView, setCurrentMeeting } = useMemosaStore()
+  const { meetings, recordingStatus, setActiveView, setCurrentMeeting, settings } = useMemosaStore()
   const [appVersion, setAppVersion] = useState('')
 
   useEffect(() => {
@@ -85,7 +85,26 @@ export function StatusBar() {
               <span style={{ fontWeight: 600 }}>{pendingTranscriptions} transcribing</span>
             )}
           </div>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {settings && (
+              <span
+                title={settings.app_mode === 'bunker'
+                  ? 'Bunker mode: everything stays on your Mac. Cloud AI is off.'
+                  : 'Cloud mode: your own OpenAI/Anthropic key can be used.'}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700,
+                  letterSpacing: 0.2, textTransform: 'uppercase',
+                  color: settings.app_mode === 'bunker' ? 'var(--accent)' : 'var(--text-muted)',
+                }}
+              >
+                <span style={{
+                  width: 6, height: 6, borderRadius: 999,
+                  background: settings.app_mode === 'bunker' ? 'var(--accent)' : 'transparent',
+                  border: settings.app_mode === 'bunker' ? 'none' : '1.5px solid var(--text-muted)',
+                }} />
+                {settings.app_mode === 'bunker' ? 'Bunker' : 'Cloud'}
+              </span>
+            )}
             {appVersion && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>v{appVersion}</span>}
           </div>
         </>
