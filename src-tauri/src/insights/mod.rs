@@ -8,7 +8,7 @@
 //!     that provider, only after the user explicitly opts in.
 
 use crate::storage::SettingsManager;
-use crate::types::{ByokProvider, InsightEngine, MeetingInsights};
+use crate::types::{AppSettings, ByokProvider, InsightEngine, MeetingInsights};
 use keyring::Entry;
 use serde::Serialize;
 use serde_json::Value;
@@ -147,6 +147,7 @@ pub async fn generate(
         }
         InsightEngine::Ollama => call_ollama(&settings.ollama_url, &settings.ollama_model, &prompt).await?,
         InsightEngine::Byok => {
+            ensure_cloud_allowed(&settings)?;
             let key = load_byok_key().ok_or_else(|| "No API key set for BYOK engine.".to_string())?;
             match settings.byok_provider {
                 ByokProvider::Anthropic => call_anthropic(&key, &prompt).await?,
@@ -168,6 +169,7 @@ pub async fn generate_text(prompt: &str) -> Result<String, String> {
         }
         InsightEngine::Ollama => call_ollama_text(&settings.ollama_url, &settings.ollama_model, prompt).await,
         InsightEngine::Byok => {
+            ensure_cloud_allowed(&settings)?;
             let key = load_byok_key().ok_or_else(|| "No API key set for the cloud engine.".to_string())?;
             match settings.byok_provider {
                 ByokProvider::Anthropic => call_anthropic(&key, prompt).await,
@@ -175,6 +177,19 @@ pub async fn generate_text(prompt: &str) -> Result<String, String> {
             }
         }
     }
+}
+
+/// Fail-closed cloud guard. In Bunker mode every cloud/BYOK path is refused,
+/// no matter what engine is configured — this is the single chokepoint.
+fn ensure_cloud_allowed(settings: &AppSettings) -> Result<(), String> {
+    if settings.app_mode == crate::types::AppMode::Bunker {
+        return Err(
+            "Bunker mode is on, so cloud AI is disabled. Switch to Cloud mode in \
+             Settings, or use the local Ollama engine to keep everything on-device."
+                .into(),
+        );
+    }
+    Ok(())
 }
 
 fn truncate(s: &str, max: usize) -> String {
@@ -445,4 +460,19 @@ async fn call_openai(api_key: &str, prompt: &str) -> Result<String, String> {
         .and_then(|t| t.as_str())
         .map(|s| s.to_string())
         .ok_or_else(|| "OpenAI response missing message content.".to_string())
+}
+
+#[cfg(test)]
+mod mode_tests {
+    use super::*;
+    use crate::types::AppMode;
+
+    #[test]
+    fn bunker_refuses_cloud_cloud_allows() {
+        let mut s = AppSettings::default();
+        s.app_mode = AppMode::Bunker;
+        assert!(ensure_cloud_allowed(&s).is_err(), "bunker must refuse cloud");
+        s.app_mode = AppMode::Cloud;
+        assert!(ensure_cloud_allowed(&s).is_ok(), "cloud must allow");
+    }
 }

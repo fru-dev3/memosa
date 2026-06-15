@@ -178,6 +178,7 @@ impl Default for AppSettings {
             calendar_account_email: None,
             auto_record: false,
             excluded_calendar_names: Vec::new(),
+            app_mode: crate::types::AppMode::default(),
             insight_engine: crate::types::InsightEngine::default(),
             ollama_model: "llama3.1".to_string(),
             ollama_url: "http://localhost:11434".to_string(),

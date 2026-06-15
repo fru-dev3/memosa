@@ -391,6 +391,12 @@ pub struct AppSettings {
     #[serde(default)]
     pub excluded_calendar_names: Vec<String>,
 
+    // ─── App mode (privacy posture) ──────────────────────────────────────────
+    /// Bunker = fully local, all cloud/network AI refused (fail-closed). Cloud =
+    /// allow BYOK cloud providers + cloud sync. Privacy-first default: Bunker.
+    #[serde(default)]
+    pub app_mode: AppMode,
+
     // ─── AI insights engine ──────────────────────────────────────────────────
     /// Which engine generates summaries/decisions/action-items.
     #[serde(default)]
@@ -414,6 +420,24 @@ pub struct AppSettings {
     /// the Keychain, not here.
     #[serde(default)]
     pub notion_database_id: String,
+}
+
+/// App-wide privacy posture. Gates every cloud/network AI path.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AppMode {
+    /// Everything stays on this machine. Cloud AI (BYOK) and cloud sync are
+    /// refused at the engine gate, regardless of other settings.
+    Bunker,
+    /// Cloud allowed: BYOK providers and cloud sync may be used.
+    Cloud,
+}
+
+impl Default for AppMode {
+    fn default() -> Self {
+        // Privacy-first: ship locked down; the user opts into cloud explicitly.
+        AppMode::Bunker
+    }
 }
 
 /// Engine that produces meeting insights.
