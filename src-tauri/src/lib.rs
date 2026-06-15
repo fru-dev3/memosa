@@ -10,6 +10,7 @@ mod insights;
 mod macos;
 pub mod mcp;
 pub mod paths;
+mod privacy;
 mod search;
 mod storage;
 mod sync;

@@ -50,6 +50,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   byok_provider: 'anthropic',
   obsidian_vault_path: null,
   notion_database_id: '',
+  redact_secrets: true,
   mcp_server_enabled: false,
 }
 
@@ -1191,6 +1192,9 @@ export function SettingsView() {
                   {savingKey ? 'Saving…' : keySaved ? 'Saved ✓' : 'Save key'}
                 </button>
               </div>
+            </Row>
+            <Row label="Redact secrets" hint="Scrub emails, keys, card/SSN-like numbers, and phones from transcript text before it's sent to the cloud provider.">
+              <Toggle value={draft.redact_secrets} onChange={(v) => updateDraft('redact_secrets', v)} />
             </Row>
           </>
         )}
