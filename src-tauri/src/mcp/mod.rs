@@ -122,6 +122,15 @@ fn tool_specs() -> Value {
                 "properties": { "id": { "type": "string" } },
                 "required": ["id"]
             }
+        },
+        {
+            "name": "get_speakers",
+            "description": "Get speaker-attributed segments (who said what) for a meeting, if it has been diarized.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "id": { "type": "string" } },
+                "required": ["id"]
+            }
         }
     ])
 }
@@ -146,6 +155,7 @@ fn handle_tool_call(id: Option<Value>, req: &Value, enabled: bool) -> Value {
         "semantic_search" => tool_semantic_search(&args),
         "get_meeting" => tool_get_meeting(&args),
         "get_transcript" => tool_get_transcript(&args),
+        "get_speakers" => tool_get_speakers(&args),
         _ => Err(format!("Unknown tool: {name}")),
     };
 
@@ -301,6 +311,35 @@ fn tool_get_meeting(args: &Value) -> Result<String, String> {
             other => other.to_string(),
         })?;
     Ok(serde_json::to_string_pretty(&row).unwrap_or_default())
+}
+
+fn tool_get_speakers(args: &Value) -> Result<String, String> {
+    let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("").trim();
+    if id.is_empty() {
+        return Err("id is required".into());
+    }
+    let conn = open_db()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT start_ms, end_ms, speaker, text FROM speaker_segments
+             WHERE meeting_id = ?1 ORDER BY idx",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([id], |r| {
+            Ok(json!({
+                "start_ms": r.get::<_, i64>(0)?,
+                "end_ms": r.get::<_, i64>(1)?,
+                "speaker": r.get::<_, String>(2)?,
+                "text": r.get::<_, String>(3)?,
+            }))
+        })
+        .map_err(|e| e.to_string())?;
+    let out: Vec<Value> = rows.filter_map(|r| r.ok()).collect();
+    if out.is_empty() {
+        return Err("This meeting has no speaker segments yet (not diarized).".into());
+    }
+    Ok(serde_json::to_string_pretty(&json!({ "segments": out })).unwrap_or_default())
 }
 
 fn tool_get_transcript(args: &Value) -> Result<String, String> {

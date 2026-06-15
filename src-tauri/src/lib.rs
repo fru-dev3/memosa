@@ -2,6 +2,7 @@ mod audio;
 mod calendar;
 mod chat;
 mod diagnostics;
+mod diarize;
 mod export;
 mod import;
 mod insights;
@@ -337,6 +338,7 @@ pub fn run() {
             search::rebuild_embeddings,
             search::semantic_search_meetings,
             search::embedding_status,
+            diarize::get_speaker_segments,
             get_app_version,
             open_external_url,
             start_window_drag,
