@@ -53,12 +53,19 @@ Upgrade search/RAG beyond keyword FTS; feeds both in-app chat and MCP.
 - [ ] (caveat) live embedding round-trip not verified — this machine's Ollama 0.30.6 is broken
       (missing llama-server binary, affects all Ollama features); code path + graceful error verified.
 
-### 4. Real on-device speaker diarization + speaker identity  `[ ]` (heaviest)
+### 4. Real on-device speaker diarization + speaker identity  `[~]` FOUNDATION done; acoustic engine deferred
 Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
-- [ ] Choose engine: sherpa-onnx (cross-platform, helps future Windows) vs WhisperKit/SpeakerKit (macOS CoreML)
-- [ ] Sidecar/bundled models (auto-download on first use), diarization step in the transcription pipeline
-- [ ] Persist speaker segments; UI to name/merge/split speakers; cross-meeting voice fingerprinting
-- [ ] Tests: segment storage round-trip
+- [x] Engine chosen: **sherpa-onnx** (cross-platform → lands with Windows; pyannote-style
+      segmentation + speaker-embedding clustering on-device).
+- [x] Data model + interface: `speaker_segments` table; `diarize` module with `SpeakerSegment`,
+      `Diarizer` trait, tested `merge_adjacent`; DB store/load; `get_speaker_segments` command;
+      MCP `get_speakers` tool (6 tools total). 26/26 lib tests pass.
+- [ ] **BLOCKED in this env:** the acoustic backend itself — adding the sherpa-onnx native dep +
+      bundling/auto-downloading the ONNX models + aligning with whisper segments. This is a large
+      native integration that can't be safely added-and-verified here (no way to validate the ONNX
+      runtime build offline; pairs with Windows). Storage/interface/surfacing are ready so the
+      backend swap is localized.
+- [ ] UI to name/merge/split speakers; cross-meeting voice fingerprinting (after the engine)
 
 ### 5. Trust posture (mostly positioning, pairs with Bunker)  `[x]` DONE
 - [x] In-app guarantee copy already strong in About ("everything locally", "stays on your Mac",
@@ -88,3 +95,6 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 - 2026-06-14: **P0.3 semantic search DONE** — embeddings table, Ollama embed, hybrid chat,
   MCP semantic_search tool, reindex CLI + Settings button. 24/24 tests. (Live embed blocked by
   broken local Ollama.) Next: P0.4 diarization (heaviest) or P0.5 trust copy.
+- 2026-06-14: **P0.5 trust DONE** (mode badge + About copy + site). **P0.4 FOUNDATION DONE**
+  (speaker_segments + Diarizer interface + MCP get_speakers; 26/26 tests). Acoustic engine
+  (sherpa-onnx) deferred — large native dep + models, pairs with P1 Windows. Next: P1.

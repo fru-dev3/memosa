@@ -94,6 +94,17 @@ impl Database {
                 vec        BLOB NOT NULL,
                 PRIMARY KEY (meeting_id, chunk_idx)
             );
+
+            -- Speaker diarization: who-said-what segments per meeting.
+            CREATE TABLE IF NOT EXISTS speaker_segments (
+                meeting_id TEXT NOT NULL,
+                idx        INTEGER NOT NULL,
+                start_ms   INTEGER NOT NULL,
+                end_ms     INTEGER NOT NULL,
+                speaker    TEXT NOT NULL,
+                text       TEXT NOT NULL,
+                PRIMARY KEY (meeting_id, idx)
+            );
             ",
         )
         .map_err(|e| format!("Failed to initialize database schema: {}", e))?;
@@ -844,6 +855,55 @@ impl Database {
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+}
+
+// ─── Speaker segments (diarization) ──────────────────────────────────────────
+
+impl Database {
+    /// Replace a meeting's speaker segments with the given set.
+    pub fn store_speaker_segments(
+        &self,
+        meeting_id: &str,
+        segs: &[crate::diarize::SpeakerSegment],
+    ) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM speaker_segments WHERE meeting_id = ?1", params![meeting_id])
+            .map_err(|e| format!("Failed to clear speaker segments: {e}"))?;
+        for (idx, s) in segs.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO speaker_segments (meeting_id, idx, start_ms, end_ms, speaker, text)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![meeting_id, idx as i64, s.start_ms, s.end_ms, s.speaker, s.text],
+            )
+            .map_err(|e| format!("Failed to store speaker segment: {e}"))?;
+        }
+        Ok(())
+    }
+
+    /// Load a meeting's speaker segments in order.
+    pub fn get_speaker_segments(
+        &self,
+        meeting_id: &str,
+    ) -> Result<Vec<crate::diarize::SpeakerSegment>, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT start_ms, end_ms, speaker, text FROM speaker_segments
+                 WHERE meeting_id = ?1 ORDER BY idx",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![meeting_id], |r| {
+                Ok(crate::diarize::SpeakerSegment {
+                    start_ms: r.get(0)?,
+                    end_ms: r.get(1)?,
+                    speaker: r.get(2)?,
+                    text: r.get(3)?,
+                })
+            })
             .map_err(|e| e.to_string())?;
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
