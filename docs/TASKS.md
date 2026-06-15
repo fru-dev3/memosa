@@ -19,10 +19,8 @@ Crash-safe task list. Current focus: **open-sourcing Memosa** (mirroring Prevail
 - [x] Push website direct-`.dmg` link (fru-dev3/memosa-site; Netlify auto-deploys; verified live on memosa.dev)
 - [x] Build + sign DMG locally (Developer ID cert in keychain: "Developer ID Application: Fru Nde (TXN399AHT5)", hardened runtime)
 - [x] Publish DMG to GitHub Release `1.0.2` (non-`v` tag so the CI release workflow doesn't overwrite it with an unsigned build); stable alias `Memosa-mac-arm64.dmg`. Download link verified HTTP 200.
-- [ ] **USER (notarization):** create an app-specific password at appleid.apple.com, then run:
-      `xcrun notarytool store-credentials memosa-notary --apple-id fru.dev3@gmail.com --team-id TXN399AHT5 --password <app-pw>`
-      Then I run: `notarytool submit Memosa-mac-arm64.dmg --keychain-profile memosa-notary --wait` → `stapler staple` → re-upload (clobber). Until then the DMG is signed-not-notarized (spctl: "Unnotarized Developer ID"; users right-click→Open).
-- [ ] **USER (CI, optional):** add Apple signing secrets so future `v*` tags auto-sign+notarize (see `docs/RELEASING.md`).
+- [x] **Notarized + stapled.** notarytool profile `memosa-notary` stored (app-specific pw in 1Password "Dev"); submission Accepted; stapled; re-uploaded. Fresh download from memosa.dev verifies `spctl: accepted, source=Notarized Developer ID` (DMG + app inside). Zero Gatekeeper warning.
+- [ ] **USER (CI, optional):** add Apple signing secrets so future `v*` tags auto-sign+notarize in CI instead of building locally (see `docs/RELEASING.md`). Profile name for CI/local notarize: `memosa-notary`.
 
 ## Next (after open-source)
 
