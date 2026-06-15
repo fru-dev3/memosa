@@ -6,7 +6,6 @@ mod diarize;
 mod export;
 mod import;
 mod insights;
-#[cfg(target_os = "macos")]
 mod macos;
 pub mod mcp;
 pub mod paths;

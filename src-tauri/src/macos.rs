@@ -1,9 +1,12 @@
 // macos.rs
-// Safe Rust wrappers for the ObjC helpers in macos_helpers.m.
-// These replace every std::process::Command call that is forbidden in the MAS sandbox.
+// Platform helpers. On macOS these are safe Rust wrappers for the ObjC helpers
+// in macos_helpers.m (which replace the std::process::Command calls forbidden in
+// the MAS sandbox). On other platforms (Windows/Linux) cross-platform fallbacks
+// of the same signatures are provided so the whole app compiles; gaps (audio
+// conversion, AAC encoding) are flagged and return clear errors until ported.
 
-#![cfg(target_os = "macos")]
-
+#[cfg(target_os = "macos")]
+mod imp {
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int};
 use std::path::Path;
@@ -240,3 +243,53 @@ pub fn get_audio_peak_db(path: &Path) -> Option<f32> {
         None
     }
 }
+} // mod imp (macOS)
+
+// ─── Cross-platform fallbacks (Windows / Linux) ──────────────────────────────
+#[cfg(not(target_os = "macos"))]
+mod imp {
+    use std::path::Path;
+
+    pub fn get_frontmost_app() -> Option<String> {
+        None
+    }
+    pub fn play_system_ping() {}
+    pub fn reveal_in_finder(_path: &Path) -> Result<(), String> {
+        Ok(())
+    }
+    pub fn open_url(url: &str) -> Result<(), String> {
+        #[cfg(target_os = "windows")]
+        {
+            std::process::Command::new("cmd")
+                .args(["/C", "start", "", url])
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            std::process::Command::new("xdg-open")
+                .arg(url)
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        }
+    }
+    pub fn encode_wav_to_m4a(_wav: &Path, _m4a: &Path) -> Result<(), String> {
+        Err("AAC (.m4a) encoding is only available on macOS right now".into())
+    }
+    pub fn convert_to_whisper_format(_path: &Path) -> Result<Vec<f32>, String> {
+        Err("audio conversion for transcription is not yet implemented on this platform".into())
+    }
+    pub fn create_security_bookmark(_path: &Path) -> Result<Vec<u8>, String> {
+        Err("security-scoped bookmarks are macOS-only".into())
+    }
+    pub fn resolve_security_bookmark(_data: &[u8]) -> Result<(String, bool), String> {
+        Err("security-scoped bookmarks are macOS-only".into())
+    }
+    pub fn get_audio_peak_db(_path: &Path) -> Option<f32> {
+        None
+    }
+}
+
+pub use imp::*;

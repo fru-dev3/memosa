@@ -1,0 +1,29 @@
+name: windows-check
+
+# Verifies the app compiles on Windows (cross-platform enablement). Runs on the
+# feature branch and on demand. This is the verification loop for the Windows
+# port while we don't have a local Windows machine.
+
+on:
+  push:
+    branches: [feature/windows-and-roadmap]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri"
+      - name: Cargo build (Windows)
+        working-directory: src-tauri
+        run: cargo build --message-format=short

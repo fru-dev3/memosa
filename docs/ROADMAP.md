@@ -50,8 +50,9 @@ Upgrade search/RAG beyond keyword FTS; feeds both in-app chat and MCP.
 - [x] MCP `semantic_search` tool (5 tools total); `rebuild_embeddings`/`embedding_status` commands;
       `memosa reindex` CLI; Settings "Build/Rebuild index" button + chunk-count status
 - [x] Tests: cosine, chunking, blob round-trip + ranking (3 tests). 24/24 lib tests pass.
-- [ ] (caveat) live embedding round-trip not verified — this machine's Ollama 0.30.6 is broken
-      (missing llama-server binary, affects all Ollama features); code path + graceful error verified.
+- [x] **LIVE-VERIFIED**: fixed local Ollama (`brew reinstall`), ran `memosa reindex` (35 chunks
+      over the real corpus), and a semantic query ("insurance coverage and pricing") correctly
+      surfaced the Obie Insurance / water-damage meetings by meaning via the MCP `semantic_search`.
 
 ### 4. Real on-device speaker diarization + speaker identity  `[~]` FOUNDATION done; acoustic engine deferred
 Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
@@ -76,8 +77,15 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 ---
 
 ## P1 (after P0)
-- [ ] **Windows support** (NSIS + CI; Windows audio, non-CoreML diarization via sherpa-onnx, CUDA/Vulkan/CPU)
-- [ ] Real-time / live transcription + live notes
+- [~] **Windows support** — IN PROGRESS (compile-enablement + CI verification loop):
+  - [x] `whisper-rs` metal feature made macOS-only (target-specific deps; CPU build elsewhere)
+  - [x] `macos` module now compiles cross-platform: real ObjC impls under `cfg(macos)` +
+        fallbacks for Windows/Linux (open_url works via `start`; audio-conversion/AAC/bookmarks
+        return clear "not on this platform yet" errors so the app builds while those port)
+  - [x] `windows-check.yml` CI builds the Rust app on `windows-latest` (the verification loop)
+  - [ ] Make CI green (iterate on Windows compile errors); then real WASAPI/system-audio +
+        `convert_to_whisper_format` (symphonia-based) + AAC alternative; then NSIS installer + release job
+- [ ] Real-time / live transcription + live notes (LiveTranscriber scaffold exists)
 
 ## P2
 - [x] **Redaction** — scrub emails/keys/card-SSN-phone from transcripts before any cloud (BYOK)
