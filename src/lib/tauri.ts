@@ -401,6 +401,12 @@ export const setByokApiKey = (key: string) =>
 export const mcpConnectInfo = () =>
   invoke<{ binaryPath: string; config: string }>('mcp_connect_info')
 
+export const rebuildEmbeddings = () =>
+  invoke<number>('rebuild_embeddings')
+
+export const embeddingStatus = () =>
+  invoke<number>('embedding_status')
+
 // ─── Integrations (sync) ───────────────────────────────────────────────────────
 
 export const syncMeetingToObsidian = (meetingId: string) =>

@@ -74,15 +74,31 @@ pub async fn chat_with_meetings(
         return Err("Ask a question first.".into());
     }
 
-    // 1. Retrieve candidate meetings via FTS.
+    // 1. Retrieve candidate meetings: keyword (FTS) first, then augment with
+    //    local semantic search (best-effort — ignored if no index / Ollama).
     let fts = build_fts_query(&question);
-    let results = if fts.is_empty() {
-        Vec::new()
-    } else {
-        db.search_meetings(&fts).unwrap_or_default()
-    };
+    let mut candidates: Vec<(crate::types::Meeting, String)> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    if !fts.is_empty() {
+        for r in db.search_meetings(&fts).unwrap_or_default() {
+            if seen.insert(r.meeting.id.clone()) {
+                candidates.push((r.meeting, r.snippet));
+            }
+        }
+    }
+    if let Ok(hits) = crate::search::semantic_search(db.inner(), &question, MAX_SOURCES).await {
+        for h in hits {
+            if h.score < 0.3 || seen.contains(&h.meeting_id) {
+                continue;
+            }
+            if let Ok(Some(m)) = db.get_meeting(&h.meeting_id) {
+                seen.insert(h.meeting_id.clone());
+                candidates.push((m, h.text));
+            }
+        }
+    }
 
-    if results.is_empty() {
+    if candidates.is_empty() {
         return Ok(ChatAnswer {
             answer: "I couldn't find anything in your meetings related to that. Try different keywords.".into(),
             sources: Vec::new(),
@@ -92,9 +108,8 @@ pub async fn chat_with_meetings(
     // 2. Build bounded context from the top distinct meetings' transcripts.
     let mut sources: Vec<ChatSource> = Vec::new();
     let mut context = String::new();
-    for result in results.into_iter().take(MAX_SOURCES) {
-        let m = &result.meeting;
-        let transcript = read_transcript(&db, &m.id).unwrap_or_else(|| result.snippet.clone());
+    for (m, fallback) in candidates.into_iter().take(MAX_SOURCES) {
+        let transcript = read_transcript(&db, &m.id).unwrap_or(fallback);
         let snippet: String = transcript.chars().take(PER_TRANSCRIPT_CHARS).collect();
         context.push_str(&format!("--- Meeting: {} ({}) ---\n{}\n\n", m.title, m.date, snippet));
         sources.push(ChatSource {

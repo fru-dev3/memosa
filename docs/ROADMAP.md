@@ -41,12 +41,17 @@ Expose the meeting corpus to external AI agents (Claude/ChatGPT/Cursor/Ollama) o
 - [ ] (caveat) sandbox-container vs non-container DB path if the MCP process runs unsandboxed —
       revisit when packaging the signed build / Windows.
 
-### 3. Local semantic search (embeddings)  `[ ]`
-Upgrade search/RAG beyond keyword FTS; feeds both in-app chat and the MCP `search_meetings`.
-- [ ] Local embeddings (Ollama `nomic-embed-text` in bunker, or bundled ONNX) over transcript chunks
-- [ ] Vector index (sqlite-vec or equivalent) alongside FTS5; hybrid search
-- [ ] "Ask your meetings" answers cite the source meeting(s)
-- [ ] Tests: embed → index → nearest-neighbour round-trip
+### 3. Local semantic search (embeddings)  `[x]` DONE
+Upgrade search/RAG beyond keyword FTS; feeds both in-app chat and MCP.
+- [x] Local embeddings via Ollama (`embed_model`, default `nomic-embed-text`) over transcript chunks
+      (`src-tauri/src/search/mod.rs`: embed/cosine/chunk)
+- [x] `embeddings` table (f32 LE blobs); brute-force cosine ranking (fine for personal scale)
+- [x] Hybrid: chat retrieval merges FTS + semantic candidates (best-effort, falls back to FTS)
+- [x] MCP `semantic_search` tool (5 tools total); `rebuild_embeddings`/`embedding_status` commands;
+      `memosa reindex` CLI; Settings "Build/Rebuild index" button + chunk-count status
+- [x] Tests: cosine, chunking, blob round-trip + ranking (3 tests). 24/24 lib tests pass.
+- [ ] (caveat) live embedding round-trip not verified — this machine's Ollama 0.30.6 is broken
+      (missing llama-server binary, affects all Ollama features); code path + graceful error verified.
 
 ### 4. Real on-device speaker diarization + speaker identity  `[ ]` (heaviest)
 Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
@@ -78,3 +83,6 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 - 2026-06-14: **P0.2 MCP server DONE** — `memosa mcp` stdio server (4 tools), opt-in toggle +
   connect config in Settings; verified live against the real corpus. 22/22 rust tests pass.
   Next: P0.3 local semantic search (embeddings) feeding chat + MCP `search_meetings`.
+- 2026-06-14: **P0.3 semantic search DONE** — embeddings table, Ollama embed, hybrid chat,
+  MCP semantic_search tool, reindex CLI + Settings button. 24/24 tests. (Live embed blocked by
+  broken local Ollama.) Next: P0.4 diarization (heaviest) or P0.5 trust copy.

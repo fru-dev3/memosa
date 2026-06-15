@@ -379,6 +379,8 @@ export function SettingsView() {
   const [savingKey, setSavingKey] = useState(false)
   const [keySaved, setKeySaved] = useState(false)
   const [mcpInfo, setMcpInfo] = useState<{ binaryPath: string; config: string } | null>(null)
+  const [embCount, setEmbCount] = useState<number | null>(null)
+  const [reindexing, setReindexing] = useState(false)
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null)
 
@@ -403,7 +405,20 @@ export function SettingsView() {
     api.getAuthStatus().then(setAuthStatus).catch(() => {})
     api.getInsightEngineStatus().then(setEngineStatus).catch(() => {})
     api.notionConnected().then(setNotionIsConnected).catch(() => {})
+    api.embeddingStatus().then(setEmbCount).catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRebuildEmbeddings = async () => {
+    setReindexing(true)
+    try {
+      const n = await api.rebuildEmbeddings()
+      setEmbCount(n)
+    } catch (e) {
+      alert(`Could not build the semantic index: ${e}`)
+    } finally {
+      setReindexing(false)
+    }
+  }
 
   // Refresh engine availability whenever the engine selection changes.
   useEffect(() => {
@@ -1202,6 +1217,22 @@ export function SettingsView() {
             </button>
           </Row>
         )}
+
+        <SectionLabel>Semantic search</SectionLabel>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 8px', lineHeight: 1.5 }}>
+          Build a local meaning-based index over your transcripts (embeddings via Ollama,
+          stored on your Mac). It powers smarter "ask your meetings" answers and the MCP
+          semantic_search tool. Re-run it after recording new meetings.
+        </div>
+        <Row
+          label="Semantic index"
+          hint={embCount && embCount > 0 ? `${embCount} chunks indexed.` : 'Not built yet. Needs Ollama + the embedding model.'}
+          borderless
+        >
+          <button className="ghost-pill is-selected-pill" onClick={handleRebuildEmbeddings} disabled={reindexing}>
+            {reindexing ? 'Building…' : embCount && embCount > 0 ? 'Rebuild index' : 'Build index'}
+          </button>
+        </Row>
 
         <SectionLabel>MCP server</SectionLabel>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 8px', lineHeight: 1.5 }}>

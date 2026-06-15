@@ -9,6 +9,7 @@ mod insights;
 mod macos;
 pub mod mcp;
 pub mod paths;
+mod search;
 mod storage;
 mod sync;
 mod transcription;
@@ -333,6 +334,9 @@ pub fn run() {
             sync::notion_connected,
             chat::chat_with_meetings,
             mcp::mcp_connect_info,
+            search::rebuild_embeddings,
+            search::semantic_search_meetings,
+            search::embedding_status,
             get_app_version,
             open_external_url,
             start_window_drag,
@@ -380,4 +384,30 @@ pub fn run() {
                 }
             }
         });
+}
+
+/// `memosa reindex` — rebuild the local semantic-search index over the whole
+/// library (CLI/power-user path; the GUI exposes the same via a Settings button).
+pub fn run_reindex() {
+    let db = match storage::Database::new() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("reindex: cannot open database: {e}");
+            std::process::exit(1);
+        }
+    };
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("reindex: runtime error: {e}");
+            std::process::exit(1);
+        }
+    };
+    match rt.block_on(search::reindex_all(&db)) {
+        Ok(n) => println!("reindexed {n} chunks"),
+        Err(e) => {
+            eprintln!("reindex failed: {e}");
+            std::process::exit(1);
+        }
+    }
 }

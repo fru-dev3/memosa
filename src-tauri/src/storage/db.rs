@@ -83,6 +83,17 @@ impl Database {
                 folder_id  TEXT NOT NULL,
                 PRIMARY KEY (meeting_id, folder_id)
             );
+
+            -- Local semantic-search index: one row per transcript chunk, with its
+            -- embedding vector stored as little-endian f32 bytes.
+            CREATE TABLE IF NOT EXISTS embeddings (
+                meeting_id TEXT NOT NULL,
+                chunk_idx  INTEGER NOT NULL,
+                text       TEXT NOT NULL,
+                dim        INTEGER NOT NULL,
+                vec        BLOB NOT NULL,
+                PRIMARY KEY (meeting_id, chunk_idx)
+            );
             ",
         )
         .map_err(|e| format!("Failed to initialize database schema: {}", e))?;
@@ -759,5 +770,81 @@ fn parse_whisper_model(s: &str) -> Option<WhisperModel> {
         "small" => Some(WhisperModel::Small),
         "medium" => Some(WhisperModel::Medium),
         _ => None,
+    }
+}
+
+// ─── Embeddings (local semantic search) ──────────────────────────────────────
+
+impl Database {
+    /// Remove all stored chunk embeddings for a meeting (before re-indexing it).
+    pub fn clear_meeting_embeddings(&self, meeting_id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM embeddings WHERE meeting_id = ?1", params![meeting_id])
+            .map_err(|e| format!("Failed to clear embeddings: {e}"))?;
+        Ok(())
+    }
+
+    /// Store one transcript-chunk embedding (vector as little-endian f32 bytes).
+    pub fn store_embedding(
+        &self,
+        meeting_id: &str,
+        chunk_idx: i64,
+        text: &str,
+        vec: &[f32],
+    ) -> Result<(), String> {
+        let bytes: Vec<u8> = vec.iter().flat_map(|f| f.to_le_bytes()).collect();
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO embeddings (meeting_id, chunk_idx, text, dim, vec)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![meeting_id, chunk_idx, text, vec.len() as i64, bytes],
+        )
+        .map_err(|e| format!("Failed to store embedding: {e}"))?;
+        Ok(())
+    }
+
+    /// Load every chunk embedding as (meeting_id, chunk_text, vector).
+    pub fn load_all_embeddings(&self) -> Result<Vec<(String, String, Vec<f32>)>, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT meeting_id, text, vec FROM embeddings")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| {
+                let mid: String = r.get(0)?;
+                let text: String = r.get(1)?;
+                let bytes: Vec<u8> = r.get(2)?;
+                let vec: Vec<f32> = bytes
+                    .chunks_exact(4)
+                    .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .collect();
+                Ok((mid, text, vec))
+            })
+            .map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// How many chunk embeddings are indexed (for the Settings status line).
+    pub fn embedding_count(&self) -> Result<i64, String> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM embeddings", [], |r| r.get(0))
+            .map_err(|e| e.to_string())
+    }
+}
+
+impl Database {
+    /// (id, transcript_path) for every meeting that has a transcript on disk.
+    pub fn meetings_with_transcripts(&self) -> Result<Vec<(String, String)>, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, transcript_path FROM meetings
+                 WHERE transcript_path IS NOT NULL AND transcript_path <> ''",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
     }
 }
