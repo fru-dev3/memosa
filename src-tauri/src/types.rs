@@ -424,6 +424,11 @@ pub struct AppSettings {
     #[serde(default)]
     pub notion_database_id: String,
 
+    /// Scrub likely secrets/PII from transcript text before sending to a cloud
+    /// (BYOK) provider. On by default. No effect in Bunker mode (nothing leaves).
+    #[serde(default = "default_true")]
+    pub redact_secrets: bool,
+
     // ─── MCP server ──────────────────────────────────────────────────────────
     /// When true, the `memosa mcp` subcommand serves the corpus to AI clients.
     /// Off by default — the user opts in (and a connected cloud client may send
@@ -480,6 +485,10 @@ impl Default for ByokProvider {
     fn default() -> Self {
         ByokProvider::Anthropic
     }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_embed_model() -> String {

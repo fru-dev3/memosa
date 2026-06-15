@@ -149,6 +149,7 @@ pub async fn generate(
         InsightEngine::Byok => {
             ensure_cloud_allowed(&settings)?;
             let key = load_byok_key().ok_or_else(|| "No API key set for BYOK engine.".to_string())?;
+            let prompt = maybe_redact(&settings, &prompt);
             match settings.byok_provider {
                 ByokProvider::Anthropic => call_anthropic(&key, &prompt).await?,
                 ByokProvider::OpenAI => call_openai(&key, &prompt).await?,
@@ -171,11 +172,21 @@ pub async fn generate_text(prompt: &str) -> Result<String, String> {
         InsightEngine::Byok => {
             ensure_cloud_allowed(&settings)?;
             let key = load_byok_key().ok_or_else(|| "No API key set for the cloud engine.".to_string())?;
+            let prompt = maybe_redact(&settings, prompt);
             match settings.byok_provider {
-                ByokProvider::Anthropic => call_anthropic(&key, prompt).await,
-                ByokProvider::OpenAI => call_openai_text(&key, prompt).await,
+                ByokProvider::Anthropic => call_anthropic(&key, &prompt).await,
+                ByokProvider::OpenAI => call_openai_text(&key, &prompt).await,
             }
         }
+    }
+}
+
+/// Scrub secrets/PII from a prompt before it leaves the device, if enabled.
+fn maybe_redact(settings: &AppSettings, prompt: &str) -> String {
+    if settings.redact_secrets {
+        crate::privacy::redact(prompt)
+    } else {
+        prompt.to_string()
     }
 }
 

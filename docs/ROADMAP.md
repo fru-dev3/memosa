@@ -80,9 +80,31 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 - [ ] Real-time / live transcription + live notes
 
 ## P2
-- [ ] Action items → owners/due dates → Reminders/Things/Todoist
-- [ ] Summary/note templates per meeting type · global quick-capture hotkey · Outlook/ICS calendar
-- [ ] On-device translation · redaction / retention / encrypted-at-rest
+- [x] **Redaction** — scrub emails/keys/card-SSN-phone from transcripts before any cloud (BYOK)
+      send; `redact_secrets` setting (on by default) + Settings toggle; `privacy::redact` + 2 tests.
+- [x] Summary/note templates per meeting type — already shipped (`summary_template_prompts` +
+      `custom_summary_templates` in settings + UI).
+- [x] Retention / auto-delete — already shipped (`retention_policy` + daily cleanup + Settings UI).
+- [ ] Action items → owners/due dates → Reminders/Things/Todoist (doable on macOS via osascript/EventKit)
+- [ ] On-device translation (Whisper translate task) · global quick-capture hotkey (plugin is
+      currently disabled for stability) · Outlook/ICS calendar · encrypted-at-rest vault (heavy)
+
+---
+
+## Status of remaining work (honest)
+**Done this session (all pushed to the branch):** P0.1 Bunker/Cloud, P0.2 MCP server,
+P0.3 semantic search, P0.5 trust + badge, P0.4 *foundation*, P2 redaction. 28/28 rust tests pass.
+
+**Genuinely blocked in THIS environment (need resources/decisions, not more coding):**
+1. **P0.4 acoustic diarization engine** — needs the sherpa-onnx native dep + bundled ONNX models;
+   a large native integration that can't be added-and-verified offline here. Best done with Windows.
+2. **P1 Windows** — needs a Windows build/test target + a WASAPI audio path + CoreML→sherpa port.
+   Can't be compiled/verified from this macOS-only environment.
+3. **Live ML verification** (Ollama-backed insights/chat/semantic embed) — this machine's Ollama
+   0.30.6 is broken (missing llama-server). Code paths are correct + fail gracefully; live runs
+   need a working Ollama (or the App Store build's environment).
+To unblock: provide a Windows CI/runner, fix/replace local Ollama, and approve adding the
+sherpa-onnx native dependency (it's sizable). Then the deferred items can proceed.
 
 ---
 
