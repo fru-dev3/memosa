@@ -50,6 +50,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   byok_provider: 'anthropic',
   obsidian_vault_path: null,
   notion_database_id: '',
+  mcp_server_enabled: false,
 }
 
 const MODEL_OPTIONS: WhisperModel[] = ['tiny', 'base', 'small', 'medium']
@@ -377,6 +378,7 @@ export function SettingsView() {
   const [byokKey, setByokKey] = useState('')
   const [savingKey, setSavingKey] = useState(false)
   const [keySaved, setKeySaved] = useState(false)
+  const [mcpInfo, setMcpInfo] = useState<{ binaryPath: string; config: string } | null>(null)
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null)
 
@@ -1199,6 +1201,37 @@ export function SettingsView() {
                 : 'Regenerate all'}
             </button>
           </Row>
+        )}
+
+        <SectionLabel>MCP server</SectionLabel>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0 8px', lineHeight: 1.5 }}>
+          Expose your meetings to AI clients (Claude Desktop, Cursor, Claude Code) so they can
+          search and read your corpus. Everything stays on disk; the connected client decides what
+          it sends to its own provider, so only enable this if you trust that client.
+        </div>
+        <Row label="Enable MCP server" hint="Off by default. Lets `memosa mcp` answer queries from AI clients.">
+          <Toggle
+            value={draft.mcp_server_enabled}
+            onChange={(v) => {
+              updateDraft('mcp_server_enabled', v)
+              if (v && !mcpInfo) api.mcpConnectInfo().then(setMcpInfo).catch(() => {})
+            }}
+          />
+        </Row>
+        {draft.mcp_server_enabled && (
+          <div style={{ padding: '4px 0 8px' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              Add this to your AI client's MCP config:
+            </div>
+            <pre style={{
+              margin: 0, padding: '10px 12px', borderRadius: 8, overflowX: 'auto',
+              background: 'var(--bg-raised, rgba(0,0,0,0.04))', border: '1px solid var(--border)',
+              fontSize: 11, lineHeight: 1.45, color: 'var(--text-primary)',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            }}>
+              {mcpInfo?.config ?? 'Loading…'}
+            </pre>
+          </div>
         )}
       </>
     )

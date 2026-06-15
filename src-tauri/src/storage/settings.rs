@@ -185,6 +185,7 @@ impl Default for AppSettings {
             byok_provider: crate::types::ByokProvider::default(),
             obsidian_vault_path: None,
             notion_database_id: String::new(),
+            mcp_server_enabled: false,
         }
     }
 }
