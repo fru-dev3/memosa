@@ -218,6 +218,8 @@ export interface AppSettings {
   // Integrations
   obsidian_vault_path?: string | null
   notion_database_id: string
+  // MCP server (expose corpus to AI clients); off by default
+  mcp_server_enabled: boolean
 }
 
 // ─── Calendar ───────────────────────────────────────────────────────────────

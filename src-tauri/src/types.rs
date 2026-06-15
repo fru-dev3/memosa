@@ -420,6 +420,13 @@ pub struct AppSettings {
     /// the Keychain, not here.
     #[serde(default)]
     pub notion_database_id: String,
+
+    // ─── MCP server ──────────────────────────────────────────────────────────
+    /// When true, the `memosa mcp` subcommand serves the corpus to AI clients.
+    /// Off by default — the user opts in (and a connected cloud client may send
+    /// retrieved data to its provider).
+    #[serde(default)]
+    pub mcp_server_enabled: bool,
 }
 
 /// App-wide privacy posture. Gates every cloud/network AI path.

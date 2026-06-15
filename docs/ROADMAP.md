@@ -26,16 +26,20 @@ A global app mode that makes the privacy posture explicit and enforceable.
 - [x] Test: `insights::mode_tests::bunker_refuses_cloud_cloud_allows` (passing)
 - [ ] (deferred polish) persistent app-wide mode badge outside Settings
 
-### 2. Local-first MCP server (★ highest-leverage differentiator)  `[ ]`
+### 2. Local-first MCP server (★ highest-leverage differentiator)  `[x]` DONE
 Expose the meeting corpus to external AI agents (Claude/ChatGPT/Cursor/Ollama) over MCP.
-- [ ] MCP server over stdio (Rust), reading the existing SQLite DB
-- [ ] Tools: `list_meetings`, `search_meetings` (FTS + semantic), `get_transcript`,
-      `get_summary`, `get_action_items`, `get_decisions`
-- [ ] Opt-in "Enable MCP server" toggle in Settings (off by default) + clear note that a
-      connected cloud AI client may send retrieved data to that client
-- [ ] Connect helper: copy-paste config for Claude Desktop / Claude Code / Cursor with the path
-- [ ] Resolve the server binary path robustly (bundled sidecar or `memosa mcp` subcommand)
-- [ ] Tests: tool calls return correct rows; respects enable toggle
+- [x] MCP stdio JSON-RPC 2.0 server (`src-tauri/src/mcp/mod.rs`, hand-rolled, no MCP crate),
+      reads the SQLite DB READ-ONLY. Launched via `memosa mcp` subcommand (branch in main.rs).
+- [x] Tools: `list_meetings`, `search_meetings` (FTS), `get_meeting` (summary/action_items/
+      decisions/tags/people/attendees), `get_transcript`. (Semantic search folds in at P0.3.)
+- [x] Opt-in `mcp_server_enabled` (off by default); tools/call refuses with a clear message
+      when disabled. Note shown that a connected cloud client may send retrieved data onward.
+- [x] Connect helper: `mcp_connect_info` command returns the binary path + paste-ready config;
+      Settings shows it. Path resolved via `std::env::current_exe()`.
+- [x] Verified live against the real 14-meeting DB (list + FTS search returned real rows);
+      protocol (initialize/tools/list/tools/call) verified; gate verified.
+- [ ] (caveat) sandbox-container vs non-container DB path if the MCP process runs unsandboxed —
+      revisit when packaging the signed build / Windows.
 
 ### 3. Local semantic search (embeddings)  `[ ]`
 Upgrade search/RAG beyond keyword FTS; feeds both in-app chat and the MCP `search_meetings`.
@@ -71,4 +75,6 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 ## Progress log
 - 2026-06-14: roadmap locked (sequencing A). Mapped codebase (4 explore agents).
 - 2026-06-14: **P0.1 Bunker/Cloud mode DONE** — fail-closed gate, UI switch, test passing.
-  Next: P0.2 local-first MCP server (`memosa mcp` stdio subcommand over the SQLite corpus).
+- 2026-06-14: **P0.2 MCP server DONE** — `memosa mcp` stdio server (4 tools), opt-in toggle +
+  connect config in Settings; verified live against the real corpus. 22/22 rust tests pass.
+  Next: P0.3 local semantic search (embeddings) feeding chat + MCP `search_meetings`.

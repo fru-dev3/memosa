@@ -398,6 +398,9 @@ export const getInsightEngineStatus = () =>
 export const setByokApiKey = (key: string) =>
   invoke<void>('set_byok_api_key', { key })
 
+export const mcpConnectInfo = () =>
+  invoke<{ binaryPath: string; config: string }>('mcp_connect_info')
+
 // ─── Integrations (sync) ───────────────────────────────────────────────────────
 
 export const syncMeetingToObsidian = (meetingId: string) =>

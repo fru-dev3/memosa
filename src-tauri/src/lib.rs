@@ -7,6 +7,7 @@ mod import;
 mod insights;
 #[cfg(target_os = "macos")]
 mod macos;
+pub mod mcp;
 pub mod paths;
 mod storage;
 mod sync;
@@ -331,6 +332,7 @@ pub fn run() {
             sync::set_notion_token,
             sync::notion_connected,
             chat::chat_with_meetings,
+            mcp::mcp_connect_info,
             get_app_version,
             open_external_url,
             start_window_drag,
