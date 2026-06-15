@@ -24,7 +24,7 @@ A global app mode that makes the privacy posture explicit and enforceable.
 - [x] Settings UI (`SettingsView` renderAi): Bunker/Cloud segmented switch; cloud engine option +
       BYOK fields hidden in Bunker; "paused" note if a stale BYOK selection + Bunker
 - [x] Test: `insights::mode_tests::bunker_refuses_cloud_cloud_allows` (passing)
-- [ ] (deferred polish) persistent app-wide mode badge outside Settings
+- [x] Persistent app-wide mode badge in the StatusBar (Bunker = filled accent dot; Cloud = outline)
 
 ### 2. Local-first MCP server (★ highest-leverage differentiator)  `[x]` DONE
 Expose the meeting corpus to external AI agents (Claude/ChatGPT/Cursor/Ollama) over MCP.
@@ -60,9 +60,11 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 - [ ] Persist speaker segments; UI to name/merge/split speakers; cross-meeting voice fingerprinting
 - [ ] Tests: segment storage round-trip
 
-### 5. Trust posture (mostly positioning, pairs with Bunker)  `[ ]`
-- [ ] Explicit "never trained on your data / audio never leaves device" guarantee in-app + on site
-- [ ] Verifiable privacy page; in-app network-activity transparency
+### 5. Trust posture (mostly positioning, pairs with Bunker)  `[x]` DONE
+- [x] In-app guarantee copy already strong in About ("everything locally", "stays on your Mac",
+      local-first vs Otter/Fireflies) + persistent Bunker/Cloud StatusBar badge + tooltips
+- [x] Site carries GPL-3.0 + "never trained / audio never leaves device" + privacy page (shipped earlier)
+- [ ] (future) richer in-app network-activity transparency panel
 
 ---
 
