@@ -45,7 +45,7 @@
   "bundle": {
     "active": true,
     "targets": "app",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"],
     "resources": ["PrivacyInfo.xcprivacy"],
     "macOS": {
       "minimumSystemVersion": "13.0",
