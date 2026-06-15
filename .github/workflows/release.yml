@@ -76,6 +76,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          dmg=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Memosa_*_aarch64.dmg)
+          dmg=$(ls target/aarch64-apple-darwin/release/bundle/dmg/Memosa_*_aarch64.dmg)
           cp "$dmg" Memosa-mac-arm64.dmg
           gh release upload "${{ github.ref_name }}" Memosa-mac-arm64.dmg --clobber
