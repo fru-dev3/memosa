@@ -278,8 +278,8 @@ mod imp {
     pub fn encode_wav_to_m4a(_wav: &Path, _m4a: &Path) -> Result<(), String> {
         Err("AAC (.m4a) encoding is only available on macOS right now".into())
     }
-    pub fn convert_to_whisper_format(_path: &Path) -> Result<Vec<f32>, String> {
-        Err("audio conversion for transcription is not yet implemented on this platform".into())
+    pub fn convert_to_whisper_format(path: &Path) -> Result<Vec<f32>, String> {
+        crate::audioconv::decode_to_whisper(path)
     }
     pub fn create_security_bookmark(_path: &Path) -> Result<Vec<u8>, String> {
         Err("security-scoped bookmarks are macOS-only".into())

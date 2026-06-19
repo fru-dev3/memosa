@@ -1,4 +1,6 @@
 mod audio;
+#[cfg(not(target_os = "macos"))]
+mod audioconv;
 mod calendar;
 mod chat;
 mod diagnostics;
