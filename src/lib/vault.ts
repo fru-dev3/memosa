@@ -69,6 +69,20 @@ export interface SearchHit {
   date: string;
 }
 
+export interface Citation {
+  n: number;
+  conv: string;
+  title: string;
+  path: string;
+  quote: string;
+}
+
+export interface AskAnswer {
+  text: string;
+  citations: Citation[];
+  grounded: boolean;
+}
+
 export const vault = {
   tree: () => invoke<TreeNode>("vault_tree"),
   list: (path: string) => invoke<ConvMeta[]>("vault_list", { path }),
@@ -90,6 +104,7 @@ export const vault = {
   search: (q: string, mode: "semantic" | "exact", scope?: string) =>
     invoke<SearchHit[]>("vault_search", { q, mode, scope }),
   tasks: (filter: "open" | "done" | "all") => invoke<Task[]>("vault_tasks", { filter }),
+  ask: (q: string, scope?: string) => invoke<AskAnswer>("vault_ask", { q, scope }),
 
   // provided by the migration module (workflow)
   migrate: () => invoke<{ conversations: number; audio_copied: number; skipped: number; errors: string[] }>(

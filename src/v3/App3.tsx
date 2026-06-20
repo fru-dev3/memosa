@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "./icons";
 import {
   vault,
+  type AskAnswer,
   type ConvBundle,
   type ConvMeta,
   type SearchHit,
@@ -105,6 +106,9 @@ export default function App3() {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [askQ, setAskQ] = useState("");
+  const [ans, setAns] = useState<AskAnswer | null>(null);
+  const [asking, setAsking] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +175,17 @@ export default function App3() {
     if (!query.trim()) return;
     vault.search(query, "exact").then(setHits).catch((e) => setErr(String(e)));
   }, [query]);
+
+  const runAsk = useCallback(() => {
+    if (!askQ.trim()) return;
+    setAsking(true);
+    setAns(null);
+    vault
+      .ask(askQ)
+      .then(setAns)
+      .catch((e) => setErr(String(e)))
+      .finally(() => setAsking(false));
+  }, [askQ]);
 
   const toggleTask = useCallback(
     (t: Task) => {
@@ -443,9 +458,42 @@ export default function App3() {
 
           {screen === "ask" && (
             <div className="v3-col">
-              <div className="v3-notice">
-                <div className="big">Ask your memory</div>
-                Conversational retrieval over the vault — wiring the local-model answer pipeline (spec 05) next.
+              <div className="v3-colin">
+                <h1 className="page">Ask your memory</h1>
+                <div className="v3-psub">Answered locally from your vault — nothing leaves your Mac.</div>
+                <div className="v3-bigsearch">
+                  <Icon name="ask" size={19} />
+                  <input
+                    autoFocus
+                    placeholder="What did we decide about…?"
+                    value={askQ}
+                    onChange={(e) => setAskQ(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && runAsk()}
+                  />
+                </div>
+                {asking && <div className="v3-srxmeta">THINKING…</div>}
+                {ans && (
+                  <div style={{ marginTop: 18 }}>
+                    <p className="lead" style={{ whiteSpace: "pre-wrap" }}>
+                      {ans.text}
+                    </p>
+                    {!ans.grounded && (
+                      <div className="v3-srxmeta" style={{ color: "var(--live)" }}>
+                        RETRIEVAL ONLY — START A LOCAL MODEL FOR A WRITTEN ANSWER
+                      </div>
+                    )}
+                    {ans.citations.length > 0 && <div className="v3-seclabel">Sources</div>}
+                    {ans.citations.map((c) => (
+                      <div key={c.n} className="v3-sres" onClick={() => openConv(c.conv)}>
+                        <div className="st">
+                          [{c.n}] {c.title}
+                        </div>
+                        <div className="sp">{c.conv.split("/").slice(0, -1).join(" › ")}</div>
+                        <div className="snip">{c.quote}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

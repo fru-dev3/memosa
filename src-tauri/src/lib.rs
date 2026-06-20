@@ -21,6 +21,7 @@ pub mod vault;
 pub mod vault_cmds;
 pub mod vault_migrate;
 pub mod vault_search;
+pub mod vault_ai;
 pub mod mcp_vault;
 
 use audio::AudioRecorder;
@@ -361,6 +362,7 @@ pub fn run() {
             vault_cmds::task_toggle,
             vault_search::vault_search,
             vault_search::vault_tasks,
+            vault_ai::vault_ask,
             vault_migrate::vault_migrate_run,
             get_app_version,
             open_external_url,
