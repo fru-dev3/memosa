@@ -904,6 +904,30 @@ pub fn finalize_recording_session(
             .ok();
     }
 
+    // 3.0: mirror this recording into the files-only vault, in the background. Whisper
+    // runs there too (off-thread), so the recorder returns immediately. Best-effort —
+    // a vault failure never affects the legacy recording flow. Closes the loop:
+    // record -> audio.m4a + transcript.json -> notes.md -> semantic index.
+    {
+        let title = db
+            .get_meeting(&meeting_id)
+            .ok()
+            .flatten()
+            .map(|m| m.title)
+            .unwrap_or_else(|| "Recording".to_string());
+        let audio = std::path::PathBuf::from(&audio_path);
+        let created = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        tauri::async_runtime::spawn(async move {
+            match crate::vault_capture::finalize_to_vault(audio, "Recordings".to_string(), title, created).await {
+                Ok(conv_id) => {
+                    let _ = crate::vault_summarize::summarize(&conv_id).await; // notes.md (needs a local model)
+                    let _ = crate::vault_embed::vault_reindex().await; // refresh semantic index
+                }
+                Err(e) => crate::diagnostics::log(&format!("vault mirror skipped: {e}")),
+            }
+        });
+    }
+
     Ok(RecordingResult {
         meeting_id,
         audio_path,
