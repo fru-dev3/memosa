@@ -19,6 +19,9 @@ mod transcription;
 mod types;
 pub mod vault;
 pub mod vault_cmds;
+pub mod vault_migrate;
+pub mod vault_search;
+pub mod mcp_vault;
 
 use audio::AudioRecorder;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -356,6 +359,9 @@ pub fn run() {
             vault_cmds::vault_delete,
             vault_cmds::vault_set_tags,
             vault_cmds::task_toggle,
+            vault_search::vault_search,
+            vault_search::vault_tasks,
+            vault_migrate::vault_migrate_run,
             get_app_version,
             open_external_url,
             start_window_drag,
