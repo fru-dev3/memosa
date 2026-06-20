@@ -1,0 +1,80 @@
+/* Memosa 3.0 design tokens (spec 10). Two themes of one system: Daylight (light,
+   editorial, evergreen) and Vault (dark, signal-green). Source: docs/design mockups. */
+
+:root,
+:root[data-theme="daylight"] {
+  --desktop: #d9d6ce;
+  --canvas: #fafaf7;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --rail: #f4f4ef;
+  --hairline: #eaeae3;
+  --hairline-strong: #deded5;
+  --text: #1a1a17;
+  --muted: #6e6e66;
+  --faint: #9a9a90;
+  --accent: #1f4d3a;
+  --accent-hover: #27634a;
+  --accent-soft: #eaf1ec;
+  --live: #c2412b;
+  --selected: #eff3ee;
+  --hl: #fce7c8;
+  --shadow: 0 1px 2px rgba(20, 20, 15, 0.05), 0 16px 40px rgba(20, 20, 15, 0.13);
+  --scrim: rgba(28, 28, 22, 0.3);
+}
+
+:root[data-theme="vault"] {
+  --desktop: #050608;
+  --canvas: #0c0d0f;
+  --surface: #15171b;
+  --raised: #1c1f24;
+  --rail: #101216;
+  --hairline: #272a30;
+  --hairline-strong: #33373f;
+  --text: #ecedef;
+  --muted: #888f98;
+  --faint: #5e646d;
+  --accent: #4cc38a;
+  --accent-hover: #5bd79b;
+  --accent-soft: #14241d;
+  --live: #e0654a;
+  --selected: #1a1e24;
+  --hl: #3a3320;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 48px rgba(0, 0, 0, 0.55);
+  --scrim: rgba(0, 0, 0, 0.55);
+}
+
+/* "Auto" follows the OS when no explicit theme is pinned. */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --desktop: #050608;
+    --canvas: #0c0d0f;
+    --surface: #15171b;
+    --raised: #1c1f24;
+    --rail: #101216;
+    --hairline: #272a30;
+    --hairline-strong: #33373f;
+    --text: #ecedef;
+    --muted: #888f98;
+    --faint: #5e646d;
+    --accent: #4cc38a;
+    --accent-hover: #5bd79b;
+    --accent-soft: #14241d;
+    --live: #e0654a;
+    --selected: #1a1e24;
+    --hl: #3a3320;
+    --scrim: rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* Type system: serif display, grotesk UI, mono for metadata/timestamps. Fonts are
+   bundled locally in production (no CDN in the shipped app). */
+:root {
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+}
+
+.font-display { font-family: var(--font-display); }
+.font-ui { font-family: var(--font-ui); }
+.font-mono { font-family: var(--font-mono); }
