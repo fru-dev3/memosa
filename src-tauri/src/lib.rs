@@ -17,6 +17,7 @@ mod storage;
 mod sync;
 mod transcription;
 mod types;
+pub mod vault;
 
 use audio::AudioRecorder;
 use std::sync::atomic::{AtomicBool, Ordering};
