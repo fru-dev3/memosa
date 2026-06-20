@@ -365,6 +365,8 @@ pub fn run() {
             vault_cmds::vault_delete,
             vault_cmds::vault_set_tags,
             vault_cmds::task_toggle,
+            vault_cmds::vault_reveal,
+            vault_cmds::vault_export_markdown,
             vault_search::vault_search,
             vault_search::vault_tasks,
             vault_ai::vault_ask,

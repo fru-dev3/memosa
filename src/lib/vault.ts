@@ -1,6 +1,7 @@
 // Typed IPC client for the files-only vault (spec 09). The UI talks to the vault
 // only through these wrappers — never the filesystem directly.
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 export type NodeKind = "domain" | "folder" | "conversation";
 
@@ -122,9 +123,25 @@ export const vault = {
   syncNow: () => invoke<{ enabled: boolean; last?: string; pending: number; connected: boolean }>("vault_sync_now"),
   syncSet: (enabled: boolean, includeAudio: boolean) =>
     invoke<void>("vault_sync_set", { enabled, includeAudio }),
-
-  // provided by the migration module (workflow)
+  reveal: (id?: string) => invoke<void>("vault_reveal", { id }),
+  exportMarkdown: (id: string) => invoke<string>("vault_export_markdown", { id }),
+  // provided by the migration module
   migrate: () => invoke<{ conversations: number; audio_copied: number; skipped: number; errors: string[] }>(
     "vault_migrate_run",
   ),
+};
+
+// Recording — wired to the EXISTING recorder (backward compatible: recordings appear
+// in both the legacy app and, via the finalize hook, the vault).
+export interface RecStatus {
+  is_recording: boolean;
+  meeting_id?: string;
+  duration_seconds?: number;
+}
+export const recorder = {
+  start: (title: string) =>
+    invoke<void>("start_recording", { meetingId: crypto.randomUUID(), title, profileId: null }),
+  stop: () => invoke<{ meeting_id: string; duration_seconds: number }>("stop_recording"),
+  status: () => invoke<RecStatus>("get_recording_status"),
+  onLevel: (cb: (level: number) => void) => listen<number>("audio-level", (e) => cb(e.payload)),
 };

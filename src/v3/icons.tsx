@@ -62,6 +62,39 @@ const P: Record<string, React.ReactNode> = {
     </>
   ),
   logo: <path d="M4 7v10M9 4v16M14 8v8M19 6v12" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
+  reveal: (
+    <>
+      <path d="M14 4h6v6M20 4l-8 8" />
+      <path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </>
+  ),
+  dots: (
+    <>
+      <circle cx="5" cy="12" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+      <circle cx="19" cy="12" r="1.4" />
+    </>
+  ),
+  doc: (
+    <>
+      <path d="M6 2h9l5 5v15H6z" />
+      <path d="M14 2v6h6" />
+    </>
+  ),
+  speaker: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
 };
 
 export function Icon({ name, size = 18 }: { name: keyof typeof P | string; size?: number }) {
