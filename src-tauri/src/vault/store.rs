@@ -335,11 +335,7 @@ fn to_io(e: serde_json::Error) -> io::Error {
 }
 
 fn now_iso() -> String {
-    // Avoid chrono here; the vault core stays dependency-light. Callers that need
-    // precise stamps pass `created` explicitly; `updated` is best-effort seconds-since-epoch.
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    format!("@{}", secs) // sentinel; replaced by chrono-formatted stamp at the command layer
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
 #[cfg(test)]
