@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="daylight">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Memosa 3.0 — Design Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ---------- Theme tokens ---------- */
+  :root[data-theme="daylight"] {
+    --canvas:#FAFAF7; --surface:#FFFFFF; --raised:#FFFFFF; --rail:#F4F4EF;
+    --hairline:#EAEAE3; --hairline-strong:#DEDED5;
+    --text:#1A1A17; --muted:#6E6E66; --faint:#9A9A90;
+    --accent:#1F4D3A; --accent-hover:#27634A; --accent-soft:#EAF1EC;
+    --live:#C2412B; --selected:#EFF3EE;
+    --shadow:0 1px 2px rgba(20,20,15,.04), 0 12px 32px rgba(20,20,15,.10);
+    --scrim:rgba(28,28,22,.34);
+  }
+  :root[data-theme="vault"] {
+    --canvas:#0C0D0F; --surface:#15171B; --raised:#1C1F24; --rail:#101216;
+    --hairline:#272A30; --hairline-strong:#33373F;
+    --text:#ECEDEF; --muted:#888F98; --faint:#5E646D;
+    --accent:#4CC38A; --accent-hover:#5BD79B; --accent-soft:#14241D;
+    --live:#E0654A; --selected:#1A1E24;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 48px rgba(0,0,0,.55);
+    --scrim:rgba(0,0,0,.58);
+  }
+
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { height:100%; }
+  body {
+    font-family:"Inter",system-ui,sans-serif;
+    background:var(--canvas); color:var(--text);
+    -webkit-font-smoothing:antialiased; font-size:14px; line-height:1.5;
+    overflow:hidden; transition:background .25s ease, color .25s ease;
+  }
+  .serif { font-family:"Newsreader",Georgia,serif; }
+  .mono  { font-family:"JetBrains Mono",ui-monospace,monospace; }
+  svg { width:18px; height:18px; stroke:currentColor; stroke-width:1.6;
+        fill:none; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+  /* ---------- App shell ---------- */
+  .app { display:grid; grid-template-rows:52px 1fr; height:100vh; }
+
+  /* Top bar */
+  .topbar { display:flex; align-items:center; gap:16px; padding:0 16px;
+            border-bottom:1px solid var(--hairline); background:var(--surface); }
+  .wordmark { display:flex; align-items:center; gap:9px; font-weight:600;
+              letter-spacing:-.01em; font-size:15px; width:188px; }
+  .logo { width:22px; height:22px; border-radius:6px; background:var(--accent);
+          display:grid; place-items:center; color:#fff; }
+  :root[data-theme="vault"] .logo { color:#0C0D0F; }
+  .logo svg { width:14px; height:14px; stroke-width:2; }
+  .omni { flex:1; max-width:560px; margin:0 auto; display:flex; align-items:center;
+          gap:9px; height:34px; padding:0 12px; border:1px solid var(--hairline-strong);
+          border-radius:9px; color:var(--muted); background:var(--canvas);
+          cursor:text; transition:border-color .15s; }
+  .omni:hover { border-color:var(--accent); }
+  .omni svg { width:16px; height:16px; color:var(--faint); }
+  .omni .kbd { margin-left:auto; }
+  .kbd { font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--faint);
+         border:1px solid var(--hairline-strong); border-radius:5px; padding:1px 6px; }
+  .mode { display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:500;
+          padding:5px 11px 5px 9px; border:1px solid var(--hairline-strong);
+          border-radius:999px; cursor:pointer; }
+  .mode .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); }
+  .ghost { display:grid; place-items:center; width:34px; height:34px; border-radius:8px;
+           color:var(--muted); cursor:pointer; }
+  .ghost:hover { background:var(--canvas); color:var(--text); }
+
+  /* Body: rail | list | detail */
+  .body { display:grid; grid-template-columns:188px 340px 1fr; min-height:0; }
+
+  /* Rail */
+  .rail { background:var(--rail); border-right:1px solid var(--hairline);
+          display:flex; flex-direction:column; padding:12px 10px; }
+  .navitem { display:flex; align-items:center; gap:11px; padding:8px 11px;
+             border-radius:8px; color:var(--muted); font-weight:500; cursor:pointer;
+             font-size:13.5px; }
+  .navitem:hover { background:var(--canvas); color:var(--text); }
+  .navitem.active { background:var(--accent-soft); color:var(--accent); }
+  :root[data-theme="vault"] .navitem.active { color:var(--accent-hover); }
+  .navitem.active svg { color:var(--accent); }
+  .rail .spacer { flex:1; }
+  .rail .sep { height:1px; background:var(--hairline); margin:10px 6px; }
+  .capture { display:flex; align-items:center; gap:10px; padding:9px 11px;
+             border-radius:9px; background:var(--accent); color:#fff; font-weight:600;
+             cursor:pointer; font-size:13.5px; box-shadow:var(--shadow); }
+  :root[data-theme="vault"] .capture { color:#0C0D0F; }
+  .capture:hover { background:var(--accent-hover); }
+
+  /* List */
+  .list { border-right:1px solid var(--hairline); overflow-y:auto; background:var(--surface); }
+  .list-head { display:flex; align-items:center; justify-content:space-between;
+               padding:16px 18px 10px; position:sticky; top:0; background:var(--surface); }
+  .list-head h2 { font-size:18px; font-weight:600; letter-spacing:-.01em; }
+  .filter { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted);
+            cursor:pointer; padding:4px 8px; border-radius:7px; }
+  .filter:hover { background:var(--canvas); }
+  .daygroup { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.06em;
+              text-transform:uppercase; color:var(--faint); padding:14px 18px 6px; }
+  .row { display:grid; grid-template-columns:14px 1fr auto; gap:11px; align-items:start;
+         padding:11px 18px; cursor:pointer; border-left:2px solid transparent; }
+  .row:hover { background:var(--canvas); }
+  .row.sel { background:var(--selected); border-left-color:var(--accent); }
+  .row .status { width:9px; height:9px; border-radius:50%; margin-top:5px; }
+  .status.unread { background:var(--accent); }
+  .status.read { border:1.5px solid var(--faint); }
+  .row .title { font-family:"Newsreader",serif; font-size:16px; font-weight:500;
+                letter-spacing:-.005em; line-height:1.3; }
+  .row .meta { font-size:12.5px; color:var(--muted); margin-top:2px; }
+  .row .time { font-family:"JetBrains Mono",monospace; font-size:11.5px; color:var(--faint); }
+
+  /* Detail */
+  .detail { overflow-y:auto; background:var(--canvas); }
+  .detail-inner { max-width:680px; padding:34px 44px 60px; }
+  .dh-kicker { font-family:"JetBrains Mono",monospace; font-size:11.5px; color:var(--muted);
+               letter-spacing:.03em; }
+  .detail h1 { font-family:"Newsreader",serif; font-size:32px; font-weight:500;
+               letter-spacing:-.015em; line-height:1.15; margin:8px 0 18px; }
+  .tabs { display:flex; gap:2px; border-bottom:1px solid var(--hairline); margin-bottom:24px; }
+  .tab { padding:9px 13px; font-size:13.5px; font-weight:500; color:var(--muted);
+         cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--text); border-bottom-color:var(--accent); }
+  .sec-label { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.07em;
+               text-transform:uppercase; color:var(--faint); margin:30px 0 12px; }
+  .detail p { font-size:15.5px; line-height:1.72; color:var(--text); margin-bottom:14px;
+              max-width:60ch; }
+  .detail p.lead { font-family:"Newsreader",serif; font-size:18px; color:var(--text); }
+  .ai { display:flex; align-items:flex-start; gap:11px; padding:11px 13px; border-radius:9px;
+        margin-bottom:7px; }
+  .ai:hover { background:var(--surface); }
+  .check { width:18px; height:18px; border:1.6px solid var(--hairline-strong);
+           border-radius:5px; margin-top:1px; flex:none; }
+  .ai .body2 { font-size:14.5px; }
+  .ai .owner { font-size:12px; color:var(--muted); margin-top:2px; }
+  .people { display:flex; gap:7px; margin-top:8px; }
+  .chip { font-size:12px; color:var(--muted); background:var(--surface);
+          border:1px solid var(--hairline); border-radius:999px; padding:3px 10px; }
+
+  /* ---------- Overlays ---------- */
+  .scrim { position:fixed; inset:0; background:var(--scrim); backdrop-filter:blur(2px);
+           display:none; align-items:flex-start; justify-content:center; z-index:50; }
+  .scrim.show { display:flex; }
+  .scrim.center { align-items:center; }
+
+  /* Command palette */
+  .palette { width:560px; margin-top:14vh; background:var(--raised); border-radius:14px;
+             border:1px solid var(--hairline); box-shadow:var(--shadow); overflow:hidden; }
+  .pal-input { display:flex; align-items:center; gap:11px; padding:16px 18px;
+               border-bottom:1px solid var(--hairline); }
+  .pal-input svg { color:var(--faint); }
+  .pal-input input { flex:1; border:0; background:transparent; outline:none; font-size:16px;
+                     color:var(--text); font-family:inherit; }
+  .pal-input input::placeholder { color:var(--faint); }
+  .pal-body { padding:8px; max-height:340px; overflow-y:auto; }
+  .pal-group { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:.07em;
+               text-transform:uppercase; color:var(--faint); padding:10px 12px 5px; }
+  .pal-item { display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px;
+              cursor:pointer; font-size:14px; }
+  .pal-item .pdate { margin-left:auto; font-family:"JetBrains Mono",monospace; font-size:11.5px;
+                     color:var(--faint); }
+  .pal-item svg { color:var(--muted); width:17px; height:17px; }
+  .pal-item:hover, .pal-item.hl { background:var(--accent-soft); }
+  :root[data-theme="vault"] .pal-item:hover, :root[data-theme="vault"] .pal-item.hl { background:var(--selected); }
+  .pal-item.ask { font-family:"Newsreader",serif; font-style:italic; font-size:15px; }
+
+  /* Capture overlay */
+  .scrim.capture-scrim { align-items:flex-end; }
+  .capwrap { width:680px; margin-bottom:34px; background:var(--raised);
+             border:1px solid var(--hairline); border-radius:14px; box-shadow:var(--shadow);
+             overflow:hidden; }
+  .cap-head { display:flex; align-items:center; gap:13px; padding:16px 20px; }
+  .rec-dot { width:11px; height:11px; border-radius:50%; background:var(--live);
+             animation:pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .rec-label { font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.08em;
+               color:var(--live); font-weight:500; }
+  .rec-time { font-family:"JetBrains Mono",monospace; font-size:18px; font-weight:500; }
+  .rec-title { margin-left:auto; color:var(--muted); font-size:14px; }
+  .wave { display:flex; align-items:center; gap:3px; height:46px; padding:0 20px; }
+  .wave i { width:3px; border-radius:3px; background:var(--accent); opacity:.85;
+            animation:wv 1.1s ease-in-out infinite; }
+  @keyframes wv { 0%,100%{height:18%;} 50%{height:100%;} }
+  .cap-trans { padding:14px 20px; border-top:1px solid var(--hairline);
+               border-bottom:1px solid var(--hairline); font-size:14.5px; }
+  .cap-trans .sp { color:var(--accent); font-weight:600; }
+  .cap-trans .ln { color:var(--muted); margin-bottom:5px; }
+  .cap-trans .ln.now { color:var(--text); }
+  .cap-foot { display:flex; align-items:center; gap:10px; padding:16px 20px; }
+  .btn { display:flex; align-items:center; gap:8px; padding:9px 15px; border-radius:9px;
+         font-weight:500; font-size:14px; cursor:pointer; border:1px solid var(--hairline-strong);
+         color:var(--text); background:var(--surface); }
+  .btn:hover { border-color:var(--accent); }
+  .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  :root[data-theme="vault"] .btn.primary { color:#0C0D0F; }
+  .btn.primary:hover { background:var(--accent-hover); }
+  .cap-foot .esc { margin-left:auto; }
+
+  /* Confirm dialog */
+  .dialog { width:430px; background:var(--raised); border:1px solid var(--hairline);
+            border-radius:14px; box-shadow:var(--shadow); padding:24px 24px 18px; }
+  .dialog h3 { font-family:"Newsreader",serif; font-size:21px; font-weight:500; margin-bottom:12px; }
+  .dialog p { font-size:14px; color:var(--muted); line-height:1.6; margin-bottom:10px; }
+  .dialog .actions { display:flex; justify-content:flex-end; gap:9px; margin-top:18px; }
+
+  /* Demo dock */
+  .dock { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+          display:flex; gap:6px; padding:6px; background:var(--raised);
+          border:1px solid var(--hairline); border-radius:12px; box-shadow:var(--shadow); z-index:80; }
+  .dock button { font-family:"Inter",sans-serif; font-size:12.5px; font-weight:500;
+                 padding:7px 12px; border-radius:8px; border:1px solid transparent;
+                 background:transparent; color:var(--muted); cursor:pointer; }
+  .dock button:hover { background:var(--canvas); color:var(--text); }
+  .dock .div { width:1px; background:var(--hairline); margin:3px 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="wordmark">
+      <span class="logo"><svg viewBox="0 0 24 24"><path d="M4 7v10M9 4v16M14 8v8M19 6v12"/></svg></span>
+      Memosa
+    </div>
+    <div class="omni" onclick="show('palette')">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      Search or ask your conversations…
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="mode" onclick="show('dialog')" title="Privacy mode">
+      <span class="dot"></span> Bunker
+    </div>
+    <div class="ghost" onclick="toggleTheme()" title="Toggle Daylight / Vault">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- Rail -->
+    <div class="rail">
+      <div class="navitem active">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Library
+      </div>
+      <div class="navitem">
+        <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 1 1-3.2-6.4L21 5"/><path d="M12 8v4l3 2"/></svg> Ask
+      </div>
+      <div class="navitem">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg> Search
+      </div>
+      <div class="spacer"></div>
+      <div class="capture" onclick="show('capture')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="9"/></svg>
+        Capture <span class="kbd" style="margin-left:auto;border-color:rgba(255,255,255,.4);color:inherit;opacity:.8">⌘R</span>
+      </div>
+      <div class="sep"></div>
+      <div class="navitem">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 14a7.8 7.8 0 0 0 0-4l1.6-1.2-2-3.4-1.9.8a7.8 7.8 0 0 0-3.5-2L13 .8h-4l-.3 2.4a7.8 7.8 0 0 0-3.5 2l-1.9-.8-2 3.4L2.9 10a7.8 7.8 0 0 0 0 4l-1.6 1.2 2 3.4 1.9-.8a7.8 7.8 0 0 0 3.5 2l.3 2.4h4l.3-2.4a7.8 7.8 0 0 0 3.5-2l1.9.8 2-3.4z"/></svg> Settings
+      </div>
+    </div>
+
+    <!-- List -->
+    <div class="list">
+      <div class="list-head">
+        <h2>Library</h2>
+        <div class="filter">All
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <div class="daygroup">Today</div>
+      <div class="row sel">
+        <span class="status unread"></span>
+        <div>
+          <div class="title">Obie Insurance review</div>
+          <div class="meta">42m · Sarah, Mike</div>
+        </div>
+        <span class="time">11:02</span>
+      </div>
+      <div class="row">
+        <span class="status read"></span>
+        <div>
+          <div class="title">Engineering standup</div>
+          <div class="meta">14m · team</div>
+        </div>
+        <span class="time">09:30</span>
+      </div>
+
+      <div class="daygroup">Yesterday</div>
+      <div class="row">
+        <span class="status read"></span>
+        <div>
+          <div class="title">Roadmap lock — 3.0 scope</div>
+          <div class="meta">58m · Fru</div>
+        </div>
+        <span class="time">16:10</span>
+      </div>
+      <div class="row">
+        <span class="status read"></span>
+        <div>
+          <div class="title">Water-damage claim follow-up</div>
+          <div class="meta">23m · Sarah</div>
+        </div>
+        <span class="time">13:45</span>
+      </div>
+
+      <div class="daygroup">Mon, Jun 16</div>
+      <div class="row">
+        <span class="status read"></span>
+        <div>
+          <div class="title">1:1 with Mike</div>
+          <div class="meta">31m · Mike</div>
+        </div>
+        <span class="time">10:00</span>
+      </div>
+      <div class="row">
+        <span class="status read"></span>
+        <div>
+          <div class="title">Notion sync planning</div>
+          <div class="meta">19m · 2 people</div>
+        </div>
+        <span class="time">15:20</span>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="detail">
+      <div class="detail-inner">
+        <div class="dh-kicker">JUN 17, 2026 · 42 MIN · 3 PEOPLE</div>
+        <h1>Obie Insurance review</h1>
+
+        <div class="tabs">
+          <div class="tab active">Summary</div>
+          <div class="tab">Transcript</div>
+          <div class="tab">Speakers</div>
+          <div class="tab">Action items</div>
+        </div>
+
+        <p class="lead">Compared three renter's policies; the water-damage rider is the deciding factor between Obie and the incumbent.</p>
+        <p>Sarah walked through Obie's quote — roughly $12/month cheaper on the base policy, but the water-damage coverage is a separate rider at about $12/month, which closes the gap. Mike flagged that last year's claim would not have been covered under the cheaper tier, so the rider is effectively mandatory for our situation.</p>
+
+        <div class="sec-label">Decisions</div>
+        <p>Proceed with Obie <em>including</em> the water-damage rider. Revisit the deductible at renewal once the claim history resets.</p>
+
+        <div class="sec-label">Action items</div>
+        <div class="ai">
+          <span class="check"></span>
+          <div><div class="body2">Send Obie the signed W-9</div><div class="owner">Fru · due Fri</div></div>
+        </div>
+        <div class="ai">
+          <span class="check"></span>
+          <div><div class="body2">Compare rider pricing against incumbent's renewal</div><div class="owner">Sarah</div></div>
+        </div>
+
+        <div class="sec-label">People</div>
+        <div class="people"><span class="chip">Sarah Chen</span><span class="chip">Mike Reyes</span><span class="chip">Fru</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Command palette ===== -->
+<div class="scrim" id="palette" onclick="hide(event,'palette')">
+  <div class="palette" onclick="event.stopPropagation()">
+    <div class="pal-input">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input placeholder="Search, run an action, or ask…" value="insurance" autofocus>
+    </div>
+    <div class="pal-body">
+      <div class="pal-group">Actions</div>
+      <div class="pal-item hl"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="9"/></svg> Start recording <span class="pdate">⌘R</span></div>
+      <div class="pal-item"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Import audio…</div>
+      <div class="pal-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg> Switch to Cloud mode</div>
+      <div class="pal-group">Conversations</div>
+      <div class="pal-item"><svg viewBox="0 0 24 24"><path d="M5 4h14v16l-7-3-7 3z"/></svg> Obie Insurance review <span class="pdate">Jun 17</span></div>
+      <div class="pal-item"><svg viewBox="0 0 24 24"><path d="M5 4h14v16l-7-3-7 3z"/></svg> Insurance renewal notes <span class="pdate">May 02</span></div>
+      <div class="pal-group">Ask the corpus</div>
+      <div class="pal-item ask"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 1 1-3.2-6.4L21 5"/></svg> “What did we decide about insurance?” <span class="pdate">↵</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Capture overlay ===== -->
+<div class="scrim capture-scrim" id="capture" onclick="hide(event,'capture')">
+  <div class="capwrap" onclick="event.stopPropagation()">
+    <div class="cap-head">
+      <span class="rec-dot"></span>
+      <span class="rec-label">REC</span>
+      <span class="rec-time">00:12:47</span>
+      <span class="rec-title">Obie Insurance review</span>
+    </div>
+    <div class="wave" id="wave"></div>
+    <div class="cap-trans">
+      <div class="ln"><span class="sp">Sarah:</span> …so the water-damage rider adds about twelve a month on top of the base policy</div>
+      <div class="ln now"><span class="sp">Mike:</span> is that on the standard policy or the premium tier—</div>
+    </div>
+    <div class="cap-foot">
+      <button class="btn"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg> Pause</button>
+      <button class="btn primary" onclick="document.getElementById('capture').classList.remove('show')"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/></svg> Stop &amp; save</button>
+      <span class="esc kbd">esc</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Mode-switch dialog ===== -->
+<div class="scrim center" id="dialog" onclick="hide(event,'dialog')">
+  <div class="dialog" onclick="event.stopPropagation()">
+    <h3>Switch to Cloud mode?</h3>
+    <p>Cloud mode can send <strong>transcript text</strong> to your chosen AI provider using your own key. Your audio never leaves this Mac, and redaction stays on.</p>
+    <p>You can return to Bunker anytime.</p>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('dialog').classList.remove('show')">Cancel</button>
+      <button class="btn primary" onclick="document.getElementById('dialog').classList.remove('show')">Switch to Cloud</button>
+    </div>
+  </div>
+</div>
+
+<!-- Demo dock -->
+<div class="dock">
+  <button onclick="toggleTheme()">◐ Theme</button>
+  <div class="div"></div>
+  <button onclick="show('palette')">⌘K Palette</button>
+  <button onclick="show('capture')">● Capture</button>
+  <button onclick="show('dialog')">Mode switch</button>
+</div>
+
+<script>
+  // waveform bars
+  const wave = document.getElementById('wave');
+  for (let i=0;i<90;i++){ const b=document.createElement('i');
+    b.style.animationDelay = (i*0.045)+'s';
+    b.style.animationDuration = (0.7 + (i%7)*0.12)+'s';
+    wave.appendChild(b); }
+
+  function show(id){ document.getElementById(id).classList.add('show'); }
+  function hide(e,id){ if(e.target.id===id) document.getElementById(id).classList.remove('show'); }
+  function toggleTheme(){
+    const r=document.documentElement;
+    r.dataset.theme = r.dataset.theme==='daylight' ? 'vault' : 'daylight';
+  }
+  document.addEventListener('keydown',e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();show('palette');}
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='r'){e.preventDefault();show('capture');}
+    if(e.key==='Escape') document.querySelectorAll('.scrim.show').forEach(s=>s.classList.remove('show'));
+  });
+</script>
+</body>
+</html>

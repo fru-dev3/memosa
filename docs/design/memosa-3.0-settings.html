@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="daylight">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Memosa 3.0 — Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root[data-theme="daylight"]{
+    --desktop:#D9D6CE;--canvas:#FAFAF7;--surface:#FFFFFF;--rail:#F4F4EF;
+    --hairline:#EAEAE3;--hairline-strong:#DEDED5;
+    --text:#1A1A17;--muted:#6E6E66;--faint:#9A9A90;
+    --accent:#1F4D3A;--accent-hover:#27634A;--accent-soft:#EAF1EC;
+    --live:#C2412B;--selected:#EFF3EE;--track:#DEDED5;
+    --shadow:0 1px 2px rgba(20,20,15,.05),0 16px 40px rgba(20,20,15,.13);
+    --winshadow:0 30px 80px rgba(0,0,0,.30),0 4px 14px rgba(0,0,0,.16);
+  }
+  :root[data-theme="vault"]{
+    --desktop:#050608;--canvas:#0C0D0F;--surface:#15171B;--raised:#1C1F24;--rail:#101216;
+    --hairline:#272A30;--hairline-strong:#33373F;
+    --text:#ECEDEF;--muted:#888F98;--faint:#5E646D;
+    --accent:#4CC38A;--accent-hover:#5BD79B;--accent-soft:#14241D;
+    --live:#E0654A;--selected:#1A1E24;--track:#33373F;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 18px 48px rgba(0,0,0,.55);
+    --winshadow:0 30px 90px rgba(0,0,0,.6),0 4px 16px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{font-family:"Inter",system-ui,sans-serif;font-size:14px;line-height:1.5;color:var(--text);
+    background:radial-gradient(1200px 700px at 70% -10%,rgba(255,255,255,.10),transparent),var(--desktop);
+    -webkit-font-smoothing:antialiased;height:100vh;display:grid;place-items:center;overflow:hidden;padding:22px;}
+  svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+  .mono{font-family:"JetBrains Mono",monospace;}
+
+  .window{width:min(1230px,100%);height:min(770px,100%);background:var(--surface);border-radius:13px;
+    box-shadow:var(--winshadow);overflow:hidden;border:1px solid var(--hairline);display:grid;grid-template-rows:46px 1fr;}
+  .titlebar{display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--hairline);background:var(--rail);}
+  .lights{display:flex;gap:8px;} .lights i{width:12px;height:12px;border-radius:50%;display:block;}
+  .lights .r{background:#FF5F57;}.lights .y{background:#FEBC2E;}.lights .g{background:#28C840;}
+  .tt{font-weight:600;font-size:14px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;}
+  .tt .back{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;color:var(--muted);cursor:pointer;}
+  .tt .back:hover{background:var(--surface);color:var(--text);}
+  .tbar-right{margin-left:auto;display:flex;gap:8px;}
+  .ghost{display:grid;place-items:center;width:30px;height:30px;border-radius:7px;color:var(--muted);cursor:pointer;}
+  .ghost:hover{background:var(--surface);color:var(--text);}
+
+  /* layout: settings nav + content */
+  .body{display:grid;grid-template-columns:236px 1fr;min-height:0;}
+  .snav{background:var(--rail);border-right:1px solid var(--hairline);padding:14px 10px;overflow-y:auto;}
+  .snav .seclabel{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);padding:6px 10px;margin-top:8px;}
+  .sitem{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:8px;color:var(--muted);
+    font-weight:500;font-size:13.5px;cursor:pointer;}
+  .sitem:hover{background:var(--surface);color:var(--text);}
+  .sitem.active{background:var(--accent-soft);color:var(--accent);}
+  :root[data-theme="vault"] .sitem.active{color:var(--accent-hover);}
+  .sitem svg{width:17px;height:17px;}
+
+  .content{overflow-y:auto;background:var(--canvas);}
+  .cinner{max-width:680px;padding:30px 42px 70px;}
+  .chead{font-family:"Newsreader",serif;font-size:27px;font-weight:500;letter-spacing:-.015em;margin-bottom:5px;}
+  .csub{color:var(--muted);font-size:14px;margin-bottom:26px;}
+
+  .group{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;margin-bottom:18px;overflow:hidden;}
+  .grouptitle{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--faint);margin:24px 2px 9px;}
+  .srow{display:flex;align-items:center;gap:16px;padding:15px 18px;border-bottom:1px solid var(--hairline);}
+  .srow:last-child{border-bottom:0;}
+  .srow .info{flex:1;min-width:0;}
+  .srow .lbl{font-weight:500;font-size:14px;}
+  .srow .desc{color:var(--muted);font-size:12.5px;margin-top:2px;line-height:1.5;}
+  .srow.disabled{opacity:.5;}
+
+  /* controls */
+  .switch{width:42px;height:25px;border-radius:999px;background:var(--track);position:relative;cursor:pointer;flex:none;transition:background .18s;}
+  .switch i{position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .18s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+  .switch.on{background:var(--accent);} .switch.on i{left:20px;}
+  :root[data-theme="vault"] .switch i{background:#0C0D0F;}
+  :root[data-theme="vault"] .switch.on i{background:#0C0D0F;}
+
+  .seg{display:flex;background:var(--canvas);border:1px solid var(--hairline-strong);border-radius:9px;padding:3px;gap:3px;flex:none;}
+  .seg button{font-family:inherit;font-size:13px;font-weight:500;border:0;background:transparent;color:var(--muted);
+    padding:6px 14px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:7px;}
+  .seg button.on{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .seg button .d{width:7px;height:7px;border-radius:50%;background:currentColor;}
+
+  .select{display:flex;align-items:center;gap:9px;height:34px;padding:0 11px;border:1px solid var(--hairline-strong);
+    border-radius:8px;background:var(--surface);color:var(--text);font-size:13.5px;cursor:pointer;min-width:170px;}
+  .select svg{width:15px;height:15px;color:var(--faint);margin-left:auto;}
+  .field{height:34px;padding:0 11px;border:1px solid var(--hairline-strong);border-radius:8px;background:var(--surface);
+    color:var(--text);font-size:13px;font-family:"JetBrains Mono",monospace;min-width:230px;display:flex;align-items:center;gap:8px;}
+  .field svg{width:14px;height:14px;color:var(--faint);}
+  .btn{height:34px;padding:0 14px;border:1px solid var(--hairline-strong);border-radius:8px;background:var(--surface);
+    color:var(--text);font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;}
+  .btn:hover{border-color:var(--accent);}
+  .btn svg{width:15px;height:15px;}
+  .pill{font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);}
+
+  .modeexplain{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--hairline);}
+  .mx{padding:14px 18px;font-size:12.5px;color:var(--muted);line-height:1.55;}
+  .mx:first-child{border-right:1px solid var(--hairline);}
+  .mx b{color:var(--text);display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:13px;}
+  .mx b .d{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+
+  /* theme cards (appearance panel) */
+  .themecards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:18px;}
+  .tc{border:1.5px solid var(--hairline-strong);border-radius:11px;overflow:hidden;cursor:pointer;}
+  .tc.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .tc .prev{height:84px;display:flex;}
+  .tc .prev .sb{width:34%;} .tc .prev .mn{flex:1;padding:10px;}
+  .tc .prev .bar{height:7px;border-radius:3px;margin-bottom:5px;}
+  .tc .cap{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-top:1px solid var(--hairline);font-size:13px;font-weight:500;}
+  .tc .cap svg{width:15px;height:15px;color:var(--accent);}
+  .tc.day .sb{background:#F4F4EF;} .tc.day .mn{background:#FAFAF7;}
+  .tc.day .bar.a{background:#1F4D3A;width:60%;}.tc.day .bar.b{background:#DEDED5;width:80%;}.tc.day .bar.c{background:#DEDED5;width:45%;}
+  .tc.dark .sb{background:#101216;} .tc.dark .mn{background:#0C0D0F;}
+  .tc.dark .bar.a{background:#4CC38A;width:60%;}.tc.dark .bar.b{background:#272A30;width:80%;}.tc.dark .bar.c{background:#272A30;width:45%;}
+  .tc.auto .sb{background:linear-gradient(135deg,#F4F4EF 50%,#101216 50%);}
+  .tc.auto .mn{background:linear-gradient(135deg,#FAFAF7 50%,#0C0D0F 50%);}
+  .tc.auto .bar.a{background:#1F4D3A;width:60%;}.tc.auto .bar.b{background:#888;width:80%;opacity:.4;}.tc.auto .bar.c{background:#888;width:45%;opacity:.4;}
+
+  .path{flex:1;display:flex;align-items:center;gap:8px;height:34px;padding:0 11px;border:1px solid var(--hairline-strong);border-radius:8px;background:var(--surface);font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--text);overflow:hidden;white-space:nowrap;}
+  .path svg{width:14px;height:14px;color:var(--accent);}
+  .vtree{font-family:"JetBrains Mono",monospace;font-size:12px;line-height:1.65;color:var(--muted);background:var(--canvas);border:1px solid var(--hairline);border-radius:10px;padding:14px 16px;margin:0 18px 16px;white-space:pre;overflow-x:auto;}
+  .vtree b{color:var(--text);font-weight:500;} .vtree .a{color:var(--accent);}
+  .note{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--muted);line-height:1.55;padding:13px 18px;background:var(--accent-soft);}
+  :root[data-theme="vault"] .note{background:var(--selected);}
+  .note svg{width:15px;height:15px;color:var(--accent);margin-top:1px;flex:none;}
+  .code{font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--muted);background:var(--canvas);border:1px solid var(--hairline);border-radius:9px;padding:11px 13px;margin:0 18px 16px;white-space:pre;overflow-x:auto;}
+  .modelrow{display:flex;align-items:center;gap:9px;}
+  .badge-os{font-size:10.5px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 8px;}
+  :root[data-theme="vault"] .badge-os{background:var(--selected);}
+  .dock{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:5px;padding:5px;
+    background:var(--surface);border:1px solid var(--hairline);border-radius:11px;box-shadow:var(--shadow);z-index:80;}
+  .dock button{font-family:"Inter",sans-serif;font-size:12px;font-weight:500;padding:6px 11px;border-radius:7px;border:0;
+    background:transparent;color:var(--muted);cursor:pointer;}
+  .dock button:hover{background:var(--canvas);color:var(--text);}
+  .dock .div{width:1px;background:var(--hairline);margin:3px 2px;}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="tt">
+      <span class="back"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span>
+      Settings
+    </div>
+    <div class="tbar-right">
+      <div class="ghost" onclick="toggleTheme()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg></div>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- Settings nav -->
+    <div class="snav">
+      <div class="sitem" data-p="appearance" onclick="panel('appearance',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Appearance</div>
+      <div class="sitem active" data-p="privacy" onclick="panel('privacy',this)"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg> Privacy &amp; Mode</div>
+      <div class="sitem" data-p="models" onclick="panel('models',this)"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 1 3 3v1a4 4 0 0 1 4 4 3 3 0 0 1 0 6 4 4 0 0 1-4 4 3 3 0 0 1-6 0 4 4 0 0 1-4-4 3 3 0 0 1 0-6 4 4 0 0 1 4-4V5a3 3 0 0 1 3-3z"/></svg> AI &amp; Models</div>
+      <div class="sitem" data-p="vault" onclick="panel('vault',this)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9l-2 3 2 3M15 9l2 3-2 3"/></svg> MCP &amp; Vault</div>
+      <div class="sitem" data-p="vault" onclick="panel('vault',this)"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg> Vault &amp; Storage</div>
+      <div class="sitem" data-p="calendar" onclick="panel('calendar',this)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg> Calendar &amp; Auto-record</div>
+      <div class="sitem" data-p="privacy" onclick="panel('privacy',this)"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H3z"/></svg> Organization</div>
+      <div class="seclabel">Memosa</div>
+      <div class="sitem" onclick="panel('privacy',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg> About</div>
+    </div>
+
+    <!-- ===== Privacy & Mode panel ===== -->
+    <div class="content" id="p-privacy">
+      <div class="cinner">
+        <div class="chead">Privacy &amp; Mode</div>
+        <div class="csub">Memosa is local-first. These controls decide whether anything is ever allowed to leave your Mac.</div>
+
+        <div class="grouptitle">App mode</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info">
+              <div class="lbl">Current mode</div>
+              <div class="desc">The global privacy posture, enforced at a single chokepoint.</div>
+            </div>
+            <div class="seg">
+              <button class="on"><span class="d"></span> Bunker</button>
+              <button>Cloud</button>
+            </div>
+          </div>
+          <div class="modeexplain">
+            <div class="mx"><b><span class="d"></span> Bunker <span class="pill" style="margin-left:auto">Active</span></b>
+              Everything stays on this Mac. Cloud AI is refused fail-closed; Notion sync is blocked. Built-in and Ollama still work.</div>
+            <div class="mx"><b style="color:var(--muted)">Cloud</b>
+              Lets you use a cloud provider with your own key for summaries &amp; chat. Audio still never leaves the device.</div>
+          </div>
+        </div>
+
+        <div class="grouptitle">Data protection</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info"><div class="lbl">Redact secrets &amp; PII before any cloud send</div>
+              <div class="desc">Scrubs emails, API keys, card &amp; SSN-like numbers, and phone numbers from transcript text first.</div></div>
+            <div class="switch on" onclick="this.classList.toggle('on')"><i></i></div>
+          </div>
+          <div class="srow">
+            <div class="info"><div class="lbl">Network activity panel</div>
+              <div class="desc">See every outbound request Memosa makes, in real time.</div></div>
+            <div class="btn"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg> Open panel</div>
+          </div>
+        </div>
+
+        <div class="grouptitle">Cloud provider · BYOK</div>
+        <div class="group">
+          <div class="srow disabled">
+            <div class="info"><div class="lbl">Provider</div>
+              <div class="desc">Available in Cloud mode. Your key is stored in the macOS Keychain.</div></div>
+            <div class="select">Anthropic — Claude <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+          <div class="srow disabled">
+            <div class="info"><div class="lbl">API key</div><div class="desc">Never written to disk in plaintext.</div></div>
+            <div class="field"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ••••••••••••••••</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Appearance panel (hidden) ===== -->
+    <div class="content" id="p-appearance" style="display:none">
+      <div class="cinner">
+        <div class="chead">Appearance</div>
+        <div class="csub">Two faces of one system. Vault doubles as the privacy identity.</div>
+
+        <div class="grouptitle">Theme</div>
+        <div class="group">
+          <div class="themecards">
+            <div class="tc day sel">
+              <div class="prev"><div class="sb"></div><div class="mn"><div class="bar a"></div><div class="bar b"></div><div class="bar c"></div></div></div>
+              <div class="cap">Daylight <svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-11"/></svg></div>
+            </div>
+            <div class="tc dark">
+              <div class="prev"><div class="sb"></div><div class="mn"><div class="bar a"></div><div class="bar b"></div><div class="bar c"></div></div></div>
+              <div class="cap">Vault</div>
+            </div>
+            <div class="tc auto">
+              <div class="prev"><div class="sb"></div><div class="mn"><div class="bar a"></div><div class="bar b"></div><div class="bar c"></div></div></div>
+              <div class="cap">Auto</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grouptitle">Typography &amp; density</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info"><div class="lbl">Serif headlines</div><div class="desc">Newsreader for titles &amp; summaries. Turn off for an all-grotesk look.</div></div>
+            <div class="switch on" onclick="this.classList.toggle('on')"><i></i></div>
+          </div>
+          <div class="srow">
+            <div class="info"><div class="lbl">Density</div><div class="desc">Row height across lists and the transcript.</div></div>
+            <div class="seg"><button>Compact</button><button class="on">Cozy</button><button>Roomy</button></div>
+          </div>
+          <div class="srow">
+            <div class="info"><div class="lbl">Accent</div><div class="desc">Evergreen in Daylight, signal-green in Vault.</div></div>
+            <div class="select">Evergreen (default) <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== AI & Models panel ===== -->
+    <div class="content" id="p-models" style="display:none">
+      <div class="cinner">
+        <div class="chead">AI &amp; Models</div>
+        <div class="csub">Memosa runs on local, open-source models by default. Nothing is sent to a paid provider unless you turn it on.</div>
+
+        <div class="grouptitle">Engine</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info"><div class="lbl">Model policy</div>
+              <div class="desc">Choose whether cloud/frontier models are even allowed.</div></div>
+            <div class="seg">
+              <button class="on"><span class="d"></span> Local &amp; open-source only</button>
+              <button>Allow cloud</button>
+            </div>
+          </div>
+          <div class="note"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
+            <span><b style="color:var(--text)">No paid providers in use.</b> Transcription, summaries, chat, and embeddings all run on-device. This pairs with Bunker mode and is the default.</span></div>
+        </div>
+
+        <div class="grouptitle">Transcription · whisper.cpp</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info"><div class="lbl">Model</div><div class="desc">Larger = more accurate, slower. All run locally, no network.</div></div>
+            <div class="select">Whisper large-v3 (local) <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+          <div class="srow">
+            <div class="info"><div class="lbl">Language</div><div class="desc">Auto-detect or pin a language.</div></div>
+            <div class="select">Auto-detect <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+        </div>
+
+        <div class="grouptitle">Summaries &amp; chat · Ollama</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info"><div class="lbl">Local model</div><div class="desc">Open-weight LLM running on this Mac via Ollama.</div></div>
+            <div class="modelrow"><span class="badge-os">OSS</span><div class="select">Llama&nbsp;3.1&nbsp;8B <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div></div>
+          </div>
+          <div class="srow disabled">
+            <div class="info"><div class="lbl">Cloud model (frontier)</div><div class="desc">Disabled — switch the policy to "Allow cloud" to use a BYOK provider.</div></div>
+            <div class="select">Off <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          </div>
+        </div>
+
+        <div class="grouptitle">Embeddings · semantic search</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info"><div class="lbl">Embedding model</div><div class="desc">Powers Ask &amp; Search. Local, open-source.</div></div>
+            <div class="modelrow"><span class="badge-os">OSS</span><div class="select">nomic-embed-text <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Vault & Storage panel ===== -->
+    <div class="content" id="p-vault" style="display:none">
+      <div class="cinner">
+        <div class="chead">Vault &amp; Storage</div>
+        <div class="csub">One folder holds everything — audio, transcripts, and notes — as plain files your other AI tools can read directly.</div>
+
+        <div class="grouptitle">Vault location</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info" style="flex:none;width:88px"><div class="lbl">Folder</div></div>
+            <div class="path"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H3z"/></svg> ~/Documents/fru/vault/memosa</div>
+            <div class="btn">Change…</div>
+          </div>
+          <div class="vtree"><span class="a">vault/memosa/</span>
+├─ <b>Life/</b>
+│  └─ <b>Dad/</b>
+│     ├─ <b>Medical/</b>
+│     │  └─ <b>Cardiologist follow-up/</b>
+│     │     ├─ audio.m4a
+│     │     ├─ transcript.json
+│     │     └─ notes.md
+│     └─ Obie Insurance review/ …
+├─ <b>Work/</b>  ·  <b>Personal/</b>
+└─ .index/        <span style="color:var(--faint)"># search + embeddings</span></div>
+          <div class="note"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Your in-app Domains &amp; folders <b style="color:var(--text)">are</b> these directories. No export step — point any tool at this folder.</span></div>
+        </div>
+
+        <div class="grouptitle">Store as files</div>
+        <div class="group">
+          <div class="srow"><div class="info"><div class="lbl">Audio (.m4a)</div><div class="desc">Original recording, per conversation.</div></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="srow"><div class="info"><div class="lbl">Transcript (.json + .txt)</div><div class="desc">Timestamped, speaker-labeled.</div></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="srow"><div class="info"><div class="lbl">Summary &amp; notes (.md)</div><div class="desc">Human- and AI-readable Markdown.</div></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+        </div>
+
+        <div class="grouptitle">Expose to other AI · MCP</div>
+        <div class="group">
+          <div class="srow"><div class="info"><div class="lbl">Local MCP server</div><div class="desc">Lets Claude, Cursor, or local agents query the vault. Off by default.</div></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="code">{
+  "mcpServers": {
+    "memosa": { "command": "memosa", "args": ["mcp"] }
+  }
+}</div>
+        </div>
+
+        <div class="grouptitle">Backup &amp; sync</div>
+        <div class="group">
+          <div class="srow"><div class="info"><div class="lbl">Sync vault to Google Drive</div><div class="desc">Backup + reach across devices and cloud AI.</div></div><div class="switch" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="srow"><div class="info"><div class="lbl">Include audio in sync</div><div class="desc">Off keeps large audio local; transcripts &amp; notes still sync.</div></div><div class="switch" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="note"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <span>Syncing copies files off this Mac. While in <b style="color:var(--text)">Bunker</b> mode you'll be asked to confirm before sync is enabled.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Calendar & Auto-record panel ===== -->
+    <div class="content" id="p-calendar" style="display:none">
+      <div class="cinner">
+        <div class="chead">Calendar &amp; Auto-record</div>
+        <div class="csub">Connect your calendar and let Memosa capture meetings automatically, then file them for you.</div>
+
+        <div class="grouptitle">Account</div>
+        <div class="group">
+          <div class="srow">
+            <div class="info"><div class="lbl">Google Calendar</div><div class="desc">fru.dev3@gmail.com · connected</div></div>
+            <div class="modelrow"><span class="badge-os" style="color:var(--accent)">Connected</span><div class="btn">Reconnect</div></div>
+          </div>
+        </div>
+
+        <div class="grouptitle">Auto-record</div>
+        <div class="group">
+          <div class="srow"><div class="info"><div class="lbl">Auto-record calendar meetings</div><div class="desc">Start capture when a meeting begins.</div></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="srow"><div class="info"><div class="lbl">Ask before recording</div><div class="desc">A confirmation appears 1 minute before; never silent.</div></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="srow"><div class="info"><div class="lbl">Only meetings with</div><div class="desc">Skip solo holds and all-day events.</div></div><div class="select">2+ attendees <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div></div>
+        </div>
+
+        <div class="grouptitle">Auto-file</div>
+        <div class="group">
+          <div class="srow"><div class="info"><div class="lbl">File into</div><div class="desc">Memosa suggests a domain from attendees &amp; title; you can override.</div></div><div class="select">Suggest automatically <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div></div>
+          <div class="note"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+            <span><b style="color:var(--text)">Next:</b> 2:00 PM — "Roadmap sync" (3 people) → will auto-record and file to <b style="color:var(--text)">Work › Roadmap</b>.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dock">
+  <button onclick="toggleTheme()">◐ Theme</button>
+  <div class="div"></div>
+  <button onclick="panel('privacy')">Privacy</button>
+  <button onclick="panel('models')">Models</button>
+  <button onclick="panel('vault')">Vault</button>
+  <button onclick="panel('calendar')">Calendar</button>
+  <button onclick="panel('appearance')">Appearance</button>
+</div>
+
+<script>
+  function toggleTheme(){const r=document.documentElement;r.dataset.theme=r.dataset.theme==='daylight'?'vault':'daylight';}
+  function panel(which,el){
+    document.querySelectorAll('.content').forEach(c=>c.style.display='none');
+    const p=document.getElementById('p-'+which); if(p)p.style.display='';
+    document.querySelectorAll('.sitem').forEach(s=>s.classList.toggle('active', el? s===el : s.getAttribute('data-p')===which));
+  }
+  (function(){const h=(location.hash||'').replace('#','');if(h)panel(h);})();
+</script>
+</body>
+</html>
