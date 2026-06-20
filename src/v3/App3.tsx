@@ -1,6 +1,7 @@
 // Memosa 3.0 UI shell (spec 11), wired to the files-only vault. Coexists with the
 // legacy app; mounted via `?ui=3`.
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "./icons";
 import {
   vault,
@@ -14,7 +15,7 @@ import {
 } from "../lib/vault";
 import "./v3.css";
 
-type Screen = "library" | "search" | "tasks" | "ask";
+type Screen = "library" | "search" | "tasks" | "ask" | "settings";
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
@@ -109,6 +110,9 @@ export default function App3() {
   const [askQ, setAskQ] = useState("");
   const [ans, setAns] = useState<AskAnswer | null>(null);
   const [asking, setAsking] = useState(false);
+  const [vpath, setVpath] = useState("");
+  const [migrating, setMigrating] = useState(false);
+  const [migReport, setMigReport] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -144,6 +148,35 @@ export default function App3() {
   useEffect(() => {
     reloadTree();
     vault.tasks("all").then(setTasks).catch(() => {});
+    vault.path().then(setVpath).catch(() => {});
+  }, [reloadTree]);
+
+  const runMigrate = useCallback(() => {
+    setMigrating(true);
+    setMigReport(null);
+    vault
+      .migrate()
+      .then((r) => {
+        setMigReport(
+          `Imported ${r.conversations} conversations (${r.audio_copied} with audio, ${r.skipped} already present).`,
+        );
+        reloadTree();
+      })
+      .catch((e) => setMigReport("Migration failed: " + String(e)))
+      .finally(() => setMigrating(false));
+  }, [reloadTree]);
+
+  const changeVault = useCallback(async () => {
+    try {
+      const picked = await invoke<string | null>("pick_storage_folder");
+      if (picked) {
+        await vault.setPath(picked);
+        setVpath(picked);
+        reloadTree();
+      }
+    } catch (e) {
+      setErr(String(e));
+    }
   }, [reloadTree]);
 
   const openFolder = useCallback(
@@ -267,7 +300,10 @@ export default function App3() {
           <div className="v3-capture">
             <Icon name="capture" size={16} /> Capture <span className="kbd">⌘R</span>
           </div>
-          <div className="v3-nav">
+          <div
+            className={"v3-nav " + (screen === "settings" ? "active" : "")}
+            onClick={() => setScreen("settings")}
+          >
             <Icon name="settings" size={16} /> Settings
           </div>
         </div>
@@ -452,6 +488,63 @@ export default function App3() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {screen === "settings" && (
+            <div className="v3-col">
+              <div className="v3-colin">
+                <h1 className="page">Settings</h1>
+                <div className="v3-psub">Files-only and local-first. Your vault is plain folders on disk.</div>
+
+                <div className="v3-seclabel">Vault location</div>
+                <div className="v3-task" style={{ alignItems: "center" }}>
+                  <div className="mono" style={{ flex: 1, fontSize: 12, color: "var(--text)" }}>
+                    {vpath || "—"}
+                  </div>
+                  <div className="v3-iconbtn" onClick={changeVault}>
+                    Change…
+                  </div>
+                </div>
+
+                <div className="v3-seclabel">Your data</div>
+                <div className="v3-task" style={{ alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <div className="tt">Import existing recordings</div>
+                    <div className="schip">One-time migration from the legacy app into this vault.</div>
+                  </div>
+                  <div className="v3-iconbtn" onClick={runMigrate}>
+                    {migrating ? "Importing…" : "Run migration"}
+                  </div>
+                </div>
+                {migReport && (
+                  <div className="v3-srxmeta" style={{ color: "var(--accent)" }}>
+                    {migReport}
+                  </div>
+                )}
+
+                <div className="v3-seclabel">Models</div>
+                <div className="v3-task">
+                  <div>
+                    <div className="tt">Local &amp; open-source only</div>
+                    <div className="schip">whisper.cpp · Ollama · local embeddings — no paid providers.</div>
+                  </div>
+                </div>
+
+                <div className="v3-seclabel">Theme</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["daylight", "vault"] as const).map((t) => (
+                    <div
+                      key={t}
+                      className="v3-iconbtn"
+                      style={t === theme ? { borderColor: "var(--accent)", color: "var(--accent)" } : {}}
+                      onClick={() => setTheme(t)}
+                    >
+                      {t === "daylight" ? "Daylight" : "Vault"}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
