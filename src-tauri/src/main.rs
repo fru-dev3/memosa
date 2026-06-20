@@ -16,6 +16,22 @@ fn main() {
             memosa_lib::run_reindex();
             return;
         }
+        Some("migrate") => {
+            // One-time import of legacy DB data into the files-only vault.
+            let root = memosa_lib::vault_cmds::vault_root();
+            println!("Migrating legacy data into vault: {}", root.display());
+            match memosa_lib::vault_migrate::migrate(&root) {
+                Ok(r) => println!(
+                    "Done: {} conversations, {} audio copied, {} skipped, {} errors",
+                    r.conversations,
+                    r.audio_copied,
+                    r.skipped,
+                    r.errors.len()
+                ),
+                Err(e) => eprintln!("migrate failed: {e}"),
+            }
+            return;
+        }
         _ => {}
     }
     memosa_lib::run();
