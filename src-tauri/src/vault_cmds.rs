@@ -122,3 +122,44 @@ pub fn vault_set_tags(id: String, tags: Vec<String>) -> Result<(), String> {
 pub fn task_toggle(conv: String, text: String, done: bool) -> Result<(), String> {
     vault()?.toggle_task(&conv, &text, done).map_err(|e| e.to_string())
 }
+
+/// Reveal the vault root (or a specific conversation folder) in the system file manager.
+#[tauri::command]
+pub fn vault_reveal(id: Option<String>) -> Result<(), String> {
+    let mut path = vault_root();
+    if let Some(id) = id {
+        for part in id.split('/').filter(|s| !s.is_empty()) {
+            path.push(part);
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer").arg(&path).spawn().ok();
+    }
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    {
+        std::process::Command::new("xdg-open").arg(&path).spawn().ok();
+    }
+    Ok(())
+}
+
+/// Export a conversation's notes + transcript as a single Markdown string (for copy/save).
+#[tauri::command]
+pub fn vault_export_markdown(id: String) -> Result<String, String> {
+    let v = vault()?;
+    let (meta, notes) = v.get(&id).map_err(|e| e.to_string())?;
+    let t = v.transcript(&id).map_err(|e| e.to_string())?;
+    let mut out = format!("# {}\n\n", meta.title);
+    out.push_str(&format!("_{} · {} min_\n\n", &meta.created.get(..10).unwrap_or(""), meta.duration_sec / 60));
+    out.push_str(notes.markdown.trim());
+    out.push_str("\n\n## Transcript\n\n");
+    out.push_str(&t.to_plaintext());
+    Ok(out)
+}
