@@ -38,11 +38,18 @@ fn truncate_chars(s: &str, max: usize) -> &str {
 
 #[tauri::command]
 pub async fn vault_ask(q: String, scope: Option<String>) -> Result<AskAnswer, String> {
-    // 1. retrieve the most relevant conversations from the files
-    let hits: Vec<_> = crate::vault_search::search(&q, "hybrid", scope.as_deref())
-        .into_iter()
-        .take(5)
-        .collect();
+    // 1. hybrid retrieval: semantic (when an embedding index + local model exist) merged
+    // with keyword, deduped by conversation. Falls back to keyword-only seamlessly.
+    let mut hits: Vec<crate::vault_search::SearchHit> = Vec::new();
+    if let Ok(sem) = crate::vault_embed::semantic_search(&q, scope.as_deref(), 8).await {
+        hits.extend(sem);
+    }
+    for h in crate::vault_search::search(&q, "exact", scope.as_deref()) {
+        if !hits.iter().any(|x| x.conv == h.conv) {
+            hits.push(h);
+        }
+    }
+    let hits: Vec<_> = hits.into_iter().take(5).collect();
 
     let v = Vault::new(vault_root());
     let mut context = String::new();
