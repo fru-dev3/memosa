@@ -18,6 +18,7 @@ mod sync;
 mod transcription;
 mod types;
 pub mod vault;
+pub mod vault_cmds;
 
 use audio::AudioRecorder;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -342,6 +343,19 @@ pub fn run() {
             search::semantic_search_meetings,
             search::embedding_status,
             diarize::get_speaker_segments,
+            vault_cmds::vault_path,
+            vault_cmds::vault_set_path,
+            vault_cmds::vault_tree,
+            vault_cmds::vault_list,
+            vault_cmds::vault_get,
+            vault_cmds::vault_transcript,
+            vault_cmds::vault_create_folder,
+            vault_cmds::vault_create_conversation,
+            vault_cmds::vault_move,
+            vault_cmds::vault_rename,
+            vault_cmds::vault_delete,
+            vault_cmds::vault_set_tags,
+            vault_cmds::task_toggle,
             get_app_version,
             open_external_url,
             start_window_drag,
