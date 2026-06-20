@@ -8,7 +8,8 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(|a| a.as_str()) {
         Some("mcp") => {
-            memosa_lib::mcp::run_stdio();
+            // 3.0: the MCP server reads the files-only vault directly (no DB).
+            memosa_lib::mcp_vault::run_stdio();
             return;
         }
         Some("reindex") => {
