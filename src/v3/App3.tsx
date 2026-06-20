@@ -166,6 +166,30 @@ export default function App3() {
       .finally(() => setMigrating(false));
   }, [reloadTree]);
 
+  const [reindexing, setReindexing] = useState(false);
+  const [indexNote, setIndexNote] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
+
+  const runReindex = useCallback(() => {
+    setReindexing(true);
+    setIndexNote(null);
+    vault
+      .reindex()
+      .then((n) => setIndexNote(`Indexed ${n} chunks for semantic search.`))
+      .catch((e) => setIndexNote("Indexing needs a local embedding model (Ollama). " + String(e)))
+      .finally(() => setReindexing(false));
+  }, []);
+
+  const summarizeConv = useCallback(() => {
+    if (!conv) return;
+    setSummarizing(true);
+    vault
+      .summarize(conv.meta.id)
+      .then(() => vault.get(conv.meta.id).then(setConv))
+      .catch((e) => setErr(String(e)))
+      .finally(() => setSummarizing(false));
+  }, [conv]);
+
   const changeVault = useCallback(async () => {
     try {
       const picked = await invoke<string | null>("pick_storage_folder");
@@ -361,6 +385,9 @@ export default function App3() {
                         {conv.meta.duration_sec > 0 ? `${Math.round(conv.meta.duration_sec / 60)} MIN` : "—"}
                       </span>
                       <div className="v3-actions">
+                        <div className="v3-iconbtn" onClick={summarizeConv}>
+                          <Icon name="ask" size={15} /> {summarizing ? "Summarizing…" : "Summarize"}
+                        </div>
                         <div className="v3-iconbtn">
                           <Icon name="download" size={15} /> Export
                         </div>
@@ -529,6 +556,33 @@ export default function App3() {
                   <div>
                     <div className="tt">Local &amp; open-source only</div>
                     <div className="schip">whisper.cpp · Ollama · local embeddings — no paid providers.</div>
+                  </div>
+                </div>
+
+                <div className="v3-seclabel">Search index</div>
+                <div className="v3-task" style={{ alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <div className="tt">Semantic search index</div>
+                    <div className="schip">Local embeddings over your transcripts — powers Ask &amp; Search by meaning.</div>
+                  </div>
+                  <div className="v3-iconbtn" onClick={runReindex}>
+                    {reindexing ? "Indexing…" : "Build index"}
+                  </div>
+                </div>
+                {indexNote && (
+                  <div className="v3-srxmeta" style={{ color: "var(--accent)" }}>
+                    {indexNote}
+                  </div>
+                )}
+
+                <div className="v3-seclabel">Backup · Google Drive</div>
+                <div className="v3-task" style={{ alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <div className="tt">Sync text to Drive</div>
+                    <div className="schip">Transcripts &amp; notes only — audio never leaves your Mac.</div>
+                  </div>
+                  <div className="v3-iconbtn" onClick={() => vault.syncNow().catch((e) => setErr(String(e)))}>
+                    Sync now
                   </div>
                 </div>
 
