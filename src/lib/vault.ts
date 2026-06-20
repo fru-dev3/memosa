@@ -106,6 +106,23 @@ export const vault = {
   tasks: (filter: "open" | "done" | "all") => invoke<Task[]>("vault_tasks", { filter }),
   ask: (q: string, scope?: string) => invoke<AskAnswer>("vault_ask", { q, scope }),
 
+  // capture / transcription (spec 04)
+  importAudio: (src: string, folder: string, title?: string) =>
+    invoke<string>("vault_import_audio", { src, folder, title }),
+  // summarize (spec 05)
+  summarize: (id: string) => invoke<void>("vault_summarize", { id }),
+  // semantic index (spec 03)
+  reindex: () => invoke<number>("vault_reindex"),
+  embeddingStatus: () => invoke<[number, number]>("vault_embedding_status"),
+  // calendar auto-file (spec 07)
+  calendarAutofile: (title: string, attendees: string[], startIso: string, eventId: string) =>
+    invoke<string>("vault_calendar_autofile", { title, attendees, startIso, eventId }),
+  // drive text-sync (spec 08)
+  syncStatus: () => invoke<{ enabled: boolean; last?: string; pending: number; connected: boolean }>("vault_sync_status"),
+  syncNow: () => invoke<{ enabled: boolean; last?: string; pending: number; connected: boolean }>("vault_sync_now"),
+  syncSet: (enabled: boolean, includeAudio: boolean) =>
+    invoke<void>("vault_sync_set", { enabled, includeAudio }),
+
   // provided by the migration module (workflow)
   migrate: () => invoke<{ conversations: number; audio_copied: number; skipped: number; errors: string[] }>(
     "vault_migrate_run",

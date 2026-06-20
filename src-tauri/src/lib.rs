@@ -22,6 +22,11 @@ pub mod vault_cmds;
 pub mod vault_migrate;
 pub mod vault_search;
 pub mod vault_ai;
+pub mod vault_capture;
+pub mod vault_summarize;
+pub mod vault_embed;
+pub mod vault_calendar;
+pub mod vault_sync;
 pub mod mcp_vault;
 
 use audio::AudioRecorder;
@@ -363,6 +368,15 @@ pub fn run() {
             vault_search::vault_search,
             vault_search::vault_tasks,
             vault_ai::vault_ask,
+            vault_capture::vault_import_audio,
+            vault_summarize::vault_summarize,
+            vault_embed::vault_reindex,
+            vault_embed::vault_reindex_all,
+            vault_embed::vault_embedding_status,
+            vault_calendar::vault_calendar_autofile,
+            vault_sync::vault_sync_status,
+            vault_sync::vault_sync_now,
+            vault_sync::vault_sync_set,
             vault_migrate::vault_migrate_run,
             get_app_version,
             open_external_url,
