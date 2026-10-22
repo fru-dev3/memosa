@@ -4,7 +4,7 @@
 //! `meta.json`, `transcript.json` (+ derived `.txt`), `notes.md`, and `audio.m4a`.
 //! Domains and folders are real directories, the folder tree IS the data model.
 
-mod notes;
+pub mod notes;
 mod store;
 mod types;
 

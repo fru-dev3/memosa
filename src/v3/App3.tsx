@@ -31,7 +31,7 @@ const fmtDate = (iso: string) => {
   return isNaN(d.getTime()) ? iso.slice(0, 10) : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 const fmtClock = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
-const fmtMins = (sec: number) => (sec > 0 ? `${Math.max(1, Math.round(sec / 60))} min` : "No audio length");
+const fmtMins = (sec: number) => (sec <= 0 ? "No length yet" : sec < 60 ? "under 1 min" : `${Math.round(sec / 60)} min`);
 const prettyName = (n: string) => n.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
 const parentOf = (id: string) => (id.includes("/") ? id.slice(0, id.lastIndexOf("/")) : "");
 const crumbText = (id: string) => parentOf(id).split("/").filter(Boolean).join(" / ");
@@ -693,6 +693,15 @@ export default function App3() {
   const mode = settings?.app_mode ?? "bunker";
   const localAI = settings?.insight_engine === "ollama";
   const hasModel = models.some((m) => m.downloaded);
+  // Ollama can live on another machine; only claim "on this Mac" when it does not.
+  const aiHost = (() => {
+    try {
+      return new URL(settings?.ollama_url || "http://localhost").hostname;
+    } catch {
+      return "localhost";
+    }
+  })();
+  const aiIsLocal = !localAI || ["localhost", "127.0.0.1", "::1", "[::1]"].includes(aiHost);
 
   const palAction = (fn: () => void) => () => {
     setPaletteOpen(false);
@@ -1114,7 +1123,11 @@ export default function App3() {
               <div className="v3-colin">
                 <h1 className="page">Ask your memory</h1>
                 <div className="v3-psub">
-                  {mode === "bunker" ? "Answered from your vault on this Mac. Nothing leaves it." : "Answered from your vault with the AI set in Settings."}
+                  {mode !== "bunker"
+                    ? "Answered from your vault with the AI set in Settings."
+                    : aiIsLocal
+                      ? "Answered from your vault on this Mac. Nothing leaves it."
+                      : `Answered from your vault by your Ollama at ${aiHost}.`}
                 </div>
                 <div className="v3-bigsearch">
                   <Icon name="ask" size={19} />
@@ -1237,7 +1250,7 @@ export default function App3() {
                 <div className="v3-setrow">
                   <div className="info">
                     <div className="tt">Summaries and Ask with Ollama</div>
-                    <div className="desc">Open-source models on your own machine. {aiStatus}</div>
+                    <div className="desc">Open-source models on your own machine.{localAI && aiStatus ? " " + aiStatus : " Off."}</div>
                   </div>
                   <Switch
                     label="Use Ollama"
@@ -1400,7 +1413,7 @@ export default function App3() {
             </div>
             <div className="v3-wave">
               {levels.map((l, i) => (
-                <i key={i} style={{ height: `${Math.max(6, Math.min(100, l * 100 * 4))}%` }} />
+                <i key={i} style={{ height: `${Math.max(6, Math.min(100, Math.sqrt(l) * 160))}%` }} />
               ))}
             </div>
             <div className="v3-capfoot">

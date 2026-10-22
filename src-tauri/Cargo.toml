@@ -22,6 +22,8 @@ cc = "1"
 [features]
 default = ["whisper-rs"]
 whisper-rs = ["dep:whisper-rs"]
+# Test-only driver for end-to-end runs (scripts/e2e). Never in release builds.
+e2e = []
 
 [dependencies]
 tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }

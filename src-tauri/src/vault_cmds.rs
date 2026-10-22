@@ -162,18 +162,48 @@ pub fn vault_export_markdown(id: String) -> Result<String, String> {
     let v = vault()?;
     let (meta, notes) = v.get(&id).map_err(|e| e.to_string())?;
     let t = v.transcript(&id).map_err(|e| e.to_string())?;
-    let mut out = format!("# {}\n\n", meta.title);
-    out.push_str(&format!("_{} · {} min_\n\n", &meta.created.get(..10).unwrap_or(""), meta.duration_sec / 60));
-    out.push_str(notes.markdown.trim());
+    Ok(export_markdown(&meta, &notes.markdown, &t.to_plaintext()))
+}
+
+/// `# Title`, a date and length line, the notes body (without notes.md's YAML
+/// front matter, which repeats the title) and the plain transcript.
+fn export_markdown(meta: &ConvMeta, notes_md: &str, transcript: &str) -> String {
+    let mins = if meta.duration_sec < 60 {
+        "under 1 min".to_string()
+    } else {
+        format!("{} min", (meta.duration_sec + 30) / 60)
+    };
+    let mut out = format!("# {}\n\n_{}, {}_\n\n", meta.title, meta.created.get(..10).unwrap_or(""), mins);
+    out.push_str(crate::vault::notes::strip_front_matter(notes_md).trim());
     out.push_str("\n\n## Transcript\n\n");
-    out.push_str(&t.to_plaintext());
-    Ok(out)
+    out.push_str(transcript);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn export_drops_front_matter() {
+        let meta = ConvMeta::new("Work/x", "Kickoff", "2026-10-18T09:00:00Z");
+        let md = "---\ntitle: Kickoff\ndate: 2026-10-18\n---\n\n## Summary\nShip it.\n";
+        let out = export_markdown(&meta, md, "[00:00] hi");
+        assert!(out.starts_with("# Kickoff\n\n_2026-10-18, under 1 min_\n\n## Summary\nShip it."));
+        assert!(!out.contains("title: Kickoff"));
+        assert!(out.ends_with("## Transcript\n\n[00:00] hi"));
+        assert_eq!(crate::vault::notes::strip_front_matter("no front matter"), "no front matter");
+    }
 }
 
 /// Native file picker for importing an audio file into the vault. `None` = cancelled.
 #[tauri::command]
 pub async fn pick_audio_file(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
+    #[cfg(feature = "e2e")]
+    if let Some(p) = crate::e2e::take_pick() {
+        return Ok(p);
+    }
     let picked = app_handle
         .dialog()
         .file()
@@ -194,6 +224,10 @@ pub async fn pick_audio_file(app_handle: tauri::AppHandle) -> Result<Option<Stri
 #[tauri::command]
 pub async fn pick_vault_folder(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
+    #[cfg(feature = "e2e")]
+    if let Some(p) = crate::e2e::take_pick() {
+        return Ok(p);
+    }
     let picked = app_handle
         .dialog()
         .file()

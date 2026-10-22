@@ -102,7 +102,8 @@ pub fn toggle_task(md: &str, text: &str, done: bool) -> Option<String> {
 
 // ---- helpers ----
 
-fn strip_front_matter(md: &str) -> &str {
+/// The notes body without its YAML front matter.
+pub fn strip_front_matter(md: &str) -> &str {
     if let Some(rest) = md.strip_prefix("---\n") {
         if let Some(end) = rest.find("\n---") {
             let after = &rest[end + 4..];

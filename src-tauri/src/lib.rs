@@ -5,6 +5,8 @@ mod calendar;
 mod chat;
 mod diagnostics;
 mod diarize;
+#[cfg(feature = "e2e")]
+pub mod e2e;
 mod export;
 mod import;
 mod insights;
@@ -101,6 +103,8 @@ pub fn run() {
         .manage(calendar::scheduler::AutoRecordScheduler::new())
         .setup(move |app| {
             diagnostics::log("setup: begin");
+            #[cfg(feature = "e2e")]
+            e2e::start(app.handle());
 
             // --- Global shortcuts & launch-at-login ---
             // Both features are disabled for stability during pre-App-Store development.

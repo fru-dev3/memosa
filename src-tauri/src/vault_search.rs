@@ -102,7 +102,7 @@ fn search_needles(v: &Vault, needles: &[String], scope: Option<&str>) -> Vec<Sea
         // Match notes.md (weighted higher) and the transcript text.
         if let Ok(notes) = v.notes(&conv) {
             if !notes.markdown.is_empty() {
-                if let Some((snippet, score)) = match_any(&notes.markdown, needles, 1.5) {
+                if let Some((snippet, score)) = match_any(crate::vault::notes::strip_front_matter(&notes.markdown), needles, 1.5) {
                     hits.push(SearchHit {
                         conv: conv.clone(),
                         title: title.clone(),
@@ -340,6 +340,8 @@ mod tests {
         assert_eq!(hits.len(), 1, "one hit per conversation, notes and transcript deduped");
         assert_eq!(hits[0].title, "Budget review");
         assert_eq!(search_in(&v, "budget for Q3", "exact", None).len(), 1);
+        let hit = &search_in(&v, "approved the budget", "exact", None)[0];
+        assert!(!hit.snippet.contains("title:"), "snippets never show front matter");
         assert!(search_in(&v, "budget", "exact", Some("Life")).is_empty(), "scope filters");
         let _ = std::fs::remove_dir_all(root);
     }

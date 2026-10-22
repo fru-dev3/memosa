@@ -281,3 +281,6 @@
 .v3-dinner { position: relative; }
 @media (max-width: 1080px) { .v3-menu { right: 28px; } }
 @media (max-width: 900px) { .v3-menu { right: 20px; } }
+.v3-tabs { overflow-x: auto; scrollbar-width: none; }
+.v3-tab { white-space: nowrap; flex: none; }
+.v3-kicker { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
