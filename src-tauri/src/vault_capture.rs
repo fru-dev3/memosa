@@ -146,21 +146,27 @@ pub async fn finalize_to_vault(
     // 2. Bring the audio in as audio.m4a.
     place_audio(&audio_path, &conv_dir)?;
 
-    // 3. Transcribe locally (CPU-bound → spawn_blocking) and write via the vault.
+    // 3. Transcribe locally (CPU-bound, so spawn_blocking) and write via the vault.
+    // A missing model or a whisper failure must not lose the recording: the
+    // conversation and its audio stay in the vault, without a transcript, and the
+    // reason is logged. The user can download a model and import again.
     let conv_audio = conv_dir.join("audio.m4a");
-    let (transcript, duration_sec) =
-        tokio::task::spawn_blocking(move || transcribe_to_vault_transcript(&conv_audio))
-            .await
-            .map_err(|e| format!("transcription task panicked: {e}"))??;
-
-    vault
-        .write_transcript(&id, &transcript)
-        .map_err(|e| e.to_string())?;
-
-    // 4. Record duration on meta.json.
-    if let Ok(mut meta) = vault.read_meta(&id) {
-        meta.duration_sec = duration_sec;
-        vault.write_meta(&meta).map_err(|e| e.to_string())?;
+    let result = tokio::task::spawn_blocking(move || transcribe_to_vault_transcript(&conv_audio))
+        .await
+        .map_err(|e| format!("transcription task panicked: {e}"))
+        .and_then(|r| r);
+    match result {
+        Ok((transcript, duration_sec)) => {
+            vault
+                .write_transcript(&id, &transcript)
+                .map_err(|e| e.to_string())?;
+            // 4. Record duration on meta.json.
+            if let Ok(mut meta) = vault.read_meta(&id) {
+                meta.duration_sec = duration_sec;
+                vault.write_meta(&meta).map_err(|e| e.to_string())?;
+            }
+        }
+        Err(e) => crate::diagnostics::log(&format!("vault: kept {id} without a transcript: {e}")),
     }
 
     Ok(id)
@@ -192,4 +198,25 @@ pub async fn vault_import_audio(
     title: Option<String>,
 ) -> Result<String, String> {
     import_audio(PathBuf::from(src), folder, title).await
+}
+
+/// Tauri command: (re)transcribe a conversation's own `audio.m4a` in place. Used when a
+/// recording or import landed before a Whisper model was downloaded.
+#[tauri::command]
+pub async fn vault_transcribe(id: String) -> Result<(), String> {
+    let vault = open_vault()?;
+    let audio = vault.root().join(&id).join("audio.m4a");
+    if !audio.exists() {
+        return Err("This conversation has no audio to transcribe.".into());
+    }
+    let (transcript, duration_sec) =
+        tokio::task::spawn_blocking(move || transcribe_to_vault_transcript(&audio))
+            .await
+            .map_err(|e| format!("transcription task panicked: {e}"))??;
+    vault.write_transcript(&id, &transcript).map_err(|e| e.to_string())?;
+    if let Ok(mut meta) = vault.read_meta(&id) {
+        meta.duration_sec = duration_sec;
+        vault.write_meta(&meta).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }

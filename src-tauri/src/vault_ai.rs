@@ -44,7 +44,7 @@ pub async fn vault_ask(q: String, scope: Option<String>) -> Result<AskAnswer, St
     if let Ok(sem) = crate::vault_embed::semantic_search(&q, scope.as_deref(), 8).await {
         hits.extend(sem);
     }
-    for h in crate::vault_search::search(&q, "exact", scope.as_deref()) {
+    for h in crate::vault_search::search(&q, "keyword", scope.as_deref()) {
         if !hits.iter().any(|x| x.conv == h.conv) {
             hits.push(h);
         }
@@ -98,8 +98,8 @@ contain the answer, say so.\n\nSOURCES:\n{}\nQUESTION: {}\n\nAnswer:",
         }),
         _ => Ok(AskAnswer {
             text: format!(
-                "A local model isn't running, so I can't write a synthesized answer — but here are the \
-most relevant conversations in your vault for \u{201c}{}\u{201d}. Start Ollama to get a written, cited answer.",
+                "A local model isn't running, so I can't write an answer. Here are the most relevant \
+conversations in your vault for \u{201c}{}\u{201d}. Turn on local AI in Settings to get a written, cited answer.",
                 q
             ),
             citations,

@@ -27,9 +27,14 @@ impl Vault {
         Ok(())
     }
 
+    /// Vault-relative path to an absolute one. `.`/`..` segments are dropped so a
+    /// caller can never reach outside the vault root.
     fn abs(&self, rel: &str) -> PathBuf {
         let mut p = self.root.clone();
-        for part in rel.split('/').filter(|s| !s.is_empty()) {
+        for part in rel
+            .split(['/', '\\'])
+            .filter(|s| !s.is_empty() && *s != "." && *s != "..")
+        {
             p.push(part);
         }
         p
@@ -200,14 +205,24 @@ impl Vault {
     // ---- structure ops (filesystem moves) ----
 
     pub fn create_folder(&self, path: &str) -> io::Result<()> {
-        fs::create_dir_all(self.abs(path))
+        let dir = self.abs(path);
+        if dir == self.root {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Give the folder a name."));
+        }
+        fs::create_dir_all(dir)
     }
 
     /// Move a conversation into `dest_folder`; returns its new id.
     pub fn move_conv(&self, id: &str, dest_folder: &str) -> io::Result<String> {
         let name = id.rsplit('/').next().unwrap_or(id).to_string();
         let new_id = join_rel(dest_folder, &name);
+        if new_id == id {
+            return Ok(new_id);
+        }
         let dest = self.abs(&new_id);
+        if dest.exists() {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, "That folder already has a conversation with this name."));
+        }
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -222,8 +237,12 @@ impl Vault {
     pub fn rename(&self, id: &str, title: &str) -> io::Result<String> {
         let folder = parent_of(id);
         let created = self.read_meta(id)?.created;
-        let slug = self.unique_slug(&folder, title, &created);
-        let new_id = join_rel(&folder, &slug);
+        // Same slug (e.g. only the case changed): keep the folder, update the title.
+        let new_id = if join_rel(&folder, &slugify(title, &created)) == id {
+            id.to_string()
+        } else {
+            join_rel(&folder, &self.unique_slug(&folder, title, &created))
+        };
         if new_id != id {
             fs::rename(self.abs(id), self.abs(&new_id))?;
         }
@@ -236,10 +255,20 @@ impl Vault {
 
     /// Soft-delete: move into `.memosa/trash/`.
     pub fn delete(&self, id: &str) -> io::Result<()> {
-        let name = id.replace('/', "__");
+        let src = self.abs(id);
+        if src == self.root || !is_conversation(&src) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Not a conversation."));
+        }
         let trash = self.root.join(".memosa").join("trash");
         fs::create_dir_all(&trash)?;
-        fs::rename(self.abs(id), trash.join(name))
+        let base = id.replace('/', "__");
+        let mut dest = trash.join(&base);
+        let mut n = 2;
+        while dest.exists() {
+            dest = trash.join(format!("{}-{}", base, n));
+            n += 1;
+        }
+        fs::rename(src, dest)
     }
 
     // ---- helpers ----
@@ -404,5 +433,38 @@ mod tests {
         assert!(v.read_meta(&new_id).is_ok());
         assert!(v.read_meta(&id).is_err());
         let _ = fs::remove_dir_all(v.root());
+    }
+
+    #[test]
+    fn rename_delete_and_no_escape() {
+        let root = tmp_root();
+        let v = Vault::new(&root);
+        v.ensure().unwrap();
+        let id = v.create_conversation("Work", "Kickoff", "2026-06-17T10:00:00Z").unwrap();
+        let renamed = v.rename(&id, "Northwind kickoff").unwrap();
+        assert_eq!(renamed, "Work/2026-06-17-northwind-kickoff");
+        assert_eq!(v.read_meta(&renamed).unwrap().title, "Northwind kickoff");
+        assert_eq!(v.rename(&renamed, "Northwind Kickoff").unwrap(), renamed, "case-only rename keeps the folder");
+
+        // Dot segments never leave the vault root.
+        assert_eq!(v.abs("../../etc"), root.join("etc"));
+        assert!(v.create_folder("..").is_err());
+        assert!(v.delete("..").is_err());
+        assert!(v.delete("Work").is_err(), "a folder is not a conversation");
+
+        // Two deletes of the same id both land in trash.
+        v.delete(&renamed).unwrap();
+        let again = v.create_conversation("Work", "Northwind kickoff", "2026-06-17T10:00:00Z").unwrap();
+        assert_eq!(again, renamed);
+        v.delete(&again).unwrap();
+        assert_eq!(fs::read_dir(root.join(".memosa/trash")).unwrap().count(), 2);
+        assert_eq!(v.tree().unwrap().count, Some(0));
+
+        // Moving onto an existing name is refused, moving in place is a no-op.
+        let a = v.create_conversation("A", "Same", "2026-06-17T10:00:00Z").unwrap();
+        let b = v.create_conversation("B", "Same", "2026-06-17T10:00:00Z").unwrap();
+        assert!(v.move_conv(&a, "B").is_err());
+        assert_eq!(v.move_conv(&b, "B").unwrap(), b);
+        let _ = fs::remove_dir_all(root);
     }
 }

@@ -12,13 +12,16 @@ fn pointer_file() -> PathBuf {
         .join("vault_path")
 }
 
+/// `~/Documents/Memosa Vault`. Kept apart from the legacy recordings folder
+/// (`~/Documents/Memosa`) so old meeting folders never show up as domains.
 fn default_vault() -> PathBuf {
-    dirs::home_dir()
+    dirs::document_dir()
+        .or_else(|| dirs::home_dir().map(|h| h.join("Documents")))
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("Documents/Memosa Vault")
+        .join("Memosa Vault")
 }
 
-/// Resolve the active vault root: `$MEMOSA_VAULT` → pointer file → default. Public so the
+/// Resolve the active vault root: `$MEMOSA_VAULT`, then the pointer file, then the default. Public so the
 /// MCP server, search, and migration modules read the same location.
 pub fn vault_root() -> PathBuf {
     if let Ok(p) = std::env::var("MEMOSA_VAULT") {
@@ -58,6 +61,9 @@ pub fn vault_path() -> String {
 
 #[tauri::command]
 pub fn vault_set_path(path: String) -> Result<(), String> {
+    if path.trim().is_empty() {
+        return Err("Choose a folder for the vault.".into());
+    }
     let pf = pointer_file();
     if let Some(parent) = pf.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -162,4 +168,23 @@ pub fn vault_export_markdown(id: String) -> Result<String, String> {
     out.push_str("\n\n## Transcript\n\n");
     out.push_str(&t.to_plaintext());
     Ok(out)
+}
+
+/// Native file picker for importing an audio file into the vault. `None` = cancelled.
+#[tauri::command]
+pub async fn pick_audio_file(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app_handle
+        .dialog()
+        .file()
+        .set_title("Import audio into Memosa")
+        .add_filter("Audio", &["m4a", "mp3", "wav", "aac", "mp4", "flac", "ogg"])
+        .blocking_pick_file();
+    match picked {
+        None => Ok(None),
+        Some(f) => f
+            .into_path()
+            .map(|p| Some(p.to_string_lossy().to_string()))
+            .map_err(|e| e.to_string()),
+    }
 }

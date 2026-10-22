@@ -367,6 +367,8 @@ pub fn run() {
             vault_cmds::task_toggle,
             vault_cmds::vault_reveal,
             vault_cmds::vault_export_markdown,
+            vault_cmds::pick_audio_file,
+            vault_capture::vault_transcribe,
             vault_search::vault_search,
             vault_search::vault_tasks,
             vault_ai::vault_ask,

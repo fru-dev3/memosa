@@ -5,9 +5,9 @@
 //! `notes.md`, then does case-insensitive substring matching and builds a snippet around
 //! the best match. `tasks` aggregates GFM checkboxes from every `notes.md`.
 //!
-//! `mode = "exact"` is the keyword path. `mode = "semantic"` is a stub that falls back to
-//! keyword matching: the standalone files-only build has no embeddings index to query
-//! (the old DB-backed Ollama path in `src/search/mod.rs` is intentionally not depended on).
+//! `mode = "exact"` matches the whole phrase. The `vault_search` command answers
+//! `mode = "semantic"` from the local embedding index (`vault_embed`) and falls back to
+//! word-level keyword matching when there is no index or no local model.
 
 use crate::vault::{NodeKind, Task, TreeNode, Vault};
 use crate::vault_cmds::vault_root;
@@ -31,18 +31,51 @@ pub struct SearchHit {
 /// Characters of context to include on each side of a match in the snippet.
 const SNIPPET_PAD: usize = 80;
 
-/// Keyword/exact search over the vault. `mode` accepts `"exact"` (default) and `"semantic"`
-/// (currently a keyword fallback). `scope` is a vault-relative path prefix filter.
+/// Keyword search over the vault. `mode = "exact"` matches the whole phrase; any other
+/// mode (the keyword fallback for "semantic" and for Ask) matches the significant words
+/// of the query, so "what did we decide about the budget" still finds "budget".
+/// `scope` is a vault-relative path prefix filter. One hit per conversation (the best).
 pub fn search(q: &str, mode: &str, scope: Option<&str>) -> Vec<SearchHit> {
+    search_in(&Vault::new(vault_root()), q, mode, scope)
+}
+
+pub fn search_in(v: &Vault, q: &str, mode: &str, scope: Option<&str>) -> Vec<SearchHit> {
     let query = q.trim();
     if query.is_empty() {
         return Vec::new();
     }
-    // "semantic" has no standalone index here, so it degrades to keyword matching.
-    let _ = mode;
+    if mode == "exact" {
+        return search_needles(v, &[query.to_lowercase()], scope);
+    }
+    let terms = significant_terms(query);
+    if terms.is_empty() {
+        return search_needles(v, &[query.to_lowercase()], scope);
+    }
+    search_needles(v, &terms, scope)
+}
 
-    let needle = query.to_lowercase();
-    let v = Vault::new(vault_root());
+/// Lowercased words of 3+ letters that are not common stopwords.
+fn significant_terms(q: &str) -> Vec<String> {
+    const STOP: &[&str] = &[
+        "the", "and", "for", "are", "was", "were", "what", "when", "where", "which", "who",
+        "why", "how", "did", "does", "about", "with", "that", "this", "from", "have", "has",
+        "had", "our", "you", "your", "can", "could", "would", "should", "into", "any", "all",
+        "say", "said", "tell", "there", "their", "they", "them", "then", "than", "been",
+    ];
+    let mut out: Vec<String> = Vec::new();
+    for w in q
+        .split(|c: char| !c.is_alphanumeric())
+        .map(|w| w.to_lowercase())
+        .filter(|w| w.chars().count() >= 3 && !STOP.contains(&w.as_str()))
+    {
+        if !out.contains(&w) {
+            out.push(w);
+        }
+    }
+    out
+}
+
+fn search_needles(v: &Vault, needles: &[String], scope: Option<&str>) -> Vec<SearchHit> {
     let scope_prefix = scope.map(normalize_prefix);
 
     let mut hits: Vec<SearchHit> = Vec::new();
@@ -69,27 +102,27 @@ pub fn search(q: &str, mode: &str, scope: Option<&str>) -> Vec<SearchHit> {
         // Match notes.md (weighted higher) and the transcript text.
         if let Ok(notes) = v.notes(&conv) {
             if !notes.markdown.is_empty() {
-                if let Some((snippet, score)) = match_text(&notes.markdown, &needle, 1.5) {
+                if let Some((snippet, score)) = match_any(&notes.markdown, needles, 1.5) {
                     hits.push(SearchHit {
                         conv: conv.clone(),
                         title: title.clone(),
                         path: format!("{}/notes.md", conv),
                         snippet,
-                        score: bonus(score, &title, &needle),
+                        score: bonus(score, &title, needles),
                         date: date.clone(),
                     });
                 }
             }
         }
 
-        if let Some(text) = transcript_text(&v, &conv) {
-            if let Some((snippet, score)) = match_text(&text, &needle, 1.0) {
+        if let Some(text) = transcript_text(v, &conv) {
+            if let Some((snippet, score)) = match_any(&text, needles, 1.0) {
                 hits.push(SearchHit {
                     conv: conv.clone(),
                     title: title.clone(),
                     path: format!("{}/transcript.txt", conv),
                     snippet,
-                    score: bonus(score, &title, &needle),
+                    score: bonus(score, &title, needles),
                     date: date.clone(),
                 });
             }
@@ -102,7 +135,25 @@ pub fn search(q: &str, mode: &str, scope: Option<&str>) -> Vec<SearchHit> {
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| b.date.cmp(&a.date))
     });
+    // Notes and transcript can both match; keep the best hit per conversation.
+    let mut seen = std::collections::HashSet::new();
+    hits.retain(|h| seen.insert(h.conv.clone()));
     hits
+}
+
+/// Sum of per-word matches; the snippet comes from the first word that matches.
+fn match_any(haystack: &str, needles: &[String], weight: f32) -> Option<(String, f32)> {
+    let mut best: Option<(String, f32)> = None;
+    let mut total = 0.0;
+    for n in needles {
+        if let Some((snip, score)) = match_text(haystack, n, weight) {
+            total += score;
+            if best.is_none() {
+                best = Some((snip, 0.0));
+            }
+        }
+    }
+    best.map(|(snip, _)| (snip, total))
 }
 
 /// Aggregate action items (GFM checkboxes) from every `notes.md` in the vault.
@@ -139,8 +190,17 @@ pub fn tasks(filter: &str) -> Vec<Task> {
 
 // ---- Tauri commands ----
 
+/// `semantic` uses the local embedding index when it exists and Ollama answers;
+/// otherwise it falls back to keyword matching, so search never just fails.
 #[tauri::command]
-pub fn vault_search(q: String, mode: String, scope: Option<String>) -> Result<Vec<SearchHit>, String> {
+pub async fn vault_search(q: String, mode: String, scope: Option<String>) -> Result<Vec<SearchHit>, String> {
+    if mode == "semantic" {
+        if let Ok(hits) = crate::vault_embed::semantic_search(&q, scope.as_deref(), 20).await {
+            if !hits.is_empty() {
+                return Ok(hits);
+            }
+        }
+    }
     Ok(search(&q, &mode, scope.as_deref()))
 }
 
@@ -224,13 +284,10 @@ fn build_snippet(text: &str, start: usize, len: usize) -> String {
     window
 }
 
-/// Small score bonus when the title itself matches the query.
-fn bonus(score: f32, title: &str, needle: &str) -> f32 {
-    if title.to_lowercase().contains(needle) {
-        score + 2.0
-    } else {
-        score
-    }
+/// Small score bonus for each query word the title itself contains.
+fn bonus(score: f32, title: &str, needles: &[String]) -> f32 {
+    let t = title.to_lowercase();
+    score + 2.0 * needles.iter().filter(|n| t.contains(n.as_str())).count() as f32
 }
 
 fn floor_char_boundary(s: &str, mut i: usize) -> usize {
@@ -251,4 +308,45 @@ fn ceil_char_boundary(s: &str, mut i: usize) -> usize {
         i += 1;
     }
     i
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vault::{Notes, Segment, Task, Transcript};
+
+    fn sample_vault() -> (Vault, std::path::PathBuf) {
+        let root = std::env::temp_dir().join(format!("memosa-search-{}-{}", std::process::id(), rand::random::<u32>()));
+        let v = Vault::new(&root);
+        v.ensure().unwrap();
+        let id = v.create_conversation("Work/Northwind", "Budget review", "2026-06-17T10:00:00Z").unwrap();
+        v.write_transcript(&id, &Transcript {
+            schema: 1, language: "en".into(), model: "test".into(), speakers: Default::default(),
+            segments: vec![Segment { start: 0.0, end: 3.0, speaker: String::new(), text: "Sam Lee said the budget for Q3 is approved.".into() }],
+        }).unwrap();
+        v.write_notes(&id, &Notes {
+            summary: "We approved the budget.".into(), decisions: vec![],
+            actions: vec![Task { conv: id.clone(), text: "Send the budget to finance".into(), done: false, owner: None, due: None }],
+            markdown: String::new(),
+        }).unwrap();
+        (v, root)
+    }
+
+    #[test]
+    fn exact_needs_the_whole_phrase_keyword_needs_words() {
+        let (v, root) = sample_vault();
+        assert!(search_in(&v, "what did we decide about the budget", "exact", None).is_empty());
+        let hits = search_in(&v, "what did we decide about the budget", "semantic", None);
+        assert_eq!(hits.len(), 1, "one hit per conversation, notes and transcript deduped");
+        assert_eq!(hits[0].title, "Budget review");
+        assert_eq!(search_in(&v, "budget for Q3", "exact", None).len(), 1);
+        assert!(search_in(&v, "budget", "exact", Some("Life")).is_empty(), "scope filters");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn stopwords_are_dropped() {
+        assert_eq!(significant_terms("What did we decide about the budget?"), vec!["decide", "budget"]);
+        assert!(significant_terms("a an of").is_empty());
+    }
 }

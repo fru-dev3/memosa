@@ -166,7 +166,7 @@ pub async fn generate_text(prompt: &str) -> Result<String, String> {
     let settings = SettingsManager::load();
     match settings.insight_engine {
         InsightEngine::Heuristic => {
-            Err("This feature needs a local (Ollama) or cloud AI engine. Enable one in Settings → AI Insights.".into())
+            Err("This needs local AI. Turn on Ollama in Settings, then try again.".into())
         }
         InsightEngine::Ollama => call_ollama_text(&settings.ollama_url, &settings.ollama_model, prompt).await,
         InsightEngine::Byok => {
