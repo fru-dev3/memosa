@@ -1,4 +1,4 @@
-# 10 — Design System & Shared Components (Frontend)
+# 10, Design System & Shared Components (Frontend)
 
 The 3.0 look, as reusable React + CSS. Source of truth = the mockups in `docs/design/`.
 Depends on **09** (for data-bound components). No emoji anywhere.

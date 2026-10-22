@@ -4,8 +4,8 @@
 //! and defines the [`Diarizer`] interface that any backend implements.
 //!
 //! Current backend: the existing AI speaker-labeling. **Planned upgrade:** a true
-//! acoustic diarizer (sherpa-onnx — cross-platform, so it lands together with the
-//! Windows work — running pyannote-style segmentation + speaker-embedding
+//! acoustic diarizer (sherpa-onnx, cross-platform, so it lands together with the
+//! Windows work, running pyannote-style segmentation + speaker-embedding
 //! clustering on-device). The storage, interface, and surfacing here are
 //! engine-independent so swapping in the acoustic backend is localized.
 
@@ -26,7 +26,7 @@ pub trait Diarizer {
     fn label(&self, pieces: &[(i64, i64, String)]) -> Result<Vec<SpeakerSegment>, String>;
 }
 
-/// Merge consecutive segments by the same speaker into one — cleaner to store,
+/// Merge consecutive segments by the same speaker into one, cleaner to store,
 /// read, and display. Pure + deterministic.
 pub fn merge_adjacent(segs: Vec<SpeakerSegment>) -> Vec<SpeakerSegment> {
     let mut out: Vec<SpeakerSegment> = Vec::new();

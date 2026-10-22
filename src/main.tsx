@@ -5,9 +5,9 @@ import './index.css'
 import './styles/tokens.css'
 import App3 from './v3/App3.tsx'
 
-// 3.0 UI coexists with the legacy app; opt in with ?ui=3 during the rebuild.
-const useV3 = new URLSearchParams(window.location.search).get('ui') === '3' || true // showing 3.0 by default while you review
+// 3.0 is the app. The legacy UI stays reachable with ?ui=legacy while it is retired.
+const legacy = new URLSearchParams(window.location.search).get('ui') === 'legacy'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>{useV3 ? <App3 /> : <App />}</React.StrictMode>,
+  <React.StrictMode>{legacy ? <App /> : <App3 />}</React.StrictMode>,
 )

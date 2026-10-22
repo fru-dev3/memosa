@@ -1,4 +1,4 @@
-//! Vault data types — the on-disk schemas from spec 01. Files-only; no database.
+//! Vault data types, the on-disk schemas from spec 01. Files-only; no database.
 //! Every shape here serializes directly to/from the JSON/JSONL/Markdown in the vault.
 
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ fn default_audio() -> String {
     "audio.m4a".into()
 }
 
-/// `meta.json` — conversation metadata (spec 01).
+/// `meta.json`, conversation metadata (spec 01).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConvMeta {
     #[serde(default = "schema_one")]

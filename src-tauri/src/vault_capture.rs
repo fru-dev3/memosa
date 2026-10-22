@@ -8,7 +8,7 @@
 //!
 //! No database. No network (transcription is fully local; whisper requires a model
 //! that the user has already downloaded in Settings). Reuses the existing whisper path
-//! — it never reimplements inference or audio decoding.
+//!, it never reimplements inference or audio decoding.
 
 use crate::transcription::models::best_available_model;
 use crate::transcription::whisper::{TranscriptSegment, WhisperTranscriber};
@@ -67,7 +67,7 @@ fn place_audio(src: &Path, dest_dir: &Path) -> Result<PathBuf, String> {
 
 /// Run whisper.cpp over `audio_path` and assemble a vault [`Transcript`].
 ///
-/// Reuses [`WhisperTranscriber`] — no reimplementation of inference or audio decoding.
+/// Reuses [`WhisperTranscriber`], no reimplementation of inference or audio decoding.
 /// Picks the best model that is actually downloaded (preferring `Small`). Returns a
 /// clear, user-facing error if no model is present so the caller can surface it.
 /// Returns the transcript plus the inferred duration in seconds (from the last segment).

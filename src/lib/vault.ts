@@ -1,5 +1,5 @@
 // Typed IPC client for the files-only vault (spec 09). The UI talks to the vault
-// only through these wrappers — never the filesystem directly.
+// only through these wrappers, never the filesystem directly.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -114,15 +114,23 @@ export const vault = {
   summarize: (id: string) => invoke<void>("vault_summarize", { id }),
   // semantic index (spec 03)
   reindex: () => invoke<number>("vault_reindex"),
-  embeddingStatus: () => invoke<[number, number]>("vault_embedding_status"),
+  embeddingStatus: () =>
+    invoke<{ chunks: number; stale: number; conversations: number }>("vault_embedding_status"),
   // calendar auto-file (spec 07)
   calendarAutofile: (title: string, attendees: string[], startIso: string, eventId: string) =>
     invoke<string>("vault_calendar_autofile", { title, attendees, startIso, eventId }),
   // drive text-sync (spec 08)
   syncStatus: () => invoke<{ enabled: boolean; last?: string; pending: number; connected: boolean }>("vault_sync_status"),
-  syncNow: () => invoke<{ enabled: boolean; last?: string; pending: number; connected: boolean }>("vault_sync_now"),
+  syncNow: () =>
+    invoke<{ uploaded: number; pending: number; errors: string[]; connected: boolean; message: string; last?: string }>(
+      "vault_sync_now",
+    ),
   syncSet: (enabled: boolean, includeAudio: boolean) =>
-    invoke<void>("vault_sync_set", { enabled, includeAudio }),
+    invoke<unknown>("vault_sync_set", { enabled, includeAudio }),
+  transcribe: (id: string) => invoke<void>("vault_transcribe", { id }),
+  pickAudio: () => invoke<string | null>("pick_audio_file"),
+  pickFolder: () => invoke<string | null>("pick_vault_folder"),
+  mcpInfo: () => invoke<{ binaryPath: string; config: string }>("mcp_connect_info"),
   reveal: (id?: string) => invoke<void>("vault_reveal", { id }),
   exportMarkdown: (id: string) => invoke<string>("vault_export_markdown", { id }),
   // provided by the migration module
@@ -131,7 +139,7 @@ export const vault = {
   ),
 };
 
-// Recording — wired to the EXISTING recorder (backward compatible: recordings appear
+// Recording, wired to the existing recorder (backward compatible: recordings appear
 // in both the legacy app and, via the finalize hook, the vault).
 export interface RecStatus {
   is_recording: boolean;
@@ -143,5 +151,6 @@ export const recorder = {
     invoke<void>("start_recording", { meetingId: crypto.randomUUID(), title, profileId: null }),
   stop: () => invoke<{ meeting_id: string; duration_seconds: number }>("stop_recording"),
   status: () => invoke<RecStatus>("get_recording_status"),
-  onLevel: (cb: (level: number) => void) => listen<number>("audio-level", (e) => cb(e.payload)),
+  onLevel: (cb: (level: number) => void) =>
+    listen<{ level: number }>("audio-level", (e) => cb(e.payload?.level ?? 0)),
 };

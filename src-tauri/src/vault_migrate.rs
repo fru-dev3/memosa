@@ -2,7 +2,7 @@
 //! into the files-only 3.0 vault (specs 01, 02, 12).
 //!
 //! This is the ONLY place the legacy database is read. It is opened read-only and is
-//! never modified or deleted — the user removes `~/.memosa` / the old DB manually after
+//! never modified or deleted, the user removes `~/.memosa` / the old DB manually after
 //! verifying the migration. Re-running is idempotent: a conversation already present in
 //! the vault (matched by created-time + title) is skipped.
 
@@ -54,7 +54,7 @@ pub fn migrate(vault_root: &Path) -> Result<MigrationReport, String> {
 
     let db_path = legacy_db_path();
     if !db_path.exists() {
-        // Nothing to migrate — treat as a clean no-op rather than an error so the
+        // Nothing to migrate, treat as a clean no-op rather than an error so the
         // command is safe to call on a fresh install.
         return Ok(report);
     }

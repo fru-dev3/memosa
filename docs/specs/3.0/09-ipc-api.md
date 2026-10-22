@@ -1,4 +1,4 @@
-# 09 — Tauri IPC: Command & Event API  ⟨CONTRACT — freeze before fan-out⟩
+# 09, Tauri IPC: Command & Event API  ⟨CONTRACT, freeze before fan-out⟩
 
 The backend↔frontend boundary. Frontend calls **commands** (`invoke`); backend pushes
 **events** (`emit`). All types are JSON; shapes reference spec 01. No DB types ever cross.
@@ -66,7 +66,7 @@ interface AskAnswer { text:string; citations:Citation[] }
 
 ## Rules
 - Commands are **async**, return `Result<T,String>`; the string error surfaces as a toast.
-- No streaming return values — stream via events keyed by a call id where needed.
+- No streaming return values, stream via events keyed by a call id where needed.
 - Frontend never touches the filesystem directly; everything goes through these commands.
 
 ## Acceptance

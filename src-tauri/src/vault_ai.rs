@@ -2,7 +2,7 @@
 //! generation through the existing local engine (insights::generate_text, which is
 //! gated by Bunker mode and uses Ollama), returning inline citations to source
 //! conversations. Degrades gracefully to "here are the relevant conversations" when
-//! no local model is reachable — it never silently reaches for a cloud model.
+//! no local model is reachable, it never silently reaches for a cloud model.
 
 use crate::vault::Vault;
 use crate::vault_cmds::vault_root;

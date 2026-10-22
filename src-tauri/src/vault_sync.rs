@@ -3,7 +3,7 @@
 //! DECIDED: only the TEXT files of a conversation are ever uploaded
 //! (`meta.json`, `transcript.json`, `transcript.txt`, `notes.md`) plus the folder
 //! structure. The recording (`audio.m4a`) and the rebuildable `.memosa/` folder are
-//! NEVER synced — audio never leaves the Mac.
+//! NEVER synced, audio never leaves the Mac.
 //!
 //! The sync is a one-way mirror (local → Drive). Change detection is done against a
 //! per-vault manifest (`.memosa/sync_manifest.json`, a map of vault-relative path →
@@ -41,7 +41,7 @@ const SYNCABLE_FILES: &[&str] = &["meta.json", "transcript.json", "transcript.tx
 // Persisted config + manifest
 // ---------------------------------------------------------------------------
 
-/// `.memosa/sync.json` — user-controlled sync configuration.
+/// `.memosa/sync.json`, user-controlled sync configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncConfig {
     /// Master on/off switch. Off by default (privacy posture).
@@ -66,7 +66,7 @@ impl Default for SyncConfig {
     }
 }
 
-/// `.memosa/sync_manifest.json` — map of vault-relative path → SHA-256 hex of the bytes
+/// `.memosa/sync_manifest.json`, map of vault-relative path → SHA-256 hex of the bytes
 /// that were last uploaded. Used purely for change detection.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct Manifest {
@@ -171,7 +171,7 @@ fn now_iso() -> String {
 // ---------------------------------------------------------------------------
 
 /// Read a Drive access token. Order: `MEMOSA_DRIVE_TOKEN` env (testing) → Keychain.
-/// Returns None when no Drive scope/token has been provisioned — callers must degrade
+/// Returns None when no Drive scope/token has been provisioned, callers must degrade
 /// gracefully rather than error.
 fn drive_access_token() -> Option<String> {
     if let Ok(tok) = std::env::var("MEMOSA_DRIVE_TOKEN") {
@@ -536,7 +536,7 @@ async fn run_sync(root: &Path) -> SyncReport {
                 errors: Vec::new(),
                 connected: false,
                 message: format!(
-                    "Not connected to Google Drive — {} text file(s) ready to upload once a Drive scope is granted. Audio is never synced.",
+                    "Not connected to Google Drive. {} text file(s) are ready to upload once Drive access is granted. Audio is never synced.",
                     pending
                 ),
                 last: cfg.last_sync.clone(),
@@ -644,8 +644,8 @@ pub async fn vault_sync_now() -> Result<SyncReport, String> {
     Ok(run_sync(&root).await)
 }
 
-/// Persist sync settings. `include_audio` is forced to false per the product decision —
-/// audio never leaves the device — regardless of what the caller passes.
+/// Persist sync settings. `include_audio` is forced to false per the product decision -
+/// audio never leaves the device, regardless of what the caller passes.
 #[tauri::command]
 pub async fn vault_sync_set(enabled: bool, include_audio: bool) -> Result<SyncStatus, String> {
     let _ = include_audio; // intentionally ignored; audio is never synced.

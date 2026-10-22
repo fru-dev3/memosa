@@ -1,5 +1,5 @@
 /* Memosa 3.0 design tokens (spec 10). Two themes of one system: Daylight (light,
-   editorial, evergreen) and Vault (dark, signal-green). Source: docs/design mockups. */
+   editorial, office green #008000) and Vault (dark, signal green). */
 
 :root,
 :root[data-theme="daylight"] {
@@ -13,12 +13,12 @@
   --text: #1a1a17;
   --muted: #6e6e66;
   --faint: #9a9a90;
-  --accent: #1f4d3a;
-  --accent-hover: #27634a;
-  --accent-soft: #eaf1ec;
+  --accent: #008000;
+  --accent-hover: #006b00;
+  --accent-soft: #e8f3e8;
   --live: #c2412b;
-  --selected: #eff3ee;
-  --hl: #fce7c8;
+  --selected: #eef6ee;
+  --hl: #d9eed9;
   --shadow: 0 1px 2px rgba(20, 20, 15, 0.05), 0 16px 40px rgba(20, 20, 15, 0.13);
   --scrim: rgba(28, 28, 22, 0.3);
 }
@@ -39,7 +39,7 @@
   --accent-soft: #14241d;
   --live: #e0654a;
   --selected: #1a1e24;
-  --hl: #3a3320;
+  --hl: #17331f;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 48px rgba(0, 0, 0, 0.55);
   --scrim: rgba(0, 0, 0, 0.55);
 }
@@ -62,7 +62,7 @@
     --accent-soft: #14241d;
     --live: #e0654a;
     --selected: #1a1e24;
-    --hl: #3a3320;
+    --hl: #17331f;
     --scrim: rgba(0, 0, 0, 0.55);
   }
 }

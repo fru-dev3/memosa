@@ -1,4 +1,4 @@
-# 07 — Calendar & Auto-record (Google)
+# 07, Calendar & Auto-record (Google)
 
 Connect Google Calendar; auto-capture meetings and auto-file them. Depends on **01,02,04**.
 

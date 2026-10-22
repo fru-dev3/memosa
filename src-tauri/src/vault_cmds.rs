@@ -188,3 +188,23 @@ pub async fn pick_audio_file(app_handle: tauri::AppHandle) -> Result<Option<Stri
             .map_err(|e| e.to_string()),
     }
 }
+
+/// Native folder picker for the vault location. Unlike the legacy
+/// `pick_storage_folder`, it never touches the legacy recordings `storage_path`.
+#[tauri::command]
+pub async fn pick_vault_folder(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app_handle
+        .dialog()
+        .file()
+        .set_title("Choose the Memosa vault folder")
+        .set_directory(vault_root())
+        .blocking_pick_folder();
+    match picked {
+        None => Ok(None),
+        Some(f) => f
+            .into_path()
+            .map(|p| Some(p.to_string_lossy().to_string()))
+            .map_err(|e| e.to_string()),
+    }
+}

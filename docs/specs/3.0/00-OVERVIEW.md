@@ -1,4 +1,4 @@
-# Memosa 3.0 — Architecture Overview & Spec Index
+# Memosa 3.0, Architecture Overview & Spec Index
 
 ## North star
 Memosa is a **personal memory vault**. The app is the front door; the product is a
@@ -20,7 +20,7 @@ single folder of **plain files** the user owns and any AI can read.
 `~/Documents/Memosa Vault/` (default; any folder can be chosen in Settings).
 
 ## Tech
-Tauri 2 app — **Rust** backend (vault, transcription, AI, MCP, calendar, sync),
+Tauri 2 app, **Rust** backend (vault, transcription, AI, MCP, calendar, sync),
 **React + TypeScript + Zustand** frontend. No DB dependency anywhere.
 
 ## Module map (→ owning spec)
@@ -40,22 +40,22 @@ Tauri 2 app — **Rust** backend (vault, transcription, AI, MCP, calendar, sync)
 | One-off | Migration: current DB → files | 12 |
 
 ## Parallelization plan (for the coding session)
-**Phase A — lock contracts (must finish before fan-out):** specs **01** and **09**.
+**Phase A, lock contracts (must finish before fan-out):** specs **01** and **09**.
 These define every file schema and every backend↔frontend call. One agent each, reviewed,
 frozen. Everything else codes against them.
 
-**Phase B — parallel fan-out (independent agents, isolated worktrees):**
-- Agent: Vault core (02) — depends on 01
-- Agent: Search & index (03) — depends on 01
-- Agent: Capture & transcription (04) — depends on 01
-- Agent: Local AI / models (05) — depends on 01
-- Agent: MCP server (06) — depends on 01
-- Agent: Design system (10) — depends on 09
-- Agent: Screens (11) — depends on 09, 10
-- Agent: Calendar (07), Drive sync (08) — depend on 01/02
-- Agent: Migration (12) — depends on 01
+**Phase B, parallel fan-out (independent agents, isolated worktrees):**
+- Agent: Vault core (02), depends on 01
+- Agent: Search & index (03), depends on 01
+- Agent: Capture & transcription (04), depends on 01
+- Agent: Local AI / models (05), depends on 01
+- Agent: MCP server (06), depends on 01
+- Agent: Design system (10), depends on 09
+- Agent: Screens (11), depends on 09, 10
+- Agent: Calendar (07), Drive sync (08), depend on 01/02
+- Agent: Migration (12), depends on 01
 
-**Phase C — integration:** wire IPC (09) ends together, run the app, fix seams, verify
+**Phase C, integration:** wire IPC (09) ends together, run the app, fix seams, verify
 against acceptance criteria. Single integrator (me) pulls branches together.
 
 ## Definition of done (3.0)

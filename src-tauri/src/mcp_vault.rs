@@ -2,13 +2,13 @@
 //! (Claude Desktop / Claude Code / Cursor / any MCP client) over stdio.
 //!
 //! Launched as a subcommand: `memosa mcp`. It reads the same file vault the app
-//! uses, READ-ONLY (no DB, no writes), and never sends anything anywhere itself —
+//! uses, READ-ONLY (no DB, no writes), and never sends anything anywhere itself -
 //! the connected AI client decides what to do with what it retrieves. This is the
 //! "context layer for your intelligence" surface: your conversations, queryable by
 //! your AI, with the corpus staying on disk.
 //!
 //! Protocol: JSON-RPC 2.0 over newline-delimited stdio (MCP stdio transport).
-//! Hand-rolled (no MCP crate dep) — methods: initialize, tools/list, tools/call, ping.
+//! Hand-rolled (no MCP crate dep), methods: initialize, tools/list, tools/call, ping.
 //! The framing mirrors the legacy `mcp` module exactly; only the data source changed.
 
 use crate::vault::{NodeKind, TreeNode, Vault};
@@ -138,7 +138,7 @@ fn handle_tool_call(id: Option<Value>, req: &Value, enabled: bool) -> Value {
         return ok(
             id,
             text_content(
-                "The Memosa MCP server is disabled. Enable it in Memosa → Settings → AI Insights → MCP server.",
+                "The Memosa MCP server is disabled. Turn it on in Memosa Settings, under Connect another AI.",
                 true,
             ),
         );

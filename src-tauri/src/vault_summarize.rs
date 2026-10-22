@@ -1,7 +1,7 @@
 //! Summarize a conversation into `notes.md` (spec 05).
 //!
 //! Reads the conversation transcript via the files-only Vault, asks the local
-//! engine (`insights::generate_text`, routed to Ollama and gated by Bunker mode —
+//! engine (`insights::generate_text`, routed to Ollama and gated by Bunker mode -
 //! it never reaches cloud directly) for a concise Summary, Decisions, and Action
 //! items, parses the model output into a `Notes` value, and writes it with
 //! `write_notes`. The vault's notes serializer renders each `Task` as a GFM
@@ -301,7 +301,7 @@ fn heading_text(line: &str) -> Option<&str> {
             return Some(rest.trim().trim_end_matches(':'));
         }
     }
-    // **Summary** or **Summary:** on its own line — a short, label-only bold line.
+    // **Summary** or **Summary:** on its own line, a short, label-only bold line.
     if line.starts_with("**") && (line.ends_with("**") || line.ends_with("**:")) {
         let label = line.trim_matches('*').trim_end_matches(':').trim();
         if !label.is_empty() && label.len() < 40 {

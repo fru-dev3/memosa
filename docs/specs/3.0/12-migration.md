@@ -1,4 +1,4 @@
-# 12 — Migration: existing data → file vault (one-off)
+# 12, Migration: existing data → file vault (one-off)
 
 The current app stored conversations in `~/.memosa/memosa.db` (the *old* architecture). 3.0 is
 files-only; this one-time importer lifts existing data out into the vault, then the DB is
@@ -6,7 +6,7 @@ retired. Depends on **01, 02**.
 
 ## Task
 - Read the existing `~/.memosa/` data (meetings: title/date/transcript/summary/action items/
-  people/tags/audio path). This is the **only** place the old DB is touched — read-only, once.
+  people/tags/audio path). This is the **only** place the old DB is touched, read-only, once.
 - For each meeting, create a vault conversation folder under a best-guess domain
   (default `Imported/` or by existing tag) with:
   - `meta.json` (from row fields), `transcript.json` (+ `.txt`), `notes.md` (summary +

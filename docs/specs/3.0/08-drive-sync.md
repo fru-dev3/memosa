@@ -1,6 +1,6 @@
-# 08 — Google Drive Sync (text only)
+# 08, Google Drive Sync (text only)
 
-Back up + extend reach of the vault. **Text only — audio never leaves the Mac.** Depends on
+Back up + extend reach of the vault. **Text only, audio never leaves the Mac.** Depends on
 **01, 02**. Decided: sync transcripts/notes/summaries; exclude `audio.m4a`.
 
 ## Scope

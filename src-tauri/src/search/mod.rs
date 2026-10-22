@@ -4,7 +4,7 @@
 //! model (`AppSettings::embed_model`, default `nomic-embed-text`), and stored in
 //! the `embeddings` table as little-endian f32 bytes. Search embeds the query and
 //! ranks chunks by cosine similarity in Rust (brute force is plenty for a personal
-//! corpus). Fully local — nothing leaves the machine. Falls back gracefully to
+//! corpus). Fully local, nothing leaves the machine. Falls back gracefully to
 //! FTS when no embedding index / Ollama is available.
 
 use crate::storage::{Database, SettingsManager};

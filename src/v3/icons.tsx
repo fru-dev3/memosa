@@ -1,4 +1,4 @@
-// Monochrome line icons for the 3.0 UI (spec 10) — no emoji anywhere.
+// Monochrome line icons for the 3.0 UI (spec 10). No emoji anywhere.
 import React from "react";
 
 const P: Record<string, React.ReactNode> = {
@@ -89,6 +89,35 @@ const P: Record<string, React.ReactNode> = {
       <path d="M14 2v6h6" />
     </>
   ),
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  x: <path d="M6 6l12 12M18 6L6 18" />,
+  alert: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v5.5M12 16.5v.01" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 13h10l1-13M9 7V4h6v3" />
+    </>
+  ),
+  edit: <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
+  upload: (
+    <>
+      <path d="M12 16V4M7 9l5-5 5 5" />
+      <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+    </>
+  ),
+  plug: (
+    <>
+      <path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0z" />
+      <path d="M12 17v4" />
+    </>
+  ),
+  cloud: <path d="M7 18a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.5 1.5A3.75 3.75 0 0 1 17.5 18z" />,
+  spark: <path d="M12 3l2 5.5L19.5 10.5 14 12.5 12 18l-2-5.5L4.5 10.5 10 8.5z" />,
   speaker: (
     <>
       <circle cx="12" cy="8" r="4" />

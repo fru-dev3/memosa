@@ -3,7 +3,7 @@
 //! When a calendar meeting is auto-recorded, its conversation should land in a
 //! sensible existing vault folder instead of a generic inbox. [`suggest_folder`]
 //! scores every existing folder/domain in the vault tree against the event's
-//! title keywords and attendee names, and returns the best match — or, when
+//! title keywords and attendee names, and returns the best match, or, when
 //! nothing matches, a stable `Calendar/<year>` fallback.
 //!
 //! [`vault_calendar_autofile`] creates the conversation in that folder and stamps

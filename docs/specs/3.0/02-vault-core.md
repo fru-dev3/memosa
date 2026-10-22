@@ -1,9 +1,9 @@
-# 02 — Vault Core (Rust)
+# 02, Vault Core (Rust)
 
 The only module that touches the vault filesystem. Everything else calls it. Depends on **01**.
 
 ## Responsibilities
-- Resolve & validate the vault root (`~/Documents/Memosa Vault`, configurable).
+- Resolve & validate the vault root (`~/Documents/Memosa Vault/`, configurable).
 - Walk the tree → `TreeNode` (domains/folders/conversations) with counts. Cache + invalidate
   on file-watch events. Skip `.memosa/` and dotfiles.
 - Read/write `meta.json`, `transcript.json`, `transcript.txt`, `notes.md` per spec 01.
@@ -39,7 +39,7 @@ impl Vault {
 - One source file `src-tauri/src/vault/` (mod.rs, fs.rs, notes.rs, watch.rs).
 - Pure-Rust, cross-platform (no macOS-only calls); audio file is written by spec 04, vault
   just records the `audio` filename in meta.
-- No caching layer that can diverge from disk — cache is a derived view, disk wins.
+- No caching layer that can diverge from disk, cache is a derived view, disk wins.
 
 ## Acceptance
 Round-trip property test: create → read → move → rename → toggle task → re-read yields the

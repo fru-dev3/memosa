@@ -1,4 +1,4 @@
-# 01 — Vault File Format & Schemas  ⟨CONTRACT — freeze before fan-out⟩
+# 01, Vault File Format & Schemas  ⟨CONTRACT, freeze before fan-out⟩
 
 The on-disk truth. Every other module reads/writes these exact shapes. No DB.
 

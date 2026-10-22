@@ -1,4 +1,4 @@
-# 06 — MCP Server over the Vault
+# 06, MCP Server over the Vault
 
 Expose the vault read-only to external AIs (Claude, Cursor, local agents). Depends on **01**,
 **02**, **03**. The whole point of the product: other AIs consume your memory.
@@ -13,12 +13,12 @@ Expose the vault read-only to external AIs (Claude, Cursor, local agents). Depen
   ```
 
 ## Tools
-- `list_domains()` — the folder tree (domains/folders + counts).
-- `list_conversations(folder?, limit?)` — meta rows.
-- `get_conversation(id)` — meta + notes.md (summary/decisions/actions).
-- `get_transcript(id)` — segments (+ speakers).
-- `search(query, mode?, scope?)` — semantic/exact/hybrid (spec 03).
-- `get_speakers(id)` — speaker map/segments (foundation).
+- `list_domains()`, the folder tree (domains/folders + counts).
+- `list_conversations(folder?, limit?)`, meta rows.
+- `get_conversation(id)`, meta + notes.md (summary/decisions/actions).
+- `get_transcript(id)`, segments (+ speakers).
+- `search(query, mode?, scope?)`, semantic/exact/hybrid (spec 03).
+- `get_speakers(id)`, speaker map/segments (foundation).
 
 ## Rules
 - Strictly read-only in 3.0 (no write tools). Path-scoped to the vault; reject traversal.

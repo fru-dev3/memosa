@@ -7,7 +7,7 @@
 //!
 //! Each conversation transcript is chunked (~512 tokens), every chunk is embedded via the
 //! local Ollama embedding endpoint (`AppSettings::embed_model`, default `nomic-embed-text`,
-//! at `AppSettings::ollama_url`) — the same approach as the legacy `search::embed` — and
+//! at `AppSettings::ollama_url`), the same approach as the legacy `search::embed`, and
 //! the resulting vectors are written to the JSONL. Search embeds the query and brute-forces
 //! cosine similarity over the JSONL (plenty fast at personal scale). Fully local; nothing
 //! leaves the machine. Requires Ollama running with the embedding model pulled.
@@ -523,7 +523,7 @@ pub struct IndexStatus {
     /// Number of embedded chunks currently in the index.
     pub chunks: usize,
     /// Number of conversations whose source text changed (or were never indexed)
-    /// since the last reindex — i.e. how many would be re-embedded next run.
+    /// since the last reindex, i.e. how many would be re-embedded next run.
     pub stale: usize,
     /// Total conversations with indexable text in the vault.
     pub conversations: usize,

@@ -1,9 +1,9 @@
-# 03 — Search & Index (file-based, no DB)
+# 03, Search & Index (file-based, no DB)
 
 Semantic + keyword search and the Ask retrieval layer. Depends on **01**, **05** (embeddings).
 
 ## Storage
-- Embeddings: `.memosa/index/embeddings.jsonl` — one `{conv,chunk,start,text,vector}` per line.
+- Embeddings: `.memosa/index/embeddings.jsonl`, one `{conv,chunk,start,text,vector}` per line.
 - Change detection: `.memosa/index/manifest.json` = `{ "<conv>/transcript.json": {hash,mtime} }`.
 - Tasks index: `.memosa/index/tasks.jsonl` (derived from notes.md, rebuilt on notes write).
 - Everything rebuildable from the vault; deleting `.memosa/index/` loses nothing permanent.

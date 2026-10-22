@@ -1,6 +1,6 @@
-# Memosa — Feature Roadmap (LOCKED 2026-06-14)
+# Memosa, Feature Roadmap (LOCKED 2026-06-14)
 
-Branch: `feature/windows-and-roadmap`. **Crash-safe checklist — keep updated after every step.**
+Branch: `feature/windows-and-roadmap`. **Crash-safe checklist, keep updated after every step.**
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 **Confirmed decisions:** sequencing = **A (differentiator-first)**; free/OSS (no paid tier yet);
@@ -12,7 +12,7 @@ research run `wf_9e3ab903-2ee`, 23/25 claims verified.)
 
 ---
 
-## BUILD NOW — P0 (in order)
+## BUILD NOW, P0 (in order)
 
 ### 1. Bunker mode / Cloud mode  `[x]` DONE
 A global app mode that makes the privacy posture explicit and enforceable.
@@ -20,7 +20,7 @@ A global app mode that makes the privacy posture explicit and enforceable.
 - [x] **Bunker**: cloud BYOK refused fail-closed via `ensure_cloud_allowed()` in `insights::generate`
       + `generate_text`; Notion sync refused in `sync_meeting_to_notion`. Ollama/Built-in still work.
 - [x] **Cloud**: BYOK provider + Keychain key flow (unchanged) usable only in Cloud mode
-- [x] Single enforcement chokepoint (`ensure_cloud_allowed`) — the BYOK arms route through it
+- [x] Single enforcement chokepoint (`ensure_cloud_allowed`), the BYOK arms route through it
 - [x] Settings UI (`SettingsView` renderAi): Bunker/Cloud segmented switch; cloud engine option +
       BYOK fields hidden in Bunker; "paused" note if a stale BYOK selection + Bunker
 - [x] Test: `insights::mode_tests::bunker_refuses_cloud_cloud_allows` (passing)
@@ -38,7 +38,7 @@ Expose the meeting corpus to external AI agents (Claude/ChatGPT/Cursor/Ollama) o
       Settings shows it. Path resolved via `std::env::current_exe()`.
 - [x] Verified live against the real 14-meeting DB (list + FTS search returned real rows);
       protocol (initialize/tools/list/tools/call) verified; gate verified.
-- [ ] (caveat) sandbox-container vs non-container DB path if the MCP process runs unsandboxed —
+- [ ] (caveat) sandbox-container vs non-container DB path if the MCP process runs unsandboxed -
       revisit when packaging the signed build / Windows.
 
 ### 3. Local semantic search (embeddings)  `[x]` DONE
@@ -61,7 +61,7 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 - [x] Data model + interface: `speaker_segments` table; `diarize` module with `SpeakerSegment`,
       `Diarizer` trait, tested `merge_adjacent`; DB store/load; `get_speaker_segments` command;
       MCP `get_speakers` tool (6 tools total). 26/26 lib tests pass.
-- [ ] **BLOCKED in this env:** the acoustic backend itself — adding the sherpa-onnx native dep +
+- [ ] **BLOCKED in this env:** the acoustic backend itself, adding the sherpa-onnx native dep +
       bundling/auto-downloading the ONNX models + aligning with whisper segments. This is a large
       native integration that can't be safely added-and-verified here (no way to validate the ONNX
       runtime build offline; pairs with Windows). Storage/interface/surfacing are ready so the
@@ -77,7 +77,7 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 ---
 
 ## P1 (after P0)
-- [~] **Windows support** — IN PROGRESS (compile-enablement + CI verification loop):
+- [~] **Windows support**, IN PROGRESS (compile-enablement + CI verification loop):
   - [x] `whisper-rs` metal feature made macOS-only (target-specific deps; CPU build elsewhere)
   - [x] `macos` module now compiles cross-platform: real ObjC impls under `cfg(macos)` +
         fallbacks for Windows/Linux (open_url works via `start`; audio-conversion/AAC/bookmarks
@@ -88,11 +88,11 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 - [ ] Real-time / live transcription + live notes (LiveTranscriber scaffold exists)
 
 ## P2
-- [x] **Redaction** — scrub emails/keys/card-SSN-phone from transcripts before any cloud (BYOK)
+- [x] **Redaction**, scrub emails/keys/card-SSN-phone from transcripts before any cloud (BYOK)
       send; `redact_secrets` setting (on by default) + Settings toggle; `privacy::redact` + 2 tests.
-- [x] Summary/note templates per meeting type — already shipped (`summary_template_prompts` +
+- [x] Summary/note templates per meeting type, already shipped (`summary_template_prompts` +
       `custom_summary_templates` in settings + UI).
-- [x] Retention / auto-delete — already shipped (`retention_policy` + daily cleanup + Settings UI).
+- [x] Retention / auto-delete, already shipped (`retention_policy` + daily cleanup + Settings UI).
 - [ ] Action items → owners/due dates → Reminders/Things/Todoist (doable on macOS via osascript/EventKit)
 - [ ] On-device translation (Whisper translate task) · global quick-capture hotkey (plugin is
       currently disabled for stability) · Outlook/ICS calendar · encrypted-at-rest vault (heavy)
@@ -104,11 +104,11 @@ Upgrade "AI speaker labels" to true who-said-what + recurring-voice recognition.
 P0.3 semantic search, P0.5 trust + badge, P0.4 *foundation*, P2 redaction. 28/28 rust tests pass.
 
 **Genuinely blocked in THIS environment (need resources/decisions, not more coding):**
-1. **P0.4 acoustic diarization engine** — needs the sherpa-onnx native dep + bundled ONNX models;
+1. **P0.4 acoustic diarization engine**, needs the sherpa-onnx native dep + bundled ONNX models;
    a large native integration that can't be added-and-verified offline here. Best done with Windows.
-2. **P1 Windows** — needs a Windows build/test target + a WASAPI audio path + CoreML→sherpa port.
+2. **P1 Windows**, needs a Windows build/test target + a WASAPI audio path + CoreML→sherpa port.
    Can't be compiled/verified from this macOS-only environment.
-3. **Live ML verification** (Ollama-backed insights/chat/semantic embed) — this machine's Ollama
+3. **Live ML verification** (Ollama-backed insights/chat/semantic embed), this machine's Ollama
    0.30.6 is broken (missing llama-server). Code paths are correct + fail gracefully; live runs
    need a working Ollama (or the App Store build's environment).
 To unblock: provide a Windows CI/runner, fix/replace local Ollama, and approve adding the
@@ -118,13 +118,13 @@ sherpa-onnx native dependency (it's sizable). Then the deferred items can procee
 
 ## Progress log
 - 2026-06-14: roadmap locked (sequencing A). Mapped codebase (4 explore agents).
-- 2026-06-14: **P0.1 Bunker/Cloud mode DONE** — fail-closed gate, UI switch, test passing.
-- 2026-06-14: **P0.2 MCP server DONE** — `memosa mcp` stdio server (4 tools), opt-in toggle +
+- 2026-06-14: **P0.1 Bunker/Cloud mode DONE**, fail-closed gate, UI switch, test passing.
+- 2026-06-14: **P0.2 MCP server DONE**, `memosa mcp` stdio server (4 tools), opt-in toggle +
   connect config in Settings; verified live against the real corpus. 22/22 rust tests pass.
   Next: P0.3 local semantic search (embeddings) feeding chat + MCP `search_meetings`.
-- 2026-06-14: **P0.3 semantic search DONE** — embeddings table, Ollama embed, hybrid chat,
+- 2026-06-14: **P0.3 semantic search DONE**, embeddings table, Ollama embed, hybrid chat,
   MCP semantic_search tool, reindex CLI + Settings button. 24/24 tests. (Live embed blocked by
   broken local Ollama.) Next: P0.4 diarization (heaviest) or P0.5 trust copy.
 - 2026-06-14: **P0.5 trust DONE** (mode badge + About copy + site). **P0.4 FOUNDATION DONE**
   (speaker_segments + Diarizer interface + MCP get_speakers; 26/26 tests). Acoustic engine
-  (sherpa-onnx) deferred — large native dep + models, pairs with P1 Windows. Next: P1.
+  (sherpa-onnx) deferred, large native dep + models, pairs with P1 Windows. Next: P1.
