@@ -195,10 +195,9 @@ pub fn tasks(filter: &str) -> Vec<Task> {
 #[tauri::command]
 pub async fn vault_search(q: String, mode: String, scope: Option<String>) -> Result<Vec<SearchHit>, String> {
     if mode == "semantic" {
-        if let Ok(hits) = crate::vault_embed::semantic_search(&q, scope.as_deref(), 20).await {
-            if !hits.is_empty() {
-                return Ok(hits);
-            }
+        match crate::vault_embed::semantic_search(&q, scope.as_deref(), 20).await {
+            Ok(hits) if !hits.is_empty() => return Ok(hits),
+            _ => {}
         }
     }
     Ok(search(&q, &mode, scope.as_deref()))

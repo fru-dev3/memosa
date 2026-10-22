@@ -166,7 +166,7 @@ pub async fn finalize_to_vault(
                 vault.write_meta(&meta).map_err(|e| e.to_string())?;
             }
         }
-        Err(e) => crate::diagnostics::log(&format!("vault: kept {id} without a transcript: {e}")),
+        Err(e) => crate::diagnostics::log(format!("vault: kept {id} without a transcript: {e}")),
     }
 
     Ok(id)

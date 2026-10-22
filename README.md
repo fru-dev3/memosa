@@ -23,6 +23,13 @@
 
 ## What it does
 
+**Memosa 3.0 is a memory vault.** Every conversation is a plain folder of
+files on your Mac (audio, transcript, notes), organised in domains and folders
+you create, searchable by meaning, askable with cited sources, and readable by
+other AI tools through a local MCP server. Transcription and AI run on your
+machine by default.
+
+
 - Records meetings and calls on your Mac
 - Transcribes audio locally using Whisper (on-device after initial model download)
 - Organises recordings by date, tags, people, and custom folders
