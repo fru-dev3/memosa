@@ -79,6 +79,7 @@ pub fn chunk_transcript(text: &str) -> Vec<String> {
 
 /// Embed text via the local Ollama embedding endpoint.
 pub async fn embed(settings: &AppSettings, text: &str) -> Result<Vec<f32>, String> {
+    crate::insights::ensure_ollama_allowed(settings)?;
     let url = format!("{}/api/embeddings", settings.ollama_url.trim_end_matches('/'));
     let resp = reqwest::Client::new()
         .post(&url)

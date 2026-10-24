@@ -87,10 +87,15 @@ fn transcribe_to_vault_transcript(audio_path: &Path) -> Result<(Transcript, u64)
 
     let transcriber = WhisperTranscriber::new(model_file);
     let segments: Vec<TranscriptSegment> = transcriber.transcribe(audio_path, |_p, _t| {})?;
+    Ok(segments_to_transcript(&segments, &model.to_string()))
+}
 
+/// Whisper segments to a vault [`Transcript`] plus the length in seconds. Shared by
+/// the vault's own transcription and the recorder's (one Whisper run feeds both).
+pub fn segments_to_transcript(segments: &[TranscriptSegment], model: &str) -> (Transcript, u64) {
     let mut out_segments: Vec<Segment> = Vec::with_capacity(segments.len());
     let mut max_end_ms: i64 = 0;
-    for s in &segments {
+    for s in segments {
         if s.end_ms > max_end_ms {
             max_end_ms = s.end_ms;
         }
@@ -105,7 +110,6 @@ fn transcribe_to_vault_transcript(audio_path: &Path) -> Result<(Transcript, u64)
             text: text.to_string(),
         });
     }
-
     let transcript = Transcript {
         schema: 1,
         language: String::new(),
@@ -113,8 +117,79 @@ fn transcribe_to_vault_transcript(audio_path: &Path) -> Result<(Transcript, u64)
         speakers: Default::default(),
         segments: out_segments,
     };
-    let duration_sec = (max_end_ms.max(0) as u64) / 1000;
-    Ok((transcript, duration_sec))
+    (transcript, (max_end_ms.max(0) as u64) / 1000)
+}
+
+/// Where the next in-app recording is filed, and what it carries. Set by the UI
+/// just before it starts a capture (the open folder, or a calendar event's
+/// suggested folder with its attendees); taken once when the recording stops.
+#[derive(Clone, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureTarget {
+    pub folder: String,
+    #[serde(default)]
+    pub people: Vec<String>,
+    #[serde(default)]
+    pub event_id: Option<String>,
+}
+
+static NEXT_TARGET: std::sync::Mutex<Option<CaptureTarget>> = std::sync::Mutex::new(None);
+
+#[tauri::command]
+pub fn vault_set_capture_target(target: Option<CaptureTarget>) {
+    *NEXT_TARGET.lock().unwrap() = target.filter(|t| !t.folder.trim().is_empty());
+}
+
+pub fn take_capture_target() -> CaptureTarget {
+    NEXT_TARGET.lock().unwrap().take().unwrap_or(CaptureTarget {
+        folder: "Recordings".into(),
+        ..Default::default()
+    })
+}
+
+/// File a just-finished recording into the vault right away (folder, meta, audio),
+/// without transcribing; the recorder's own Whisper run fills in the transcript via
+/// [`complete_from_segments`]. Returns the new conversation id.
+pub fn file_recording(audio_path: &Path, title: &str, created: &str, target: &CaptureTarget) -> Result<String, String> {
+    let vault = open_vault()?;
+    let title = if title.trim().is_empty() { "Recording" } else { title };
+    let id = vault
+        .create_conversation(&target.folder, title, created)
+        .map_err(|e| e.to_string())?;
+    if !target.people.is_empty() || target.event_id.is_some() {
+        if let Ok(mut meta) = vault.read_meta(&id) {
+            meta.people = target.people.clone();
+            if target.event_id.is_some() {
+                meta.calendar_event_id = target.event_id.clone();
+                meta.source = "calendar".into();
+            }
+            vault.write_meta(&meta).map_err(|e| e.to_string())?;
+        }
+    }
+    place_audio(audio_path, &vault.root().join(&id))?;
+    Ok(id)
+}
+
+/// Write the recorder's Whisper result into a filed conversation, then write notes
+/// and refresh the search index (both best-effort, they need local AI).
+pub async fn complete_from_segments(id: String, segments: Vec<TranscriptSegment>, model: String) {
+    let result = (|| -> Result<(), String> {
+        let vault = open_vault()?;
+        let (transcript, duration_sec) = segments_to_transcript(&segments, &model);
+        vault.write_transcript(&id, &transcript).map_err(|e| e.to_string())?;
+        if let Ok(mut meta) = vault.read_meta(&id) {
+            meta.duration_sec = duration_sec;
+            vault.write_meta(&meta).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    })();
+    match result {
+        Ok(()) => {
+            let _ = crate::vault_summarize::summarize(&id).await;
+            let _ = crate::vault_embed::vault_reindex().await;
+        }
+        Err(e) => crate::diagnostics::log(format!("vault transcript not written for {id}: {e}")),
+    }
 }
 
 /// Write a finished recording into the vault as a new conversation, returning its id.

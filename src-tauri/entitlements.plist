@@ -35,5 +35,8 @@
     <!-- Persist access to user-selected storage folder across relaunches -->
     <key>com.apple.security.files.bookmarks.app-scope</key>
     <true/>
+    <!-- Calendar (EventKit): offer to record meetings as they start -->
+    <key>com.apple.security.personal-information.calendars</key>
+    <true/>
 </dict>
 </plist>

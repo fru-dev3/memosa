@@ -20,6 +20,14 @@ fn main() {
             .flag("-fobjc-arc")
             .compile("macos_helpers");
 
+        // EventKit calendar access (calendar auto-record).
+        cc::Build::new()
+            .file("src/calendar_helpers.m")
+            .flag("-fobjc-arc")
+            .compile("calendar_helpers");
+        println!("cargo:rerun-if-changed=src/calendar_helpers.m");
+        println!("cargo:rustc-link-lib=framework=EventKit");
+
         // Frameworks used by macos_helpers.m
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=AudioToolbox");

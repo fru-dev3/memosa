@@ -34,6 +34,21 @@ pub fn take_pick() -> Option<Option<String>> {
     Some(if s == "cancel" { None } else { Some(s) })
 }
 
+/// Test calendar: `calendar.json` (an EventKit-shaped event array) stands in for the
+/// Mac's calendars, with permission reported as granted; `calendar-status` holds a
+/// status code (0 not asked, 2 denied, 3 granted) to test the permission screens.
+pub fn calendar_status_override() -> Option<i32> {
+    let d = dir()?;
+    if let Ok(s) = std::fs::read_to_string(d.join("calendar-status")) {
+        return s.trim().parse().ok();
+    }
+    d.join("calendar.json").exists().then_some(3)
+}
+
+pub fn calendar_events_override() -> Option<String> {
+    std::fs::read_to_string(dir()?.join("calendar.json")).ok()
+}
+
 pub fn start(app: &tauri::AppHandle) {
     let Some(d) = dir() else { return };
     let _ = std::fs::create_dir_all(&d);

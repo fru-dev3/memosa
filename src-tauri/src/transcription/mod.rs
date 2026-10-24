@@ -36,7 +36,7 @@ pub async fn transcribe_audio(
     state: State<'_, TranscriptionManager>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    state.start_job(meeting_id, audio_path, model, app_handle);
+    state.start_job(meeting_id, audio_path, model, app_handle, None);
     Ok(())
 }
 

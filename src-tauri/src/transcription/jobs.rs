@@ -476,6 +476,7 @@ impl TranscriptionManager {
         audio_path: String,
         model: WhisperModel,
         app_handle: tauri::AppHandle,
+        vault_conv: Option<String>,
     ) {
         let _ = update_transcription_processing(&meeting_id, &audio_path, &model, &app_handle);
 
@@ -526,7 +527,14 @@ impl TranscriptionManager {
             .await;
 
             match result {
-                Ok(transcript_path) => {
+                Ok((transcript_path, segments, model_name)) => {
+                    // One Whisper run feeds both: the same segments become the
+                    // vault conversation's transcript.json.
+                    if let Some(id) = vault_conv {
+                        tauri::async_runtime::spawn(crate::vault_capture::complete_from_segments(
+                            id, segments, model_name,
+                        ));
+                    }
                     {
                         let mut jobs = jobs.lock().unwrap();
                         jobs.insert(meeting_id_clone.clone(), JobState::Complete);
@@ -597,7 +605,7 @@ async fn run_transcription_job(
     audio_path: String,
     model: WhisperModel,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<(String, Vec<crate::transcription::whisper::TranscriptSegment>, String), String> {
     let model_file = model_path(&model);
     if !model_file.exists() {
         return Err(
@@ -741,7 +749,7 @@ async fn run_transcription_job(
             .ok();
     }
 
-    Ok(transcript_path.to_string_lossy().into_owned())
+    Ok((transcript_path.to_string_lossy().into_owned(), segments, model.to_string()))
 }
 
 fn update_transcription_processing(

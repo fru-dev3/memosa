@@ -250,3 +250,175 @@ mod tests {
         assert_eq!(got, "Acme/Acme");
     }
 }
+
+// ---- 3.0 calendar: the Mac's calendars (EventKit) and auto-record (spec 07) ----
+
+use serde::{Deserialize, Serialize};
+
+/// Auto-record settings (spec 07). Off until the user turns it on.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct AutoRecord {
+    pub enabled: bool,
+    pub ask_first: bool,
+    pub min_attendees: usize,
+    pub video_only: bool,
+}
+
+impl Default for AutoRecord {
+    fn default() -> Self {
+        AutoRecord { enabled: false, ask_first: true, min_attendees: 2, video_only: false }
+    }
+}
+
+#[derive(Serialize)]
+pub struct CalEvent {
+    pub id: String,
+    pub title: String,
+    pub start: String,
+    pub end: String,
+    pub attendees: Vec<String>,
+    pub video: bool,
+    pub platform: Option<String>,
+    /// Suggested vault folder for this meeting.
+    pub folder: String,
+    /// Whether the auto-record settings select this meeting.
+    pub matches: bool,
+}
+
+#[derive(Deserialize)]
+struct RawEvent {
+    id: String,
+    title: String,
+    start: String,
+    end: String,
+    #[serde(default)]
+    attendees: Vec<String>,
+    #[serde(default)]
+    location: String,
+    #[serde(default)]
+    description: String,
+}
+
+fn autorecord_file() -> std::path::PathBuf {
+    crate::vault_cmds::config_dir().join("autorecord.json")
+}
+
+pub fn selects(cfg: &AutoRecord, attendees: usize, video: bool) -> bool {
+    attendees >= cfg.min_attendees && (!cfg.video_only || video)
+}
+
+fn status_name(code: i32) -> &'static str {
+    match code {
+        0 => "not_asked",
+        1 => "restricted",
+        2 => "denied",
+        3 => "granted",
+        _ => "add_only",
+    }
+}
+
+fn status_code() -> i32 {
+    #[cfg(feature = "e2e")]
+    if let Some(code) = crate::e2e::calendar_status_override() {
+        return code;
+    }
+    crate::macos::calendar_status()
+}
+
+fn events_json(from: f64, to: f64) -> Option<String> {
+    #[cfg(feature = "e2e")]
+    if let Some(json) = crate::e2e::calendar_events_override() {
+        return Some(json);
+    }
+    crate::macos::calendar_events_json(from, to)
+}
+
+/// Calendar permission: not_asked | denied | restricted | granted | add_only.
+#[tauri::command]
+pub fn calendar_access() -> String {
+    status_name(status_code()).into()
+}
+
+/// Show the system calendar permission prompt (first time only) and return the result.
+#[tauri::command]
+pub async fn calendar_request_access() -> Result<String, String> {
+    #[cfg(feature = "e2e")]
+    if crate::e2e::calendar_status_override().is_some() {
+        return Ok(calendar_access());
+    }
+    let code = tokio::task::spawn_blocking(crate::macos::calendar_request)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(status_name(code).into())
+}
+
+/// Meetings in the next `hours` (default 24) with a suggested folder each.
+#[tauri::command]
+pub fn calendar_upcoming(hours: Option<u32>) -> Result<Vec<CalEvent>, String> {
+    if status_code() != 3 {
+        return Ok(Vec::new());
+    }
+    let now = chrono::Utc::now();
+    let from = (now - chrono::Duration::minutes(30)).timestamp() as f64;
+    let to = (now + chrono::Duration::hours(hours.unwrap_or(24) as i64)).timestamp() as f64;
+    let raw: Vec<RawEvent> = match events_json(from, to) {
+        Some(json) => serde_json::from_str(&json).map_err(|e| e.to_string())?,
+        None => Vec::new(),
+    };
+    let cfg = autorecord_get();
+    let tree = Vault::new(vault_root()).tree().map_err(|e| e.to_string())?;
+    Ok(raw
+        .into_iter()
+        .map(|e| {
+            let text = format!("{}\n{}\n{}", e.title, e.location, e.description);
+            let platform = crate::calendar::providers::detect_platform(&text)
+                .filter(|(p, _)| *p != "Phone")
+                .map(|(p, _)| p.to_string());
+            let folder = suggest_folder(&e.title, &e.attendees, &tree, &e.start);
+            let video = platform.is_some();
+            CalEvent {
+                matches: selects(&cfg, e.attendees.len(), video),
+                id: e.id,
+                title: e.title,
+                start: e.start,
+                end: e.end,
+                attendees: e.attendees,
+                video,
+                platform,
+                folder,
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn autorecord_get() -> AutoRecord {
+    std::fs::read_to_string(autorecord_file())
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn autorecord_set(cfg: AutoRecord) -> Result<AutoRecord, String> {
+    std::fs::create_dir_all(crate::vault_cmds::config_dir()).map_err(|e| e.to_string())?;
+    let json = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
+    std::fs::write(autorecord_file(), json).map_err(|e| e.to_string())?;
+    Ok(cfg)
+}
+
+#[cfg(test)]
+mod autorecord_tests {
+    use super::*;
+
+    #[test]
+    fn selection_rules() {
+        let cfg = AutoRecord { enabled: true, ask_first: true, min_attendees: 2, video_only: false };
+        assert!(selects(&cfg, 2, false));
+        assert!(!selects(&cfg, 1, true), "solo holds are skipped");
+        let video = AutoRecord { video_only: true, ..cfg.clone() };
+        assert!(!selects(&video, 3, false));
+        assert!(selects(&video, 3, true));
+        assert!(!AutoRecord::default().enabled, "off until the user turns it on");
+    }
+}

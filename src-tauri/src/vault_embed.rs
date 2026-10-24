@@ -170,6 +170,7 @@ fn ceil_char_boundary(s: &str, mut i: usize) -> usize {
 /// Embed text via the local Ollama embedding endpoint. Identical protocol to the
 /// legacy `search::embed` so the index is interchangeable.
 async fn embed(settings: &AppSettings, text: &str) -> Result<Vec<f32>, String> {
+    crate::insights::ensure_ollama_allowed(settings)?;
     let url = format!("{}/api/embeddings", settings.ollama_url.trim_end_matches('/'));
     let resp = reqwest::Client::new()
         .post(&url)

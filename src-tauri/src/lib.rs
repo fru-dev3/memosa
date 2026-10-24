@@ -21,6 +21,7 @@ mod transcription;
 mod types;
 pub mod vault;
 pub mod vault_cmds;
+pub mod vault_watch;
 pub mod vault_migrate;
 pub mod vault_search;
 pub mod vault_ai;
@@ -105,6 +106,8 @@ pub fn run() {
             diagnostics::log("setup: begin");
             #[cfg(feature = "e2e")]
             e2e::start(app.handle());
+            vault_cmds::allow_assets(app.handle());
+            vault_watch::restart(app.handle());
 
             // --- Global shortcuts & launch-at-login ---
             // Both features are disabled for stability during pre-App-Store development.
@@ -373,7 +376,11 @@ pub fn run() {
             vault_cmds::vault_export_markdown,
             vault_cmds::pick_audio_file,
             vault_cmds::pick_vault_folder,
+            vault_cmds::vault_default_path,
+            vault_cmds::vault_reset_path,
+            vault_cmds::vault_audio_path,
             vault_capture::vault_transcribe,
+            vault_capture::vault_set_capture_target,
             vault_search::vault_search,
             vault_search::vault_tasks,
             vault_ai::vault_ask,
@@ -383,6 +390,11 @@ pub fn run() {
             vault_embed::vault_reindex_all,
             vault_embed::vault_embedding_status,
             vault_calendar::vault_calendar_autofile,
+            vault_calendar::calendar_access,
+            vault_calendar::calendar_request_access,
+            vault_calendar::calendar_upcoming,
+            vault_calendar::autorecord_get,
+            vault_calendar::autorecord_set,
             vault_sync::vault_sync_status,
             vault_sync::vault_sync_now,
             vault_sync::vault_sync_set,

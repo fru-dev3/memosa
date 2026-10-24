@@ -9,6 +9,10 @@
     <!-- Privacy usage descriptions (required for TCC permissions) -->
     <key>NSMicrophoneUsageDescription</key>
     <string>Memosa records your meetings using the microphone.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Memosa reads your calendar to offer to record meetings as they start and file them in your vault.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Memosa reads your calendar to offer to record meetings as they start and file them in your vault.</string>
 
     <!-- App Store metadata -->
     <key>LSApplicationCategoryType</key>

@@ -72,6 +72,9 @@ pub async fn get_insight_engine_status() -> Result<InsightEngineStatus, String> 
             detail: "Built-in offline extraction.".into(),
         }),
         InsightEngine::Ollama => {
+            if let Err(e) = ensure_ollama_allowed(&settings) {
+                return Ok(InsightEngineStatus { engine: "ollama".into(), available: false, detail: e });
+            }
             let reachable = reqwest::Client::new()
                 .get(format!("{}/api/tags", settings.ollama_url.trim_end_matches('/')))
                 .send()
@@ -145,7 +148,10 @@ pub async fn generate(
         InsightEngine::Heuristic => {
             return Err("Heuristic engine is handled by the frontend.".into())
         }
-        InsightEngine::Ollama => call_ollama(&settings.ollama_url, &settings.ollama_model, &prompt).await?,
+        InsightEngine::Ollama => {
+            ensure_ollama_allowed(&settings)?;
+            call_ollama(&settings.ollama_url, &settings.ollama_model, &prompt).await?
+        }
         InsightEngine::Byok => {
             ensure_cloud_allowed(&settings)?;
             let key = load_byok_key().ok_or_else(|| "No API key set for BYOK engine.".to_string())?;
@@ -168,7 +174,10 @@ pub async fn generate_text(prompt: &str) -> Result<String, String> {
         InsightEngine::Heuristic => {
             Err("This needs local AI. Turn on Ollama in Settings, then try again.".into())
         }
-        InsightEngine::Ollama => call_ollama_text(&settings.ollama_url, &settings.ollama_model, prompt).await,
+        InsightEngine::Ollama => {
+            ensure_ollama_allowed(&settings)?;
+            call_ollama_text(&settings.ollama_url, &settings.ollama_model, prompt).await
+        }
         InsightEngine::Byok => {
             ensure_cloud_allowed(&settings)?;
             let key = load_byok_key().ok_or_else(|| "No API key set for the cloud engine.".to_string())?;
@@ -188,6 +197,32 @@ fn maybe_redact(settings: &AppSettings, prompt: &str) -> String {
     } else {
         prompt.to_string()
     }
+}
+
+/// True when an Ollama address is this Mac (loopback).
+pub fn is_loopback_url(url: &str) -> bool {
+    let rest = url.trim().split("://").nth(1).unwrap_or(url.trim());
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host = if let Some(v6) = authority.strip_prefix('[') {
+        v6.split(']').next().unwrap_or("")
+    } else {
+        authority.rsplit_once(':').map(|(h, _)| h).unwrap_or(authority)
+    };
+    let host = host.to_ascii_lowercase();
+    host == "localhost" || host == "::1" || host.starts_with("127.")
+}
+
+/// Bunker keeps every AI call on this Mac: an Ollama address on another machine is
+/// refused until the user switches to Cloud mode. The one chokepoint for every
+/// Ollama request (summaries, Ask, embeddings, status).
+pub fn ensure_ollama_allowed(settings: &AppSettings) -> Result<(), String> {
+    if settings.app_mode == crate::types::AppMode::Bunker && !is_loopback_url(&settings.ollama_url) {
+        return Err(format!(
+            "Bunker mode keeps AI on this Mac, so Ollama at {} is not used. Use an address on this Mac, or switch to Cloud mode.",
+            settings.ollama_url
+        ));
+    }
+    Ok(())
 }
 
 /// Fail-closed cloud guard. In Bunker mode every cloud/BYOK path is refused,
@@ -477,6 +512,25 @@ async fn call_openai(api_key: &str, prompt: &str) -> Result<String, String> {
 mod mode_tests {
     use super::*;
     use crate::types::AppMode;
+
+    #[test]
+    fn bunker_keeps_ollama_on_this_mac() {
+        assert!(is_loopback_url("http://localhost:11434"));
+        assert!(is_loopback_url("http://127.0.0.1:11434/"));
+        assert!(is_loopback_url("http://[::1]:11434"));
+        assert!(!is_loopback_url("http://10.0.0.5:11434"));
+        assert!(!is_loopback_url("http://localhost.example.com:11434"));
+        assert!(!is_loopback_url("https://studio:11434"));
+        let mut s = AppSettings::default();
+        s.app_mode = AppMode::Bunker;
+        s.ollama_url = "http://10.0.0.5:11434".into();
+        assert!(ensure_ollama_allowed(&s).is_err());
+        s.ollama_url = "http://localhost:11434".into();
+        assert!(ensure_ollama_allowed(&s).is_ok());
+        s.app_mode = AppMode::Cloud;
+        s.ollama_url = "http://10.0.0.5:11434".into();
+        assert!(ensure_ollama_allowed(&s).is_ok());
+    }
 
     #[test]
     fn bunker_refuses_cloud_cloud_allows() {

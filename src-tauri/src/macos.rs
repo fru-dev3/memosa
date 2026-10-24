@@ -37,6 +37,10 @@ unsafe extern "C" {
         error_len: c_int,
     ) -> c_int;
     fn memosa_free_buffer(buf: *mut std::ffi::c_void);
+    fn memosa_calendar_status() -> c_int;
+    fn memosa_calendar_request() -> c_int;
+    fn memosa_calendar_events_json(from_unix: f64, to_unix: f64) -> *mut c_char;
+    fn free(p: *mut std::ffi::c_void);
     fn memosa_create_security_bookmark(
         path: *const c_char,
         data_out: *mut *mut u8,
@@ -84,6 +88,30 @@ pub fn reveal_in_finder(path: &Path) -> Result<(), String> {
         .map_err(|e| format!("CString error: {e}"))?;
     unsafe { memosa_reveal_in_finder(c_path.as_ptr()) };
     Ok(())
+}
+
+/// Calendar permission: 0 not asked, 1 restricted, 2 denied, 3 granted, 4 add-only.
+pub fn calendar_status() -> i32 {
+    unsafe { memosa_calendar_status() }
+}
+
+/// Ask for calendar permission (shows the system prompt the first time). Blocks
+/// until the user answers, so call it off the main thread.
+pub fn calendar_request() -> i32 {
+    unsafe { memosa_calendar_request() }
+}
+
+/// Events from the Mac's calendars between two Unix times, as EventKit JSON.
+pub fn calendar_events_json(from_unix: f64, to_unix: f64) -> Option<String> {
+    unsafe {
+        let p = memosa_calendar_events_json(from_unix, to_unix);
+        if p.is_null() {
+            return None;
+        }
+        let s = CStr::from_ptr(p).to_string_lossy().into_owned();
+        free(p as *mut std::ffi::c_void);
+        Some(s)
+    }
 }
 
 /// Open a URL in the user's default browser (sandbox-safe replacement for `open <url>`).
@@ -280,6 +308,15 @@ mod imp {
     }
     pub fn convert_to_whisper_format(path: &Path) -> Result<Vec<f32>, String> {
         crate::audioconv::decode_to_whisper(path)
+    }
+    pub fn calendar_status() -> i32 {
+        1
+    }
+    pub fn calendar_request() -> i32 {
+        1
+    }
+    pub fn calendar_events_json(_from: f64, _to: f64) -> Option<String> {
+        None
     }
     pub fn create_security_bookmark(_path: &Path) -> Result<Vec<u8>, String> {
         Err("security-scoped bookmarks are macOS-only".into())

@@ -1,6 +1,6 @@
 use crate::types::{CalendarEvent, CalendarProvider};
 
-fn detect_platform(text: &str) -> Option<(&'static str, &'static str)> {
+pub(crate) fn detect_platform(text: &str) -> Option<(&'static str, &'static str)> {
     let lower = text.to_lowercase();
     if lower.contains("zoom.us") || lower.contains("zoom meeting") {
         return Some(("Zoom", "Contains a Zoom meeting link"));

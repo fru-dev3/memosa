@@ -877,6 +877,27 @@ pub fn finalize_recording_session(
             .ok();
     }
 
+    // 3.0: file the recording into the vault now (folder, meta, audio). The single
+    // Whisper run below writes its transcript there too; without a model it stays
+    // in the vault untranscribed until the user transcribes it.
+    let vault_conv = {
+        let title = db
+            .get_meeting(&meeting_id)
+            .ok()
+            .flatten()
+            .map(|m| m.title)
+            .unwrap_or_else(|| "Recording".to_string());
+        let created = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let target = crate::vault_capture::take_capture_target();
+        match crate::vault_capture::file_recording(std::path::Path::new(&audio_path), &title, &created, &target) {
+            Ok(id) => Some(id),
+            Err(e) => {
+                crate::diagnostics::log(format!("vault filing skipped: {e}"));
+                None
+            }
+        }
+    };
+
     if let Some(error) = transcription_error {
         app_handle
             .emit(
@@ -893,6 +914,7 @@ pub fn finalize_recording_session(
             audio_path.clone(),
             model,
             app_handle.clone(),
+            vault_conv,
         );
     } else {
         // No model downloaded — notify the frontend so it can prompt the user
@@ -902,30 +924,6 @@ pub fn finalize_recording_session(
                 serde_json::json!({ "meeting_id": meeting_id }),
             )
             .ok();
-    }
-
-    // 3.0: mirror this recording into the files-only vault, in the background. Whisper
-    // runs there too (off-thread), so the recorder returns immediately. Best-effort —
-    // a vault failure never affects the legacy recording flow. Closes the loop:
-    // record -> audio.m4a + transcript.json -> notes.md -> semantic index.
-    {
-        let title = db
-            .get_meeting(&meeting_id)
-            .ok()
-            .flatten()
-            .map(|m| m.title)
-            .unwrap_or_else(|| "Recording".to_string());
-        let audio = std::path::PathBuf::from(&audio_path);
-        let created = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        tauri::async_runtime::spawn(async move {
-            match crate::vault_capture::finalize_to_vault(audio, "Recordings".to_string(), title, created).await {
-                Ok(conv_id) => {
-                    let _ = crate::vault_summarize::summarize(&conv_id).await; // notes.md (needs a local model)
-                    let _ = crate::vault_embed::vault_reindex().await; // refresh semantic index
-                }
-                Err(e) => crate::diagnostics::log(&format!("vault mirror skipped: {e}")),
-            }
-        });
     }
 
     Ok(RecordingResult {

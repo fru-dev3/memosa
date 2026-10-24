@@ -5,11 +5,44 @@ use crate::vault::{ConvMeta, Notes, Transcript, TreeNode, Vault};
 use serde::Serialize;
 use std::path::PathBuf;
 
+pub fn config_dir() -> PathBuf {
+    dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")).join(".memosa3")
+}
+
 fn pointer_file() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".memosa3")
-        .join("vault_path")
+    config_dir().join("vault_path")
+}
+
+/// Security-scoped bookmark for a vault the user picked. Under the macOS sandbox
+/// (App Store and Developer ID builds) a folder outside the container is only
+/// reachable again after a relaunch through this bookmark.
+fn bookmark_file() -> PathBuf {
+    config_dir().join("vault_bookmark")
+}
+
+/// Resolve the saved bookmark once per process and start accessing it. Returns the
+/// bookmark's current path (it follows the folder if the user moved it).
+fn resolve_bookmark_once() -> Option<PathBuf> {
+    static RESOLVED: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    RESOLVED
+        .get_or_init(|| {
+            let data = std::fs::read(bookmark_file()).ok()?;
+            match crate::macos::resolve_security_bookmark(&data) {
+                Ok((path, stale)) => {
+                    if stale {
+                        if let Ok(fresh) = crate::macos::create_security_bookmark(std::path::Path::new(&path)) {
+                            let _ = std::fs::write(bookmark_file(), fresh);
+                        }
+                    }
+                    Some(PathBuf::from(path))
+                }
+                Err(e) => {
+                    crate::diagnostics::log(format!("vault bookmark not resolved: {e}"));
+                    None
+                }
+            }
+        })
+        .clone()
 }
 
 /// `~/Documents/Memosa Vault`. Kept apart from the legacy recordings folder
@@ -23,7 +56,18 @@ fn default_vault() -> PathBuf {
 
 /// Resolve the active vault root: `$MEMOSA_VAULT`, then the pointer file, then the default. Public so the
 /// MCP server, search, and migration modules read the same location.
+static SESSION_ROOT: std::sync::Mutex<Option<Option<PathBuf>>> = std::sync::Mutex::new(None);
+
+/// Set in this process after the user picks (Some) or resets (None) the vault, so the
+/// change applies at once instead of after a relaunch.
+fn set_session_root(root: Option<PathBuf>) {
+    *SESSION_ROOT.lock().unwrap() = Some(root);
+}
+
 pub fn vault_root() -> PathBuf {
+    if let Some(choice) = SESSION_ROOT.lock().unwrap().clone() {
+        return choice.unwrap_or_else(default_vault);
+    }
     if let Ok(p) = std::env::var("MEMOSA_VAULT") {
         if !p.is_empty() {
             return PathBuf::from(p);
@@ -32,7 +76,9 @@ pub fn vault_root() -> PathBuf {
     if let Ok(s) = std::fs::read_to_string(pointer_file()) {
         let s = s.trim();
         if !s.is_empty() {
-            return PathBuf::from(s);
+            // A bookmark (when there is one) both grants sandbox access and follows
+            // the folder if it was moved; the pointer file is the fallback.
+            return resolve_bookmark_once().unwrap_or_else(|| PathBuf::from(s));
         }
     }
     default_vault()
@@ -60,15 +106,66 @@ pub fn vault_path() -> String {
 }
 
 #[tauri::command]
-pub fn vault_set_path(path: String) -> Result<(), String> {
-    if path.trim().is_empty() {
+pub fn vault_default_path() -> String {
+    default_vault().to_string_lossy().to_string()
+}
+
+/// Point the app at a vault folder. Call it right after the folder picker, while
+/// the sandbox still grants access to the picked folder, so the bookmark can be made.
+/// Takes effect at once for this process and survives relaunches.
+#[tauri::command]
+pub fn vault_set_path(app_handle: tauri::AppHandle, path: String) -> Result<(), String> {
+    let path = path.trim().to_string();
+    if path.is_empty() {
         return Err("Choose a folder for the vault.".into());
     }
-    let pf = pointer_file();
-    if let Some(parent) = pf.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(config_dir()).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&path).map_err(|e| format!("Memosa cannot use that folder: {e}"))?;
+    match crate::macos::create_security_bookmark(std::path::Path::new(&path)) {
+        Ok(data) => std::fs::write(bookmark_file(), data).map_err(|e| e.to_string())?,
+        Err(e) => {
+            // Outside the sandbox no bookmark is needed; keep going with the path.
+            crate::diagnostics::log(format!("vault bookmark not created: {e}"));
+            let _ = std::fs::remove_file(bookmark_file());
+        }
     }
-    std::fs::write(pf, path).map_err(|e| e.to_string())
+    std::fs::write(pointer_file(), &path).map_err(|e| e.to_string())?;
+    set_session_root(Some(PathBuf::from(&path)));
+    allow_assets(&app_handle);
+    crate::vault_watch::restart(&app_handle);
+    Ok(())
+}
+
+/// Go back to the default vault location (the old folder and its files stay as they are).
+#[tauri::command]
+pub fn vault_reset_path(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let _ = std::fs::remove_file(pointer_file());
+    let _ = std::fs::remove_file(bookmark_file());
+    set_session_root(None);
+    allow_assets(&app_handle);
+    crate::vault_watch::restart(&app_handle);
+    Ok(vault_path())
+}
+
+/// Let the webview stream audio from the vault (the audio player in the Transcript tab).
+pub fn allow_assets(app_handle: &tauri::AppHandle) {
+    use tauri::Manager;
+    let root = vault_root();
+    let _ = std::fs::create_dir_all(&root);
+    if let Err(e) = app_handle.asset_protocol_scope().allow_directory(&root, true) {
+        crate::diagnostics::log(format!("asset scope for vault failed: {e}"));
+    }
+}
+
+/// Absolute path of a conversation's audio file, when it has one.
+#[tauri::command]
+pub fn vault_audio_path(id: String) -> Option<String> {
+    let mut p = vault_root();
+    for part in id.split('/').filter(|s| !s.is_empty() && *s != "." && *s != "..") {
+        p.push(part);
+    }
+    let a = p.join("audio.m4a");
+    a.exists().then(|| a.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -134,17 +231,13 @@ pub fn task_toggle(conv: String, text: String, done: bool) -> Result<(), String>
 pub fn vault_reveal(id: Option<String>) -> Result<(), String> {
     let mut path = vault_root();
     if let Some(id) = id {
-        for part in id.split('/').filter(|s| !s.is_empty()) {
+        for part in id.split('/').filter(|s| !s.is_empty() && *s != "." && *s != "..") {
             path.push(part);
         }
     }
+    // NSWorkspace, not `open`: spawning processes is not allowed in the sandbox.
     #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
+    crate::macos::reveal_in_finder(&path)?;
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer").arg(&path).spawn().ok();
