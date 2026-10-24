@@ -26,22 +26,22 @@ int memosa_calendar_status(void) {
         case EKAuthorizationStatusDenied: return 2;
         default: break;
     }
-    if (@available(macOS 14.0, *)) {
-        if (st == EKAuthorizationStatusFullAccess) return 3;
-        if (st == EKAuthorizationStatusWriteOnly) return 4;
-        return 3;
-    }
-    return 3; // EKAuthorizationStatusAuthorized before macOS 14
+    // 3 = Authorized (before macOS 14) / FullAccess, 4 = WriteOnly (macOS 14+).
+    // Raw values, because @available needs a runtime symbol this build does not link.
+    return ((NSInteger)st == 4) ? 4 : 3;
 }
 
 int memosa_calendar_request(void) {
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
-    void (^finish)(BOOL, NSError *) = ^(BOOL granted, NSError *error) { dispatch_semaphore_signal(done); };
-    if (@available(macOS 14.0, *)) {
+    void (^finish)(BOOL, NSError *) = ^(BOOL granted, NSError *error) { (void)granted; (void)error; dispatch_semaphore_signal(done); };
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    if ([store() respondsToSelector:@selector(requestFullAccessToEventsWithCompletion:)]) {
         [store() requestFullAccessToEventsWithCompletion:finish];
     } else {
         [store() requestAccessToEntityType:EKEntityTypeEvent completion:finish];
     }
+#pragma clang diagnostic pop
     // The user may take a while to answer; never block forever.
     dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(300 * NSEC_PER_SEC)));
     return memosa_calendar_status();

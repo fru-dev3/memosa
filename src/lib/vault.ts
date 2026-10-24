@@ -130,6 +130,12 @@ export const vault = {
   transcribe: (id: string) => invoke<void>("vault_transcribe", { id }),
   pickAudio: () => invoke<string | null>("pick_audio_file"),
   pickFolder: () => invoke<string | null>("pick_vault_folder"),
+  defaultPath: () => invoke<string>("vault_default_path"),
+  resetPath: () => invoke<string>("vault_reset_path"),
+  audioPath: (id: string) => invoke<string | null>("vault_audio_path", { id }),
+  setCaptureTarget: (target: { folder: string; people?: string[]; eventId?: string } | null) =>
+    invoke<void>("vault_set_capture_target", { target }),
+  onChanged: (cb: () => void) => listen("vault_changed", () => cb()),
   mcpInfo: () => invoke<{ binaryPath: string; config: string }>("mcp_connect_info"),
   reveal: (id?: string) => invoke<void>("vault_reveal", { id }),
   exportMarkdown: (id: string) => invoke<string>("vault_export_markdown", { id }),
@@ -153,4 +159,31 @@ export const recorder = {
   status: () => invoke<RecStatus>("get_recording_status"),
   onLevel: (cb: (level: number) => void) =>
     listen<{ level: number }>("audio-level", (e) => cb(e.payload?.level ?? 0)),
+};
+
+// Calendar (spec 07): the Mac's calendars through EventKit.
+export type CalAccess = "not_asked" | "denied" | "restricted" | "granted" | "add_only";
+export interface CalEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  attendees: string[];
+  video: boolean;
+  platform?: string | null;
+  folder: string;
+  matches: boolean;
+}
+export interface AutoRecord {
+  enabled: boolean;
+  ask_first: boolean;
+  min_attendees: number;
+  video_only: boolean;
+}
+export const calendar = {
+  access: () => invoke<CalAccess>("calendar_access"),
+  requestAccess: () => invoke<CalAccess>("calendar_request_access"),
+  upcoming: (hours = 24) => invoke<CalEvent[]>("calendar_upcoming", { hours }),
+  getAutoRecord: () => invoke<AutoRecord>("autorecord_get"),
+  setAutoRecord: (cfg: AutoRecord) => invoke<AutoRecord>("autorecord_set", { cfg }),
 };

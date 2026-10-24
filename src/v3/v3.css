@@ -284,3 +284,25 @@
 .v3-tabs { overflow-x: auto; scrollbar-width: none; }
 .v3-tab { white-space: nowrap; flex: none; }
 .v3-kicker { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.v3-player { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 14px; border: 1px solid var(--hairline); border-radius: 11px; background: var(--surface); position: sticky; top: 0; z-index: 2; }
+.v3-play { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; flex: none; }
+:root[data-theme="vault"] .v3-play { color: #0c0d0f; }
+.v3-ptime { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-width: 40px; text-align: center; }
+.v3-player input[type=range] { flex: 1; accent-color: var(--accent); min-width: 0; }
+.v3-utt.seekable { cursor: pointer; border-radius: 8px; padding-left: 6px; padding-right: 6px; margin: 0 -6px; }
+.v3-utt.seekable:hover { background: var(--surface); }
+.v3-utt.now { background: var(--accent-soft); }
+.v3-utt.now .ts { color: var(--accent); }
+.v3-upcoming { margin-top: 6px; }
+.v3-calrow { display: flex; align-items: center; gap: 14px; padding: 10px 4px; border-bottom: 1px solid var(--hairline); }
+.v3-calrow .when { font-size: 13px; color: var(--muted); min-width: 110px; }
+.v3-calrow .what { flex: 1; min-width: 0; }
+.v3-calrow .tt { font-size: 14px; font-weight: 500; }
+.v3-calrow .desc { font-size: 12.5px; color: var(--muted); }
+.v3-tag { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--hairline-strong); color: var(--muted); white-space: nowrap; }
+.v3-tag.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.v3-field select { height: 36px; padding: 0 9px; border: 1px solid var(--hairline-strong); border-radius: 8px; background: var(--canvas); color: var(--text); font: inherit; font-size: 14px; }
+.v3-herovault { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; font-size: 13px; color: var(--muted); max-width: 100%; }
+.v3-herovault .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.v3-link.inline { margin-top: 0; }
+.v3-heroin > .v3-link { display: block; margin: 12px auto 0; }

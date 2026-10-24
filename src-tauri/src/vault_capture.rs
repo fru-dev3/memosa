@@ -176,6 +176,7 @@ pub async fn complete_from_segments(id: String, segments: Vec<TranscriptSegment>
     let result = (|| -> Result<(), String> {
         let vault = open_vault()?;
         let (transcript, duration_sec) = segments_to_transcript(&segments, &model);
+        crate::diagnostics::log(format!("vault: {id} transcript from the recorder's Whisper run"));
         vault.write_transcript(&id, &transcript).map_err(|e| e.to_string())?;
         if let Ok(mut meta) = vault.read_meta(&id) {
             meta.duration_sec = duration_sec;

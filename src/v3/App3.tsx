@@ -1,12 +1,16 @@
 // Memosa 3.0 UI (spec 11), wired to the files-only vault and the existing recorder.
 // The legacy app stays reachable with ?ui=legacy (see main.tsx).
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Icon } from "./icons";
 import {
+  calendar,
   recorder,
   vault,
+  type AutoRecord,
+  type CalAccess,
+  type CalEvent,
   type AskAnswer,
   type ConvBundle,
   type ConvMeta,
@@ -22,6 +26,7 @@ type Screen = "library" | "search" | "tasks" | "ask" | "settings";
 type Tab = "summary" | "transcript" | "speakers" | "actions";
 type ThemePref = "auto" | "daylight" | "vault";
 type Toast = { kind: "ok" | "err"; text: string } | null;
+type CalPrompt = { event: CalEvent; folder: string } | null;
 type Prompt = { title: string; label: string; value: string; submitLabel: string; submit: (v: string) => void } | null;
 
 const THEME_KEY = "memosa.theme";
@@ -32,6 +37,10 @@ const fmtDate = (iso: string) => {
 };
 const fmtClock = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 const fmtMins = (sec: number) => (sec <= 0 ? "No length yet" : sec < 60 ? "under 1 min" : `${Math.round(sec / 60)} min`);
+const fmtTime = (iso: string) => {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+};
 const prettyName = (n: string) => n.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
 const parentOf = (id: string) => (id.includes("/") ? id.slice(0, id.lastIndexOf("/")) : "");
 const crumbText = (id: string) => parentOf(id).split("/").filter(Boolean).join(" / ");
@@ -185,10 +194,20 @@ export default function App3() {
   const [aiStatus, setAiStatus] = useState<string>("");
   const [mcpConfig, setMcpConfig] = useState("");
   const [indexInfo, setIndexInfo] = useState<{ chunks: number; stale: number; conversations: number } | null>(null);
+  const [audioSrc, setAudioSrc] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [curTime, setCurTime] = useState(0);
+  const [audioDur, setAudioDur] = useState(0);
+  const [defaultVault, setDefaultVault] = useState("");
+  const [calAccess, setCalAccess] = useState<CalAccess | null>(null);
+  const [autoRec, setAutoRec] = useState<AutoRecord | null>(null);
+  const [upcoming, setUpcoming] = useState<CalEvent[]>([]);
+  const [calPrompt, setCalPrompt] = useState<CalPrompt>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const handledEvents = useRef<Set<string>>(new Set());
   const recTimer = useRef<number | null>(null);
   const folderRef = useRef("");
   const convIdRef = useRef<string | null>(null);
-  const pollRef = useRef<number | null>(null);
 
   const theme = themePref === "auto" ? (systemDark ? "vault" : "daylight") : themePref;
 
@@ -237,6 +256,10 @@ export default function App3() {
 
   const loadConv = useCallback((id: string) => {
     convIdRef.current = id;
+    vault
+      .audioPath(id)
+      .then((p) => convIdRef.current === id && setAudioSrc(p ? convertFileSrc(p) : null))
+      .catch(() => setAudioSrc(null));
     return vault
       .get(id)
       .then((b) => {
@@ -270,10 +293,11 @@ export default function App3() {
   useEffect(() => {
     reloadAll();
     vault.path().then(setVpath).catch(() => {});
-    // Files can change outside the app (Finder, another AI, a sync): refresh on focus.
-    const onFocus = () => reloadAll();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    vault.defaultPath().then(setDefaultVault).catch(() => {});
+    // The backend watches the vault folder (FSEvents): any change on disk, from this
+    // app, Finder, another AI or a sync tool, refreshes the views.
+    const un = vault.onChanged(() => reloadAll());
+    return () => void un.then((f) => f());
   }, [reloadAll]);
 
   const loadSettingsScreen = useCallback(() => {
@@ -282,6 +306,9 @@ export default function App3() {
     invoke<{ available: boolean; detail: string }>("get_insight_engine_status").then((s) => setAiStatus(s.detail)).catch(() => {});
     vault.mcpInfo().then((i) => setMcpConfig(i.config)).catch(() => {});
     vault.embeddingStatus().then(setIndexInfo).catch(() => {});
+    calendar.access().then(setCalAccess).catch(() => {});
+    calendar.getAutoRecord().then(setAutoRec).catch(() => {});
+    calendar.upcoming().then(setUpcoming).catch(() => {});
   }, [fail]);
 
   useEffect(() => {
@@ -493,18 +520,6 @@ export default function App3() {
   }, [conv, reloadAll, flash, fail]);
 
   // ---- capture ----
-  const pollAfterCapture = useCallback(() => {
-    // Whisper runs in the background after a recording or import; keep re-reading
-    // the vault for a few minutes so the transcript and notes appear on their own.
-    if (pollRef.current) window.clearInterval(pollRef.current);
-    let n = 0;
-    pollRef.current = window.setInterval(() => {
-      reloadAll();
-      if (++n >= 45 && pollRef.current) window.clearInterval(pollRef.current);
-    }, 4000);
-  }, [reloadAll]);
-  useEffect(() => () => void (pollRef.current && window.clearInterval(pollRef.current)), []);
-
   useEffect(() => {
     if (!recording) return;
     const un = recorder.onLevel((level) =>
@@ -513,20 +528,28 @@ export default function App3() {
     return () => void un.then((f) => f());
   }, [recording]);
 
-  const startCapture = useCallback(() => {
+  // Files into the open folder (or a calendar event's folder); Recordings otherwise.
+  const startCapture = useCallback(
+    (opts?: { title?: string; folder?: string; people?: string[]; eventId?: string }) => {
     if (recording) return;
-    const title = `Recording ${new Date().toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+    const title =
+      opts?.title ||
+      `Recording ${new Date().toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+    const folder = opts?.folder || (screen === "library" ? folderRef.current : "");
     setRecTitle(title);
     setLevels(Array(48).fill(0));
-    recorder
-      .start(title)
+    vault
+      .setCaptureTarget(folder ? { folder, people: opts?.people, eventId: opts?.eventId } : null)
+      .then(() => recorder.start(title))
       .then(() => {
         setRecording(true);
         setRecSec(0);
         recTimer.current = window.setInterval(() => setRecSec((s) => s + 1), 1000);
       })
       .catch((e) => flash("err", "Couldn't start recording: " + String(e)));
-  }, [recording, flash]);
+    },
+    [recording, screen, flash],
+  );
 
   const stopCapture = useCallback(() => {
     if (recTimer.current) window.clearInterval(recTimer.current);
@@ -534,15 +557,14 @@ export default function App3() {
       .stop()
       .then(() => {
         setRecording(false);
-        flash("ok", "Saved to Recordings. Transcribing on this Mac.");
-        window.setTimeout(reloadAll, 1500);
-        pollAfterCapture();
+        flash("ok", "Saved to your vault. Transcribing on this Mac.");
+        reloadAll();
       })
       .catch((e) => {
         setRecording(false);
         flash("err", "Couldn't stop recording: " + String(e));
       });
-  }, [reloadAll, pollAfterCapture, flash]);
+  }, [reloadAll, flash]);
 
   const importAudio = useCallback(async () => {
     try {
@@ -648,6 +670,89 @@ export default function App3() {
     }
   }, [reloadAll, flash, fail]);
 
+  const resetVault = useCallback(() => {
+    vault
+      .resetPath()
+      .then((p) => {
+        setVpath(p);
+        convIdRef.current = null;
+        setConv(null);
+        folderRef.current = "";
+        setFolder("");
+        reloadAll();
+        flash("ok", "Using the default vault location.");
+      })
+      .catch(fail);
+  }, [reloadAll, flash, fail]);
+
+  // ---- calendar auto-record (spec 07) ----
+  const saveAutoRec = useCallback(
+    (patch: Partial<AutoRecord>) => {
+      if (!autoRec) return;
+      const next = { ...autoRec, ...patch };
+      setAutoRec(next);
+      calendar
+        .setAutoRecord(next)
+        .then(() => calendar.upcoming().then(setUpcoming))
+        .catch(fail);
+    },
+    [autoRec, fail],
+  );
+
+  const askCalendar = useCallback(() => {
+    calendar
+      .requestAccess()
+      .then((a) => {
+        setCalAccess(a);
+        if (a === "granted") calendar.upcoming().then(setUpcoming).catch(() => {});
+      })
+      .catch(fail);
+  }, [fail]);
+
+  useEffect(() => {
+    calendar.getAutoRecord().then(setAutoRec).catch(() => {});
+  }, []);
+
+  // Every 30 s: a selected meeting starting within a minute is offered (ask first)
+  // or recorded straight away. Each meeting is handled once; declining records nothing.
+  useEffect(() => {
+    if (!autoRec?.enabled) return;
+    const tick = () => {
+      if (recording || calPrompt) return;
+      calendar
+        .upcoming(1)
+        .then((events) => {
+          const now = Date.now();
+          const due = events.find((e) => {
+            const t = new Date(e.start).getTime() - now;
+            return e.matches && t <= 60_000 && t > -5 * 60_000 && !handledEvents.current.has(e.id);
+          });
+          if (!due) return;
+          handledEvents.current.add(due.id);
+          if (autoRec.ask_first) setCalPrompt({ event: due, folder: due.folder });
+          else startCapture({ title: due.title, folder: due.folder, people: due.attendees, eventId: due.id });
+        })
+        .catch(() => {});
+    };
+    tick();
+    const t = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(t);
+  }, [autoRec, recording, calPrompt, startCapture]);
+
+  // ---- audio player ----
+  const seek = useCallback((sec: number, play = true) => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = sec;
+    setCurTime(sec);
+    if (play) a.play().catch(() => {});
+  }, []);
+  useEffect(() => {
+    setPlaying(false);
+    setCurTime(0);
+    setAudioDur(0);
+  }, [audioSrc]);
+
   const copyText = useCallback(
     (text: string, done: string) => {
       navigator.clipboard.writeText(text).then(() => flash("ok", done)).catch(fail);
@@ -701,7 +806,8 @@ export default function App3() {
       return "localhost";
     }
   })();
-  const aiIsLocal = !localAI || ["localhost", "127.0.0.1", "::1", "[::1]"].includes(aiHost);
+  const aiIsLocal = !localAI || ["localhost", "::1", "[::1]"].includes(aiHost) || aiHost.startsWith("127.");
+  const usingDefaultVault = !vpath || vpath === defaultVault;
 
   const palAction = (fn: () => void) => () => {
     setPaletteOpen(false);
@@ -811,7 +917,7 @@ export default function App3() {
                 <h1>Your memory starts here.</h1>
                 <div className="sub">Record a conversation or import audio. Memosa files it as plain folders and text on your Mac.</div>
                 <div className="v3-herocta">
-                  <button className="v3-btnbig primary" onClick={startCapture}>
+                  <button className="v3-btnbig primary" onClick={() => startCapture()}>
                     <Icon name="capture" size={18} /> Start recording
                   </button>
                   <button className="v3-btnbig ghost" onClick={importAudio} disabled={busy.import}>
@@ -834,6 +940,13 @@ export default function App3() {
                     <b>Open to your AI</b>
                     <span>Point Claude or Cursor at the vault.</span>
                   </div>
+                </div>
+                <div className="v3-herovault">
+                  <Icon name="folder" size={15} />
+                  <span className="mono">{vpath}</span>
+                  <button className="v3-link inline" onClick={changeVault}>
+                    Change
+                  </button>
                 </div>
                 <button className="v3-link" onClick={() => setScreen("settings")}>
                   Used Memosa before? Bring your recordings over in Settings.
@@ -997,6 +1110,44 @@ export default function App3() {
                         ))
                       ))}
 
+                    {tab === "transcript" && audioSrc && (
+                      <div className="v3-player">
+                        <audio
+                          ref={audioRef}
+                          src={audioSrc}
+                          preload="metadata"
+                          onLoadedMetadata={(e) => setAudioDur(e.currentTarget.duration || 0)}
+                          onTimeUpdate={(e) => setCurTime(e.currentTarget.currentTime)}
+                          onPlay={() => setPlaying(true)}
+                          onPause={() => setPlaying(false)}
+                          onEnded={() => setPlaying(false)}
+                        />
+                        <button
+                          className="v3-play"
+                          aria-label={playing ? "Pause" : "Play"}
+                          onClick={() => {
+                            const a = audioRef.current;
+                            if (!a) return;
+                            if (a.paused) a.play().catch((e) => fail(e));
+                            else a.pause();
+                          }}
+                        >
+                          <Icon name={playing ? "pause" : "play"} size={16} />
+                        </button>
+                        <span className="v3-ptime">{fmtClock(curTime)}</span>
+                        <input
+                          type="range"
+                          aria-label="Position"
+                          min={0}
+                          max={audioDur || 0}
+                          step={0.1}
+                          value={Math.min(curTime, audioDur || 0)}
+                          onChange={(e) => seek(Number(e.target.value), false)}
+                        />
+                        <span className="v3-ptime">{fmtClock(audioDur)}</span>
+                      </div>
+                    )}
+
                     {tab === "transcript" &&
                       (!transcript ? (
                         <p className="v3-hint">Loading transcript.</p>
@@ -1009,7 +1160,12 @@ export default function App3() {
                         </div>
                       ) : (
                         transcript.segments.map((s, i) => (
-                          <div key={i} className="v3-utt">
+                          <div
+                            key={i}
+                            className={"v3-utt " + (audioSrc ? "seekable " : "") + (audioSrc && curTime >= s.start && curTime < s.end ? "now" : "")}
+                            title={audioSrc ? "Play from here" : undefined}
+                            onClick={() => audioSrc && seek(s.start)}
+                          >
                             <div className="ts">{fmtClock(s.start)}</div>
                             <div>
                               {transcript.speakers[s.speaker] && <span className="sp">{transcript.speakers[s.speaker]}</span>}
@@ -1186,6 +1342,11 @@ export default function App3() {
                   <button className="v3-iconbtn" onClick={changeVault}>
                     Change
                   </button>
+                  {!usingDefaultVault && (
+                    <button className="v3-iconbtn" title={defaultVault} onClick={resetVault}>
+                      Use default
+                    </button>
+                  )}
                 </div>
                 <div className="v3-setrow">
                   <div className="info">
@@ -1307,17 +1468,105 @@ export default function App3() {
                   </div>
                 )}
 
-                <h2 className="v3-h2">Backup</h2>
+                <h2 className="v3-h2">Calendar</h2>
                 <div className="v3-setrow">
                   <div className="info">
-                    <div className="tt">Sync text to Google Drive</div>
-                    <div className="desc">Transcripts and notes only; audio never leaves your Mac. Drive sign-in is not built yet, so Sync now lists what would upload.</div>
-                    {notes.sync && <div className="v3-note">{notes.sync}</div>}
+                    <div className="tt">Calendar access</div>
+                    <div className="desc">
+                      {calAccess === "granted"
+                        ? "Allowed. Memosa reads the calendars on this Mac, including Google and Exchange accounts added to Calendar."
+                        : calAccess === "denied" || calAccess === "restricted"
+                          ? "Not allowed. Turn on Memosa under Privacy & Security, Calendars."
+                          : calAccess === "add_only"
+                            ? "Memosa can only add events. It needs full access to see meetings."
+                            : "Memosa needs to see your calendar to offer to record meetings as they start."}
+                    </div>
                   </div>
-                  <button className="v3-iconbtn" onClick={syncNow} disabled={busy.sync}>
-                    {busy.sync ? "Syncing" : "Sync now"}
-                  </button>
+                  {calAccess === "granted" ? (
+                    <span className="v3-ok">
+                      <Icon name="check" size={14} /> Allowed
+                    </span>
+                  ) : calAccess === "not_asked" ? (
+                    <button className="v3-iconbtn" onClick={askCalendar}>
+                      Allow access
+                    </button>
+                  ) : (
+                    <button
+                      className="v3-iconbtn"
+                      onClick={() =>
+                        invoke("open_external_url", { url: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars" }).catch(fail)
+                      }
+                    >
+                      Open System Settings
+                    </button>
+                  )}
                 </div>
+                <div className="v3-setrow">
+                  <div className="info">
+                    <div className="tt">Record meetings automatically</div>
+                    <div className="desc">When a meeting starts, record it and file it in a matching folder with its attendees.</div>
+                  </div>
+                  <Switch
+                    label="Record meetings automatically"
+                    on={!!autoRec?.enabled}
+                    onChange={(on) => {
+                      if (on && calAccess === "not_asked") askCalendar();
+                      saveAutoRec({ enabled: on });
+                    }}
+                  />
+                </div>
+                {autoRec?.enabled && (
+                  <>
+                    <div className="v3-setrow">
+                      <div className="info">
+                        <div className="tt">Ask before recording</div>
+                        <div className="desc">A prompt a minute before the meeting; nothing is recorded unless you say yes.</div>
+                      </div>
+                      <Switch label="Ask before recording" on={autoRec.ask_first} onChange={(on) => saveAutoRec({ ask_first: on })} />
+                    </div>
+                    <div className="v3-setrow">
+                      <div className="info">
+                        <div className="tt">Only meetings with</div>
+                        <div className="desc">Skips solo holds. All-day events are never recorded.</div>
+                      </div>
+                      <div className="v3-seg">
+                        {[1, 2, 3].map((n) => (
+                          <button key={n} className={autoRec.min_attendees === n ? "on" : ""} onClick={() => saveAutoRec({ min_attendees: n })}>
+                            {n === 1 ? "Anyone" : `${n}+ people`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="v3-setrow">
+                      <div className="info">
+                        <div className="tt">Video calls only</div>
+                        <div className="desc">Zoom, Google Meet, Teams or Slack links.</div>
+                      </div>
+                      <Switch label="Video calls only" on={autoRec.video_only} onChange={(on) => saveAutoRec({ video_only: on })} />
+                    </div>
+                  </>
+                )}
+                {calAccess === "granted" && (
+                  <div className="v3-upcoming">
+                    <div className="v3-seclabel">Next 24 hours</div>
+                    {upcoming.length === 0 && <div className="v3-hint">No meetings.</div>}
+                    {upcoming.map((e) => (
+                      <div key={e.id} className="v3-calrow">
+                        <span className="when">{fmtTime(e.start)}</span>
+                        <div className="what">
+                          <div className="tt">{e.title}</div>
+                          <div className="desc">
+                            {e.attendees.length} {e.attendees.length === 1 ? "person" : "people"}
+                            {e.platform ? `, ${e.platform}` : ""}, files to {e.folder.split("/").join(" / ")}
+                          </div>
+                        </div>
+                        <span className={"v3-tag " + (autoRec?.enabled && e.matches ? "on" : "")}>
+                          {autoRec?.enabled ? (e.matches ? (autoRec.ask_first ? "Will ask" : "Will record") : "Skipped") : "Off"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <h2 className="v3-h2">Appearance</h2>
                 <div className="v3-seg">
@@ -1365,7 +1614,7 @@ export default function App3() {
             </div>
             <div className="v3-palbody">
               <div className="v3-palgroup">Actions</div>
-              <button className="v3-palitem" onClick={palAction(startCapture)}>
+              <button className="v3-palitem" onClick={palAction(() => startCapture())}>
                 <Icon name="capture" size={16} /> Start recording <span className="pd">⌘R</span>
               </button>
               <button className="v3-palitem" onClick={palAction(importAudio)}>
@@ -1439,7 +1688,21 @@ export default function App3() {
             <p>
               <strong>Cloud</strong> allows a paid AI provider with your own key. Audio still never leaves the Mac.
             </p>
+            {mode === "bunker" && localAI && !aiIsLocal && (
+              <p>Your Ollama address is another machine, so local AI is paused until you use an address on this Mac or switch to Cloud.</p>
+            )}
             <div className="acts">
+              {mode === "bunker" && (
+                <button
+                  className="v3-btn"
+                  onClick={() => {
+                    saveSettings({ app_mode: "cloud" });
+                    setModeOpen(false);
+                  }}
+                >
+                  Switch to Cloud
+                </button>
+              )}
               {mode === "cloud" && (
                 <button
                   className="v3-btn primary"
@@ -1453,6 +1716,45 @@ export default function App3() {
               )}
               <button className="v3-btn" onClick={() => setModeOpen(false)}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CALENDAR PROMPT (spec 07: ask first, never silent) */}
+      {calPrompt && (
+        <div className="v3-scrim center">
+          <div className="v3-dialog">
+            <h3>Record {"\u201c"}{calPrompt.event.title}{"\u201d"}?</h3>
+            <p>
+              Starts {fmtTime(calPrompt.event.start)}
+              {calPrompt.event.attendees.length ? ` with ${calPrompt.event.attendees.slice(0, 3).join(", ")}` : ""}
+              {calPrompt.event.attendees.length > 3 ? ` and ${calPrompt.event.attendees.length - 3} more` : ""}.
+            </p>
+            <label className="v3-field">
+              <span>File in</span>
+              <select value={calPrompt.folder} onChange={(e) => setCalPrompt({ ...calPrompt, folder: e.target.value })}>
+                {[calPrompt.event.folder, ...allFolders.filter((f) => f !== calPrompt.event.folder)].map((f) => (
+                  <option key={f} value={f}>
+                    {f.split("/").join(" / ")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="acts">
+              <button className="v3-btn" onClick={() => setCalPrompt(null)}>
+                Not this one
+              </button>
+              <button
+                className="v3-btn primary"
+                onClick={() => {
+                  const { event, folder } = calPrompt;
+                  setCalPrompt(null);
+                  startCapture({ title: event.title, folder, people: event.attendees, eventId: event.id });
+                }}
+              >
+                <Icon name="capture" size={15} /> Record
               </button>
             </div>
           </div>

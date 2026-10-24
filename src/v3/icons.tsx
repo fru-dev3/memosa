@@ -89,6 +89,8 @@ const P: Record<string, React.ReactNode> = {
       <path d="M14 2v6h6" />
     </>
   ),
+  play: <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none" />,
+  pause: <path d="M8 5v14M16 5v14" strokeWidth={2.4} />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   x: <path d="M6 6l12 12M18 6L6 18" />,
   alert: (

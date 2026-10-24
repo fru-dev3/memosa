@@ -66,6 +66,7 @@ impl WhisperTranscriber {
     where
         F: Fn(f32, String),
     {
+        crate::diagnostics::log(format!("whisper: transcribing {}", audio_path.display()));
         #[cfg(feature = "whisper-rs")]
         {
             return self.transcribe_with_whisper_rs(audio_path, progress_cb);

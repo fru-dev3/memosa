@@ -26,16 +26,28 @@ All notable changes to Memosa. Format: [Keep a Changelog](https://keepachangelog
 - **Settings**: Whisper model downloads, local AI with Ollama (any address),
   a search-by-meaning index, and an MCP server switch with a ready-to-copy
   config so Claude, Cursor and other MCP clients can read the vault.
+- **Audio player** in the Transcript tab: play, pause, seek, and click any line
+  to play from there.
+- **Calendar auto-record** from the Mac's calendars (iCloud, Google and
+  Exchange accounts added to Calendar): asks for calendar permission, off
+  until you turn it on, asks before recording by default, files the meeting
+  in a matching folder with its attendees.
+- **Live refresh**: changes to vault files from anywhere show up at once.
 - `memosa mcp`, `memosa migrate` and `memosa reindex` command-line modes.
 
 ### Fixed
 
 - A recording is kept in the vault even when no Whisper model is downloaded.
 - Vault paths can never reach outside the vault folder.
+- A vault folder outside the app sandbox keeps access after a restart, and
+  Show in Finder works in the sandboxed builds.
+- Each recording is transcribed once, for both the vault and the classic view.
+- Bunker mode no longer sends AI requests to an Ollama on another machine.
 
 ### Known gaps
 
-- Google Drive text sync has no sign-in yet; Sync now lists what would upload.
+- Google Drive text sync is hidden: it needs a Google sign-in (an OAuth client)
+  that is not set up yet.
 - The previous interface is still available with `?ui=legacy` for development.
 - **Open source.** Memosa is now open source under the GPL-3.0 license, with a
   direct-download `.dmg` (Developer ID signed & notarized) alongside the Mac App

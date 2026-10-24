@@ -52,7 +52,11 @@ fn start_window_drag(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
-    if !url.starts_with("https://") && !url.starts_with("http://") {
+    // Web links, plus the Privacy & Security pane (to grant calendar access).
+    if !url.starts_with("https://")
+        && !url.starts_with("http://")
+        && !url.starts_with("x-apple.systempreferences:com.apple.preference.security?Privacy_")
+    {
         return Err(format!("Blocked non-http URL: {url}"));
     }
     #[cfg(target_os = "macos")]
