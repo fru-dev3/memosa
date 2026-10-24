@@ -296,3 +296,32 @@ pub async fn vault_transcribe(id: String) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recorder_segments_become_the_vault_transcript() {
+        let seg = |s, e, t: &str| TranscriptSegment { start_ms: s, end_ms: e, text: t.into() };
+        let (t, dur) = segments_to_transcript(
+            &[seg(0, 2100, " We agreed to move the launch to March. "), seg(2100, 2600, "[BLANK_AUDIO]"), seg(2600, 9400, "Sam Lee sends the budget Friday.")],
+            "base",
+        );
+        assert_eq!(t.segments.len(), 2, "blank markers dropped");
+        assert_eq!(t.segments[0].text, "We agreed to move the launch to March.");
+        assert_eq!(t.segments[1].start, 2.6);
+        assert_eq!(t.model, "base");
+        assert_eq!(dur, 9);
+    }
+
+    #[test]
+    fn capture_target_defaults_to_recordings_and_is_taken_once() {
+        vault_set_capture_target(Some(CaptureTarget { folder: "Work/Acme".into(), people: vec!["Sam Lee".into()], event_id: Some("ev".into()) }));
+        let t = take_capture_target();
+        assert_eq!((t.folder.as_str(), t.people.len()), ("Work/Acme", 1));
+        assert_eq!(take_capture_target().folder, "Recordings");
+        vault_set_capture_target(Some(CaptureTarget { folder: "  ".into(), ..Default::default() }));
+        assert_eq!(take_capture_target().folder, "Recordings", "blank folder ignored");
+    }
+}

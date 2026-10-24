@@ -29,10 +29,10 @@ fn resolve_bookmark_once() -> Option<PathBuf> {
             let data = std::fs::read(bookmark_file()).ok()?;
             match crate::macos::resolve_security_bookmark(&data) {
                 Ok((path, stale)) => {
-                    if stale {
-                        if let Ok(fresh) = crate::macos::create_security_bookmark(std::path::Path::new(&path)) {
-                            let _ = std::fs::write(bookmark_file(), fresh);
-                        }
+                    if stale
+                        && let Ok(fresh) = crate::macos::create_security_bookmark(std::path::Path::new(&path))
+                    {
+                        let _ = std::fs::write(bookmark_file(), fresh);
                     }
                     Some(PathBuf::from(path))
                 }

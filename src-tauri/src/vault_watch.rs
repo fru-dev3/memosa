@@ -35,10 +35,8 @@ pub fn restart(app: &tauri::AppHandle) {
                     _ => false,
                 }
             };
-            if fire {
-                if let Some(app) = APP.get() {
-                    let _ = app.emit("vault_changed", ());
-                }
+            if fire && let Some(app) = APP.get() {
+                let _ = app.emit("vault_changed", ());
             }
         });
     }
@@ -47,10 +45,10 @@ pub fn restart(app: &tauri::AppHandle) {
     let mut guard = WATCHER.lock().unwrap();
     *guard = None; // stop the previous watcher first
     let made = notify::recommended_watcher(|res: notify::Result<notify::Event>| {
-        if let Ok(event) = res {
-            if relevant(&event) {
-                *LAST_EVENT.lock().unwrap() = Some(Instant::now());
-            }
+        if let Ok(event) = res
+            && relevant(&event)
+        {
+            *LAST_EVENT.lock().unwrap() = Some(Instant::now());
         }
     });
     match made {
