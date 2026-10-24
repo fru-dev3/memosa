@@ -2,7 +2,7 @@
 name = "memosa"
 version = "1.0.3"
 description = "Memosa - Record and Transcription App"
-authors = ["Ben"]
+authors = ["fru.dev"]
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
