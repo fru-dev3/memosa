@@ -8,7 +8,8 @@ Use:     import driver as t; t.step("Library", "opens", "await T.click('Library'
 Steps run JavaScript inside the real webview and click real DOM elements
 (with a hit test at the element's center), so no OS input events are posted
 and the Mac needs no Accessibility permission. Every step waits until the
-Mac has been idle for 120 s, so a person at the keyboard is never fought.
+Mac has been idle for 120 s; if a person comes back mid-run the test
+window is hidden at once and the run waits until they have been away 5 min.
 Use a throwaway HOME with made-up data; never point it at real recordings.
 """
 import os, json, time, subprocess, itertools, sys
@@ -16,7 +17,7 @@ import Quartz
 from AppKit import NSWorkspace, NSBitmapImageRep, NSPNGFileType
 from Quartz import CGWindowListCopyWindowInfo, kCGWindowListOptionAll, kCGNullWindowID
 E = os.environ.get("MEMOSA_E2E_HOME_DIR") or os.path.dirname(os.path.abspath(__file__))
-CMD = os.path.join(E, "cmd"); SHOTS = os.path.join(E, "shots")
+CMD = os.environ.get("MEMOSA_E2E_CMD") or os.path.join(E, "cmd"); SHOTS = os.path.join(E, "shots")
 _n = itertools.count(int(time.time()) % 100000 * 100)
 LOG = os.path.join(E, "log.jsonl")
 
@@ -25,11 +26,19 @@ def idle():
     for l in out.splitlines():
         if "HIDIdleTime" in l: return int(l.split()[-1]) // 1_000_000_000
     return 0
+HIDDEN = [False]
 def guard():
+    # A person at the Mac: hide the test window at once, wait until they have
+    # been away 5 minutes, then bring it back and carry on.
     while True:
         i = idle(); front = NSWorkspace.sharedWorkspace().frontmostApplication().localizedName()
-        if i >= 120: return front
-        print(f"[guard] user active (idle {i}s, front {front}); waiting", flush=True); time.sleep(30)
+        if i >= (300 if HIDDEN[0] else 120):
+            if HIDDEN[0]:
+                _send("vis", "show"); time.sleep(1); HIDDEN[0] = False
+            return front
+        if not HIDDEN[0]:
+            _send("vis", "hide", timeout=5); HIDDEN[0] = True
+        print(f"[guard] user active (idle {i}s, front {front}); window hidden, waiting", flush=True); time.sleep(20)
 
 PRE = r"""
 const T = window.__t || (window.__t = {

@@ -7,6 +7,8 @@
 //! - `N.size`  "WIDTH HEIGHT" in logical pixels: resizes the main window.
 //! - `N.theme` "dark", "light" or "auto": the window appearance, which the
 //!             webview's prefers-color-scheme follows.
+//! - `N.vis`   "hide" or "show": hides the window the moment a person is at the
+//!             Mac, and brings it back once they have gone idle again.
 //! - `pick`    if present, the next file/folder picker returns its content
 //!             ("cancel" = the user cancelled) instead of opening a dialog.
 
@@ -67,7 +69,7 @@ pub fn start(app: &tauri::AppHandle) {
         let mut cmds: Vec<PathBuf> = entries
             .flatten()
             .map(|e| e.path())
-            .filter(|p| matches!(p.extension().and_then(|e| e.to_str()), Some("js" | "size" | "theme")))
+            .filter(|p| matches!(p.extension().and_then(|e| e.to_str()), Some("js" | "size" | "theme" | "vis")))
             .collect();
         cmds.sort();
         for p in cmds {
@@ -92,6 +94,10 @@ pub fn start(app: &tauri::AppHandle) {
                         (Some(wd), Some(ht)) => w.set_size(tauri::LogicalSize::new(wd, ht)).map_err(|e| e.to_string()),
                         _ => Err("expected WIDTH HEIGHT".into()),
                     };
+                    write_result(&d, &n, r.is_ok(), serde_json::json!(r.err()));
+                }
+                Some("vis") => {
+                    let r = if body.trim() == "hide" { w.hide() } else { w.show() }.map_err(|e| e.to_string());
                     write_result(&d, &n, r.is_ok(), serde_json::json!(r.err()));
                 }
                 Some("theme") => {
