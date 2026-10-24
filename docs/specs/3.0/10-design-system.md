@@ -28,4 +28,4 @@ Depends on **09** (for data-bound components). No emoji anywhere.
 
 ## Acceptance
 Storybook-style page renders every component in both themes; matches the mockup screenshots
-(`docs/design/*.png`) within reason. Zero emoji; all icons from the set.
+(the HTML mockups in `docs/design/`) within reason. Zero emoji; all icons from the set.
