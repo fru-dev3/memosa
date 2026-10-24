@@ -85,9 +85,23 @@ pub fn vault_root() -> PathBuf {
 }
 
 fn vault() -> Result<Vault, String> {
-    let v = Vault::new(vault_root());
-    v.ensure().map_err(|e| e.to_string())?;
+    let root = vault_root();
+    let v = Vault::new(&root);
+    v.ensure().map_err(|e| unreachable_vault(&root, e))?;
     Ok(v)
+}
+
+/// A clear message when the vault folder cannot be opened (moved, unplugged, or
+/// macOS no longer grants access), instead of a bare OS error.
+fn unreachable_vault(root: &std::path::Path, e: std::io::Error) -> String {
+    if e.kind() == std::io::ErrorKind::PermissionDenied || e.raw_os_error() == Some(1) {
+        format!(
+            "Memosa can't open the vault folder {}. Choose it again in Settings (Change), or use the default.",
+            root.display()
+        )
+    } else {
+        format!("The vault folder {} can't be used: {e}", root.display())
+    }
 }
 
 fn now_iso() -> String {
@@ -120,7 +134,11 @@ pub fn vault_set_path(app_handle: tauri::AppHandle, path: String) -> Result<(), 
         return Err("Choose a folder for the vault.".into());
     }
     std::fs::create_dir_all(config_dir()).map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&path).map_err(|e| format!("Memosa cannot use that folder: {e}"))?;
+    // A folder can exist and still be off limits (the macOS sandbox only grants
+    // folders the user picked). Prove read and write access before saving anything.
+    probe_access(std::path::Path::new(&path)).map_err(|e| {
+        format!("Memosa cannot use that folder ({e}). Choose it with Change so macOS lets Memosa in.")
+    })?;
     match crate::macos::create_security_bookmark(std::path::Path::new(&path)) {
         Ok(data) => std::fs::write(bookmark_file(), data).map_err(|e| e.to_string())?,
         Err(e) => {
@@ -134,6 +152,15 @@ pub fn vault_set_path(app_handle: tauri::AppHandle, path: String) -> Result<(), 
     allow_assets(&app_handle);
     crate::vault_watch::restart(&app_handle);
     Ok(())
+}
+
+fn probe_access(dir: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    std::fs::read_dir(dir)?;
+    let probe = dir.join(".memosa").join(".write-probe");
+    std::fs::create_dir_all(probe.parent().unwrap())?;
+    std::fs::write(&probe, b"ok")?;
+    std::fs::remove_file(&probe)
 }
 
 /// Go back to the default vault location (the old folder and its files stay as they are).
@@ -170,7 +197,8 @@ pub fn vault_audio_path(id: String) -> Option<String> {
 
 #[tauri::command]
 pub fn vault_tree() -> Result<TreeNode, String> {
-    vault()?.tree().map_err(|e| e.to_string())
+    let v = vault()?;
+    v.tree().map_err(|e| unreachable_vault(v.root(), e))
 }
 
 #[tauri::command]
@@ -333,5 +361,16 @@ pub async fn pick_vault_folder(app_handle: tauri::AppHandle) -> Result<Option<St
             .into_path()
             .map(|p| Some(p.to_string_lossy().to_string()))
             .map_err(|e| e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod access_tests {
+    #[test]
+    fn probe_accepts_a_writable_folder_and_leaves_nothing() {
+        let d = std::env::temp_dir().join(format!("memosa-probe-{}", std::process::id()));
+        super::probe_access(&d).unwrap();
+        assert!(!d.join(".memosa/.write-probe").exists());
+        let _ = std::fs::remove_dir_all(d);
     }
 }
