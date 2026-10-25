@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
   "description": "Default capability for the main Memosa window.",
-  "windows": ["main"],
+  "windows": ["main", "pill"],
   "permissions": [
     "core:default",
     "dialog:default",

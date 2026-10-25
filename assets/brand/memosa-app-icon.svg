@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Memosa app icon: the memosa.dev mark on an office-green macOS tile (same family as Jot). -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a8f0a"/>
+      <stop offset="1" stop-color="#007000"/>
+    </linearGradient>
+    <filter id="s" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g)" filter="url(#s)"/>
+  <g transform="translate(182 182) scale(6.6)">
+    <path d="M7 73C20 73 27 31 33 31S44 67 50 67 60 41 66 41 74 64 78 64 87 59 93 59" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="80" cy="29" r="7" fill="#b9f0b0"/>
+  </g>
+</svg>

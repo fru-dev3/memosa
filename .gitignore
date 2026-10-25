@@ -36,3 +36,6 @@ src-tauri/gen/
 tasks/
 PLAN.md
 .soul/
+
+# On-device AI helper, compiled by src-tauri/build.rs
+src-tauri/binaries/

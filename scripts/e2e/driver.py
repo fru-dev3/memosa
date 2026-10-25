@@ -84,6 +84,8 @@ def _send(ext, body, timeout=30):
     return {"ok": False, "value": "TIMEOUT"}
 def js(code, timeout=30):
     guard(); return _send("js", PRE + code, timeout)
+def pjs(code, timeout=30):
+    guard(); return _send("pjs", PRE + code, timeout)
 def size(w, h): guard(); r = _send("size", f"{w} {h}"); time.sleep(0.8); return r
 def theme(t): guard(); r = _send("theme", t); time.sleep(0.6); return r
 def pick(p): open(os.path.join(CMD, "pick"), "w").write(p)
@@ -100,8 +102,8 @@ def shot(name):
     p = os.path.join(SHOTS, name + ".png"); rep.representationUsingType_properties_(NSPNGFileType, None).writeToFile_atomically_(p, True); return p
 
 RESULTS = []
-def step(area, name, code, expect=None, timeout=30, snap=None):
-    r = js(code, timeout); ok = r.get("ok") and (expect is None or expect(r.get("value")))
+def step(area, name, code, expect=None, timeout=30, snap=None, pill=False):
+    r = (pjs if pill else js)(code, timeout); ok = r.get("ok") and (expect is None or expect(r.get("value")))
     rec = {"area": area, "step": name, "pass": bool(ok), "value": r.get("value")}
     if snap: rec["shot"] = shot(snap)
     RESULTS.append(rec); open(LOG, "a").write(json.dumps(rec) + "\n")

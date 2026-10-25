@@ -13,6 +13,8 @@ The on-disk truth. Every other module reads/writes these exact shapes. No DB.
 │        ├─ transcript.txt           #   derived plaintext (for grep / dumb AI ingestion)
 │        ├─ notes.md                 #   summary + decisions + action items (Markdown)
 │        └─ audio.m4a                #   original recording (NEVER synced to Drive)
+├─ People/<Name>.md                  # one note per person (not a domain)
+├─ Accounts/<Name>.md                # one note per account: a company, client (not a domain)
 └─ .memosa/                          # app-managed, hidden; fully rebuildable
    ├─ config.json                    # app settings (theme, model policy, vault prefs)
    ├─ index/
@@ -27,6 +29,7 @@ The on-disk truth. Every other module reads/writes these exact shapes. No DB.
 - A conversation's canonical id = its vault-relative path, e.g. `Work/Northwind/2026-06-17-acme-insurance-review`.
 - Slug = `YYYY-MM-DD-kebab-title`, deduped with `-2`, `-3` on collision.
 - `.memosa/` and dotfiles are ignored when walking the tree.
+- Top-level `People/` and `Accounts/` hold notes, not conversations, and are not domains.
 
 ## meta.json  (schema v1)
 ```json
@@ -37,7 +40,9 @@ The on-disk truth. Every other module reads/writes these exact shapes. No DB.
   "created": "2026-06-17T11:02:00Z",
   "duration_sec": 2520,
   "people": ["Sarah Chen", "Mike Reyes", "Fru"],
+  "accounts": ["Northwind"],
   "tags": ["insurance", "home"],
+  "suggested": { "people": [], "accounts": [], "tags": ["renewal"], "dismissed": [] },
   "source": "recording",                 // recording | import | calendar
   "calendar_event_id": null,
   "audio": "audio.m4a",
@@ -100,3 +105,29 @@ The trailing comment is the machine channel; the visible text stays clean.
 ## Acceptance
 A hand-authored conversation folder (no app) is fully readable by the app; an app-authored
 one is human-readable and round-trips through git diff cleanly.
+
+
+## People and accounts (v2)
+Organizing is by links, not folders. A conversation names its `people`, `accounts`
+and topic `tags` in meta.json; each person and account also has a note:
+
+```markdown
+---
+kind: person
+account: Northwind
+aliases: [Sam, S. Chen]
+---
+
+Free notes about Sarah.
+```
+
+- Names in meta.json match a note's file name or one of its `aliases`.
+- A person's `account` makes every call with that person a call with the account
+  too. This is worked out when reading; it is never written into the call.
+- Renaming a note rewrites the name in every meta.json (and in people's `account`).
+- Naming someone new on a call creates a stub note. Notes can be written by hand.
+- `suggested` holds guesses (names said in the call that match notes, names the
+  on-device AI heard and the transcript really contains, a person's account, up to
+  three topics). They count for nothing until confirmed; `dismissed` keeps every
+  "no" so a guess never returns.
+- Tags are lower case, words joined with `-`, no `#` on disk.

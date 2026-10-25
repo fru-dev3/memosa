@@ -27,9 +27,18 @@ pub async fn summarize(id: &str) -> Result<Notes, String> {
     }
 
     let title = v.read_meta(id).map(|m| m.title).unwrap_or_default();
-    let prompt = build_prompt(&title, &plain);
-
-    let raw = crate::insights::generate_text(&prompt).await?;
+    let raw = match crate::insights::generate_text(&build_prompt(&title, &plain)).await {
+        // Apple's on-device model reads about 4,000 tokens at a time: note each part
+        // of a long call first, then summarize the notes.
+        Err(e) if e == crate::insights::TOO_LONG => {
+            let mut parts = Vec::new();
+            for chunk in chunks(&plain, CHUNK_CHARS) {
+                parts.push(crate::insights::generate_text(&chunk_prompt(&chunk)).await?);
+            }
+            crate::insights::generate_text(&build_prompt(&title, &parts.join("\n\n"))).await?
+        }
+        r => r?,
+    };
     if raw.trim().is_empty() {
         return Err(
             "A local model isn't running, so I couldn't write a summary. Start Ollama and try again."
@@ -52,6 +61,30 @@ pub async fn vault_summarize(id: String) -> Result<Notes, String> {
 }
 
 const MAX_TRANSCRIPT_CHARS: usize = 12_000;
+const CHUNK_CHARS: usize = 7_000;
+
+/// Split on line ends into pieces of at most about `max` characters.
+fn chunks(text: &str, max: usize) -> Vec<String> {
+    let mut out = vec![String::new()];
+    for line in text.lines() {
+        let cur = out.last_mut().unwrap();
+        if !cur.is_empty() && cur.len() + line.len() > max {
+            out.push(String::new());
+        }
+        let cur = out.last_mut().unwrap();
+        cur.push_str(truncate_chars(line, max));
+        cur.push('\n');
+    }
+    out.into_iter().filter(|c| !c.trim().is_empty()).collect()
+}
+
+fn chunk_prompt(part: &str) -> String {
+    format!(
+        "This is one part of a longer conversation transcript. Write short notes on it: \
+the key points, every decision, and every action item with its owner and date when said. \
+Plain bullet points, no preamble.\n\nTRANSCRIPT PART:\n{part}\n\nNOTES:"
+    )
+}
 
 fn build_prompt(title: &str, transcript: &str) -> String {
     let body = truncate_chars(transcript, MAX_TRANSCRIPT_CHARS);
@@ -522,5 +555,20 @@ Hope that helps!"#;
         let raw = "The team reviewed Q3 numbers and agreed revenue is on track.";
         let n = parse_model_output(raw, "c");
         assert!(n.summary.contains("revenue is on track"));
+    }
+}
+
+#[cfg(test)]
+mod chunk_tests {
+    use super::*;
+
+    #[test]
+    fn long_transcripts_split_on_lines_and_keep_every_word() {
+        let text = (0..300).map(|i| format!("line {i} of the call")).collect::<Vec<_>>().join("\n");
+        let parts = chunks(&text, 1_000);
+        assert!(parts.len() > 3);
+        assert!(parts.iter().all(|p| p.len() <= 1_000 + 30));
+        assert_eq!(parts.concat().lines().count(), 300, "nothing dropped");
+        assert_eq!(chunks("short", 1_000), vec!["short\n"]);
     }
 }

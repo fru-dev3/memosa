@@ -69,7 +69,7 @@ pub async fn get_insight_engine_status() -> Result<InsightEngineStatus, String> 
         InsightEngine::Heuristic => Ok(InsightEngineStatus {
             engine: "heuristic".into(),
             available: true,
-            detail: "Built-in offline extraction.".into(),
+            detail: "Apple's on-device model (Apple Intelligence). Nothing leaves this Mac.".into(),
         }),
         InsightEngine::Ollama => {
             if let Err(e) = ensure_ollama_allowed(&settings) {
@@ -169,24 +169,44 @@ pub async fn generate(
 /// Generate free-form text (not JSON) with the configured AI engine. Errors on
 /// the heuristic engine, which has no language model.
 pub async fn generate_text(prompt: &str) -> Result<String, String> {
-    let settings = SettingsManager::load();
-    match settings.insight_engine {
-        InsightEngine::Heuristic => {
-            Err("This needs local AI. Turn on Ollama in Settings, then try again.".into())
-        }
-        InsightEngine::Ollama => {
-            ensure_ollama_allowed(&settings)?;
-            call_ollama_text(&settings.ollama_url, &settings.ollama_model, prompt).await
-        }
-        InsightEngine::Byok => {
-            ensure_cloud_allowed(&settings)?;
-            let key = load_byok_key().ok_or_else(|| "No API key set for the cloud engine.".to_string())?;
-            let prompt = maybe_redact(&settings, prompt);
-            match settings.byok_provider {
-                ByokProvider::Anthropic => call_anthropic(&key, &prompt).await,
-                ByokProvider::OpenAI => call_openai_text(&key, &prompt).await,
-            }
-        }
+    // Memosa runs on this Mac only: every summary, answer and suggestion comes from
+    // Apple's on-device model. The Ollama and cloud engines stay in the code but are
+    // not offered.
+    call_apple(prompt).await
+}
+
+/// Error text when a prompt is too long for the on-device model; callers that can
+/// split their input (summaries) look for it.
+pub const TOO_LONG: &str = "too long for on-device AI";
+
+/// The bundled `memosa-ai` helper (Apple's model and speech recognition).
+pub fn ai_helper() -> Result<std::path::PathBuf, String> {
+    let helper = std::env::current_exe().map_err(|e| e.to_string())?.with_file_name("memosa-ai");
+    if helper.exists() { Ok(helper) } else { Err("On-device AI isn't part of this build.".into()) }
+}
+
+/// Apple's on-device model through the bundled `memosa-ai` helper (Swift only, so a
+/// separate binary next to the app's own). Nothing leaves the Mac.
+pub async fn call_apple(prompt: &str) -> Result<String, String> {
+    let helper = ai_helper()?;
+    let prompt = prompt.to_string();
+    let out = tokio::task::spawn_blocking(move || {
+        use std::io::Write;
+        let mut child = std::process::Command::new(helper)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()?;
+        child.stdin.take().expect("stdin").write_all(prompt.as_bytes())?;
+        child.wait_with_output()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| format!("On-device AI didn't start: {e}"))?;
+    match out.status.code() {
+        Some(0) => Ok(String::from_utf8_lossy(&out.stdout).trim().to_string()),
+        Some(3) => Err(TOO_LONG.into()),
+        _ => Err(String::from_utf8_lossy(&out.stderr).trim().to_string()),
     }
 }
 

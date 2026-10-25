@@ -306,3 +306,56 @@
 .v3-herovault .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .v3-link.inline { margin-top: 0; }
 .v3-heroin > .v3-link { display: block; margin: 12px auto 0; }
+
+/* links: people, accounts, #tags (chips + one find-or-create field) */
+.v3-links { position: relative; margin-bottom: 16px; }
+.v3-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.v3-chip { display: inline-flex; align-items: center; gap: 2px; height: 26px; padding: 0 4px 0 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--hairline-strong); font-size: 12.5px; color: var(--text); }
+.v3-chip .nm { display: inline-flex; align-items: center; gap: 5px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3-chip.person svg { color: var(--accent); }
+.v3-chip.account svg { color: var(--muted); }
+.v3-chip.tag svg { color: var(--faint); }
+.v3-chip .x, .v3-chip .ok { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: var(--faint); }
+.v3-chip .x:hover { background: var(--hairline); color: var(--text); }
+.v3-chip .ok { color: var(--accent); }
+.v3-chip .ok:hover { background: var(--accent-soft); }
+.v3-chip.guess { border-style: dashed; background: transparent; color: var(--muted); padding-left: 8px; gap: 5px; }
+.v3-chipadd input { height: 26px; min-width: 150px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; padding: 0 4px; }
+.v3-chipadd input::placeholder { color: var(--faint); }
+.v3-chipadd input:focus { outline: none; }
+.v3-linkmenu { position: absolute; z-index: 30; left: 0; top: calc(100% + 4px); width: min(340px, 100%); background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 4px; }
+.v3-linkopt { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 9px; border-radius: 7px; font-size: 13px; color: var(--text); }
+.v3-linkopt.hi { background: var(--selected); }
+.v3-linkopt b { font-weight: 600; }
+.v3-linkopt .hint { color: var(--muted); }
+
+/* sidebar: people, accounts, tags */
+.v3-ghdr-row.btn { width: 100%; cursor: pointer; }
+.v3-ghdr-row.btn .ct { font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
+.v3-twig .ct { margin-left: auto; }
+
+/* entity header in the list column */
+.v3-entity { padding: 0 2px 10px; }
+.v3-entity .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.v3-entity .sub button { color: var(--accent); }
+.v3-entity textarea { width: 100%; min-height: 60px; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; resize: vertical; }
+.v3-entity textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* the floating recorder window */
+.v3-pillroot { background: transparent; display: block; grid-template-rows: none; overflow: hidden; }
+.v3-pill { background: var(--surface); border: 1px solid var(--hairline-strong); padding: 10px 12px 2px; }
+.v3-pill .v3-links { margin-bottom: 8px; }
+.v3-pill .v3-linkmenu { position: static; width: 100%; margin-top: 6px; box-shadow: none; }
+.v3-pillbar { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; cursor: grab; user-select: none; }
+.v3-pillbar .grip { color: var(--faint); display: grid; }
+.v3-pillbar .v3-rectime { font-size: 15px; }
+.v3-pilltitle { flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3-pillwave { display: flex; align-items: center; gap: 2px; height: 20px; width: 50px; }
+.v3-pillwave i { flex: 1; border-radius: 2px; background: var(--accent); opacity: .85; transition: height .12s ease-out; }
+.v3-btn.sm { padding: 5px 10px; font-size: 12.5px; gap: 6px; }
+.v3-entname { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; margin-top: 8px; }
+.v3-entname svg { color: var(--accent); }
+.v3-entform { display: grid; gap: 8px; margin-top: 10px; }
+.v3-entform label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.v3-entform input { height: 30px; padding: 0 9px; border: 1px solid var(--hairline-strong); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+.v3-entform .acts { display: flex; gap: 8px; }

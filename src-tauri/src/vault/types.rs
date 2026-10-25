@@ -28,8 +28,14 @@ pub struct ConvMeta {
     pub duration_sec: u64,
     #[serde(default)]
     pub people: Vec<String>,
+    /// Accounts (companies, clients) the conversation is about; each has a note in `Accounts/`.
+    #[serde(default)]
+    pub accounts: Vec<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// AI and calendar guesses waiting for a yes. Never counted as people/accounts/tags.
+    #[serde(default, skip_serializing_if = "Suggested::is_empty")]
+    pub suggested: Suggested,
     #[serde(default = "default_source")]
     pub source: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -49,12 +55,34 @@ impl ConvMeta {
             created: created.into(),
             duration_sec: 0,
             people: Vec::new(),
+            accounts: Vec::new(),
             tags: Vec::new(),
+            suggested: Suggested::default(),
             source: "recording".into(),
             calendar_event_id: None,
             audio: "audio.m4a".into(),
             updated: None,
         }
+    }
+}
+
+/// Suggested links on a conversation. `dismissed` remembers every "no" so a guess
+/// never comes back.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct Suggested {
+    #[serde(default)]
+    pub people: Vec<String>,
+    #[serde(default)]
+    pub accounts: Vec<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub dismissed: Vec<String>,
+}
+
+impl Suggested {
+    pub fn is_empty(&self) -> bool {
+        self.people.is_empty() && self.accounts.is_empty() && self.tags.is_empty() && self.dismissed.is_empty()
     }
 }
 

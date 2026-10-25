@@ -38,6 +38,8 @@ impl SettingsManager {
         #[cfg(target_os = "macos")]
         Self::resolve_bookmark(&mut settings);
 
+        // Everything stays on this Mac: there is no cloud mode to switch to.
+        settings.app_mode = crate::types::AppMode::Bunker;
         settings
     }
 

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Icon } from "./icons";
+import { EntityHeader, LinkEditor } from "./Links";
 import {
   calendar,
   recorder,
@@ -11,6 +12,10 @@ import {
   type AutoRecord,
   type CalAccess,
   type CalEvent,
+  type Directory,
+  type Entity,
+  type LinkKind,
+  type Links,
   type AskAnswer,
   type ConvBundle,
   type ConvMeta,
@@ -27,6 +32,7 @@ type Tab = "summary" | "transcript" | "speakers" | "actions";
 type ThemePref = "auto" | "daylight" | "vault";
 type Toast = { kind: "ok" | "err"; text: string } | null;
 type CalPrompt = { event: CalEvent; folder: string } | null;
+type LinkFilter = { kind: LinkKind; name: string } | null;
 type Prompt = { title: string; label: string; value: string; submitLabel: string; submit: (v: string) => void } | null;
 
 const THEME_KEY = "memosa.theme";
@@ -41,6 +47,7 @@ const fmtTime = (iso: string) => {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 };
+const linksOf = (m: ConvMeta): Links => ({ people: m.people ?? [], accounts: m.accounts ?? [], tags: m.tags ?? [] });
 const prettyName = (n: string) => n.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
 const parentOf = (id: string) => (id.includes("/") ? id.slice(0, id.lastIndexOf("/")) : "");
 const crumbText = (id: string) => parentOf(id).split("/").filter(Boolean).join(" / ");
@@ -161,6 +168,9 @@ export default function App3() {
   const [screen, setScreen] = useState<Screen>("library");
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [folder, setFolder] = useState("");
+  const [dir, setDir] = useState<Directory | null>(null);
+  const [linkFilter, setLinkFilter] = useState<LinkFilter>(null);
+  const [railOpen, setRailOpen] = useState<Record<string, boolean>>({ person: true, account: true, tag: true });
   const [list, setList] = useState<ConvMeta[]>([]);
   const [conv, setConv] = useState<ConvBundle | null>(null);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
@@ -178,8 +188,6 @@ export default function App3() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [recording, setRecording] = useState(false);
   const [recSec, setRecSec] = useState(0);
-  const [recTitle, setRecTitle] = useState("");
-  const [levels, setLevels] = useState<number[]>(() => Array(48).fill(0));
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [palQ, setPalQ] = useState("");
   const [menu, setMenu] = useState<"export" | "more" | null>(null);
@@ -207,6 +215,8 @@ export default function App3() {
   const handledEvents = useRef<Set<string>>(new Set());
   const recTimer = useRef<number | null>(null);
   const folderRef = useRef("");
+  const filterRef = useRef<LinkFilter>(null);
+  const recStarted = useRef(0);
   const convIdRef = useRef<string | null>(null);
 
   const theme = themePref === "auto" ? (systemDark ? "vault" : "daylight") : themePref;
@@ -242,6 +252,11 @@ export default function App3() {
 
   // ---- data loading ----
   const loadList = useCallback((t: TreeNode | null, path: string) => {
+    const f = filterRef.current;
+    if (f) {
+      vault.linked(f.kind, f.name).then(setList).catch(() => setList([]));
+      return;
+    }
     if (!t) return;
     const convs: TreeNode[] = [];
     const walk = (n: TreeNode) => {
@@ -283,6 +298,7 @@ export default function App3() {
       })
       .catch(fail);
     vault.tasks("all").then(setTasks).catch(() => {});
+    vault.directory().then(setDir).catch(() => {});
     if (convIdRef.current) {
       const id = convIdRef.current;
       loadConv(id);
@@ -361,6 +377,8 @@ export default function App3() {
   // ---- navigation ----
   const openFolder = useCallback(
     (path: string) => {
+      filterRef.current = null;
+      setLinkFilter(null);
       folderRef.current = path;
       setFolder(path);
       setScreen("library");
@@ -369,19 +387,110 @@ export default function App3() {
     [tree, loadList],
   );
 
-  const openConv = useCallback(
+  // Show a conversation in the detail pane, leaving the list as it is.
+  const selectConv = useCallback(
     (id: string) => {
-      const parent = parentOf(id);
-      folderRef.current = parent;
-      setFolder(parent);
       setScreen("library");
       setTab("summary");
       setTranscript(null);
       setMenu(null);
-      loadList(tree, parent);
       loadConv(id);
     },
-    [tree, loadList, loadConv],
+    [loadConv],
+  );
+
+  const openConv = useCallback(
+    (id: string) => {
+      const parent = parentOf(id);
+      filterRef.current = null;
+      setLinkFilter(null);
+      folderRef.current = parent;
+      setFolder(parent);
+      loadList(tree, parent);
+      selectConv(id);
+    },
+    [tree, loadList, selectConv],
+  );
+
+  // Every call with a person, an account (and its people) or a #tag.
+  const openLinked = useCallback(
+    (kind: LinkKind, name: string) => {
+      const f = { kind, name };
+      filterRef.current = f;
+      setLinkFilter(f);
+      setScreen("library");
+      loadList(tree, "");
+    },
+    [tree, loadList],
+  );
+
+  const saveLinks = useCallback(
+    (l: Links) => {
+      if (!conv) return;
+      const id = conv.meta.id;
+      setConv((c) => (c && c.meta.id === id ? { ...c, meta: { ...c.meta, ...l } } : c));
+      vault
+        .setLinks(id, l)
+        .then((meta) => {
+          setConv((c) => (c && c.meta.id === id ? { ...c, meta } : c));
+          vault.directory().then(setDir).catch(() => {});
+        })
+        .catch(fail);
+    },
+    [conv, fail],
+  );
+
+  const answerSuggestion = useCallback(
+    (kind: LinkKind, name: string, accept: boolean) => {
+      if (!conv) return;
+      const id = conv.meta.id;
+      vault
+        .answerSuggestion(id, kind, name, accept)
+        .then((meta) => {
+          setConv((c) => (c && c.meta.id === id ? { ...c, meta } : c));
+          vault.directory().then(setDir).catch(() => {});
+        })
+        .catch(fail);
+    },
+    [conv, fail],
+  );
+
+  const suggestLinks = useCallback(() => {
+    if (!conv) return;
+    const id = conv.meta.id;
+    setBusyKey("suggest", true);
+    vault
+      .suggest(id)
+      .then((meta) => {
+        setConv((c) => (c && c.meta.id === id ? { ...c, meta } : c));
+        const n = (meta.suggested?.people.length ?? 0) + (meta.suggested?.accounts.length ?? 0) + (meta.suggested?.tags.length ?? 0);
+        flash("ok", n ? `${n} suggestions. Tap the tick to keep one.` : "Nothing new to suggest.");
+      })
+      .catch(fail)
+      .finally(() => setBusyKey("suggest", false));
+  }, [conv, flash, fail]);
+
+  const linkedEntity: (Entity & { count: number }) | null = useMemo(
+    () =>
+      linkFilter && linkFilter.kind !== "tag"
+        ? dir?.entities.find((e) => e.kind === linkFilter.kind && e.name === linkFilter.name) ?? null
+        : null,
+    [dir, linkFilter],
+  );
+
+  const saveEntity = useCallback(
+    (e: Entity, oldName?: string) =>
+      vault
+        .saveEntity(e, oldName)
+        .then(() => {
+          if (oldName && oldName !== e.name && filterRef.current) {
+            filterRef.current = { kind: e.kind, name: e.name };
+            setLinkFilter(filterRef.current);
+          }
+          reloadAll();
+        })
+        .catch(fail),
+    [reloadAll, fail],
   );
 
   useEffect(() => {
@@ -520,14 +629,6 @@ export default function App3() {
   }, [conv, reloadAll, flash, fail]);
 
   // ---- capture ----
-  useEffect(() => {
-    if (!recording) return;
-    const un = recorder.onLevel((level) =>
-      setLevels((ls) => [...ls.slice(1), Math.max(0, Math.min(1, Number(level) || 0))]),
-    );
-    return () => void un.then((f) => f());
-  }, [recording]);
-
   // Files into the open folder (or a calendar event's folder); Recordings otherwise.
   const startCapture = useCallback(
     (opts?: { title?: string; folder?: string; people?: string[]; eventId?: string }) => {
@@ -536,15 +637,21 @@ export default function App3() {
       opts?.title ||
       `Recording ${new Date().toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
     const folder = opts?.folder || (screen === "library" ? folderRef.current : "");
-    setRecTitle(title);
-    setLevels(Array(48).fill(0));
+    // Recording from a person, account or #tag page files the call with it.
+    const f = screen === "library" && !opts?.folder ? filterRef.current : null;
+    const people = [...(opts?.people ?? []), ...(f?.kind === "person" ? [f.name] : [])];
+    const accounts = f?.kind === "account" ? [f.name] : [];
+    const tags = f?.kind === "tag" ? [f.name] : [];
     vault
-      .setCaptureTarget(folder ? { folder, people: opts?.people, eventId: opts?.eventId } : null)
+      .setCaptureTarget({ folder, people, accounts, tags, eventId: opts?.eventId })
       .then(() => recorder.start(title))
       .then(() => {
         setRecording(true);
         setRecSec(0);
-        recTimer.current = window.setInterval(() => setRecSec((s) => s + 1), 1000);
+        recStarted.current = Date.now();
+        recTimer.current = window.setInterval(() => setRecSec(Math.round((Date.now() - recStarted.current) / 1000)), 1000);
+        // The floating recorder: the main window can be put away during the call.
+        invoke("pill_show", { started: recStarted.current, title }).catch(() => {});
       })
       .catch((e) => flash("err", "Couldn't start recording: " + String(e)));
     },
@@ -557,14 +664,23 @@ export default function App3() {
       .stop()
       .then(() => {
         setRecording(false);
+        invoke("pill_close").catch(() => {});
         flash("ok", "Saved to your vault. Transcribing on this Mac.");
         reloadAll();
       })
       .catch((e) => {
         setRecording(false);
+        invoke("pill_close").catch(() => {});
         flash("err", "Couldn't stop recording: " + String(e));
       });
   }, [reloadAll, flash]);
+
+  // Stop pressed on the floating recorder.
+  useEffect(() => {
+    if (!recording) return;
+    const un = listen("pill-stop", () => stopCapture());
+    return () => void un.then((f) => f());
+  }, [recording, stopCapture]);
 
   const importAudio = useCallback(async () => {
     try {
@@ -894,10 +1010,42 @@ export default function App3() {
             </button>
           )}
 
+          {(
+            [
+              ["person", "People", (dir?.entities ?? []).filter((e) => e.kind === "person")],
+              ["account", "Accounts", (dir?.entities ?? []).filter((e) => e.kind === "account")],
+              ["tag", "Tags", dir?.tags ?? []],
+            ] as [LinkKind, string, { name: string; count: number }[]][]
+          ).map(([kind, label, rows]) =>
+            rows.length === 0 ? null : (
+              <div key={kind}>
+                <button className="v3-ghdr-row btn" onClick={() => setRailOpen((o) => ({ ...o, [kind]: !o[kind] }))}>
+                  <span>{label}</span>
+                  <span className="ct">{railOpen[kind] ? "" : rows.length}</span>
+                </button>
+                {railOpen[kind] &&
+                  rows.map((r) => (
+                    <div
+                      key={r.name}
+                      className={"v3-twig " + (linkFilter?.kind === kind && linkFilter.name === r.name && screen === "library" ? "on" : "")}
+                      onClick={() => openLinked(kind, r.name)}
+                      title={r.name}
+                    >
+                      <span className="ico">
+                        <Icon name={kind} size={14} />
+                      </span>
+                      <span className="nm">{kind === "tag" ? "#" + r.name : r.name}</span>
+                      <span className="ct">{r.count}</span>
+                    </div>
+                  ))}
+              </div>
+            ),
+          )}
+
           <div className="v3-spacer" />
           <button className={"v3-capture " + (recording ? "rec" : "")} onClick={() => (recording ? stopCapture() : startCapture())}>
             <Icon name={recording ? "stop" : "capture"} size={16} />
-            {recording ? "Stop recording" : "Capture"}
+            {recording ? `Stop ${fmtClock(recSec)}` : "Capture"}
             <span className="kbd">⌘R</span>
           </button>
           <button className={"v3-nav " + (screen === "settings" ? "active" : "")} onClick={() => setScreen("settings")}>
@@ -959,7 +1107,19 @@ export default function App3() {
           {screen === "library" && !isEmpty && (
             <>
               <section className="v3-list">
-                <div className="v3-listhead">
+                {linkFilter && (
+                  <EntityHeader
+                    key={linkFilter.kind + linkFilter.name}
+                    filter={linkFilter}
+                    entity={linkedEntity}
+                    accounts={(dir?.entities ?? []).filter((e) => e.kind === "account").map((e) => e.name)}
+                    onOpen={openLinked}
+                    onSave={saveEntity}
+                    onAll={() => openFolder("")}
+                    count={list.length}
+                  />
+                )}
+                <div className="v3-listhead" hidden={!!linkFilter}>
                   <div className="v3-crumb">
                     {crumb.length === 0 ? (
                       <b>All conversations</b>
@@ -983,17 +1143,19 @@ export default function App3() {
                     <Icon name="upload" size={16} />
                   </button>
                 </div>
-                <div className="v3-listsub">
-                  {list.length} {list.length === 1 ? "conversation" : "conversations"}
-                </div>
+                {!linkFilter && (
+                  <div className="v3-listsub">
+                    {list.length} {list.length === 1 ? "conversation" : "conversations"}
+                  </div>
+                )}
                 {list.length === 0 && <div className="v3-empty">No conversations here yet.</div>}
                 {list.map((m) => (
-                  <button key={m.id} className={"v3-row " + (conv?.meta.id === m.id ? "sel" : "")} onClick={() => openConv(m.id)}>
+                  <button key={m.id} className={"v3-row " + (conv?.meta.id === m.id ? "sel" : "")} onClick={() => (linkFilter ? selectConv(m.id) : openConv(m.id))}>
                     <div>
                       <div className="title">{m.title}</div>
                       <div className="meta">
                         {fmtMins(m.duration_sec)}
-                        {m.people.length > 0 ? `, ${m.people.slice(0, 2).join(", ")}` : ""}
+                        {[...m.people.slice(0, 2), ...(m.accounts ?? []).slice(0, 1)].map((x) => ", " + x).join("")}
                       </div>
                     </div>
                     <span className="time">{fmtDate(m.created)}</span>
@@ -1054,6 +1216,9 @@ export default function App3() {
                         <button className="v3-mi" onClick={() => { setMenu(null); setMoveOpen(true); }}>
                           <Icon name="folder" size={16} /> Move to folder
                         </button>
+                        <button className="v3-mi" onClick={() => { setMenu(null); suggestLinks(); }} disabled={busy.suggest}>
+                          <Icon name="spark" size={16} /> {busy.suggest ? "Reading the call" : "Suggest people and tags"}
+                        </button>
                         <button className="v3-mi" onClick={() => { setMenu(null); transcribeConv(); }} disabled={busy.transcribe}>
                           <Icon name="doc" size={16} /> {busy.transcribe ? "Transcribing" : "Transcribe again"}
                         </button>
@@ -1065,8 +1230,16 @@ export default function App3() {
                     <h1 className="det">{conv.meta.title}</h1>
                     <div className="v3-foldertag">
                       <Icon name="folder" size={14} /> {crumbText(conv.meta.id) || "Vault"}
-                      {conv.meta.tags.length > 0 ? ", " + conv.meta.tags.map((t) => "#" + t).join(" ") : ""}
                     </div>
+                    <LinkEditor
+                      key={conv.meta.id}
+                      links={linksOf(conv.meta)}
+                      suggested={conv.meta.suggested}
+                      dir={dir}
+                      onChange={saveLinks}
+                      onAnswer={answerSuggestion}
+                      onOpen={openLinked}
+                    />
                     <div className="v3-tabs" role="tablist">
                       {(["summary", "transcript", "speakers", "actions"] as Tab[]).map((t) => (
                         <button key={t} role="tab" aria-selected={tab === t} className={"v3-tab " + (tab === t ? "active" : "")} onClick={() => setTab(t)}>
@@ -1081,7 +1254,7 @@ export default function App3() {
                           <p className="lead">{conv.notes.summary}</p>
                         ) : (
                           <p className="v3-hint">
-                            No summary yet. Press Summarize to write one with local AI{localAI ? "" : " (turn it on in Settings first)"}.
+                            No summary yet. Press Summarize to write one on this Mac.
                           </p>
                         )}
                         {conv.notes.decisions.length > 0 && (
@@ -1410,8 +1583,11 @@ export default function App3() {
                 <h2 className="v3-h2">Local AI</h2>
                 <div className="v3-setrow">
                   <div className="info">
-                    <div className="tt">Summaries and Ask with Ollama</div>
-                    <div className="desc">Open-source models on your own machine.{localAI && aiStatus ? " " + aiStatus : " Off."}</div>
+                    <div className="tt">Use Ollama instead of Apple's model</div>
+                    <div className="desc">
+                      Summaries, Ask and suggestions use Apple's on-device model (Apple Intelligence). Turn this on to use your own Ollama models.
+                      {localAI && aiStatus ? " " + aiStatus : ""}
+                    </div>
                   </div>
                   <Switch
                     label="Use Ollama"
@@ -1650,40 +1826,13 @@ export default function App3() {
         </div>
       )}
 
-      {/* CAPTURE OVERLAY */}
-      {recording && (
-        <div className="v3-scrim bottom">
-          <div className="v3-capwrap">
-            <div className="v3-caphead">
-              <span className="v3-recdot" />
-              <span className="v3-reclabel">Recording</span>
-              <span className="v3-rectime">{fmtClock(recSec)}</span>
-              <span className="v3-rectitle">{recTitle}</span>
-            </div>
-            <div className="v3-wave">
-              {levels.map((l, i) => (
-                <i key={i} style={{ height: `${Math.max(6, Math.min(100, Math.sqrt(l) * 160))}%` }} />
-              ))}
-            </div>
-            <div className="v3-capfoot">
-              <button className="v3-btn primary" onClick={stopCapture}>
-                <Icon name="stop" size={15} /> Stop and save
-              </button>
-              <span style={{ marginLeft: "auto" }} className="v3-srxmeta">
-                Saved to your vault when you stop
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* MODE DIALOG */}
       {modeOpen && (
         <div className="v3-scrim center" onClick={() => setModeOpen(false)}>
           <div className="v3-dialog" onClick={(e) => e.stopPropagation()}>
             <h3>Privacy mode: {mode === "bunker" ? "Bunker" : "Cloud"}</h3>
             <p>
-              <strong>Bunker</strong> keeps everything on this Mac. Cloud AI is refused; only local models (Whisper, Ollama) run.
+              <strong>Bunker</strong> keeps everything on this Mac. Cloud AI is refused; only models on this Mac run (Whisper for transcripts, Apple's on-device model or your Ollama for summaries).
             </p>
             <p>
               <strong>Cloud</strong> allows a paid AI provider with your own key. Audio still never leaves the Mac.

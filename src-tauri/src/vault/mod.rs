@@ -4,9 +4,10 @@
 //! `meta.json`, `transcript.json` (+ derived `.txt`), `notes.md`, and `audio.m4a`.
 //! Domains and folders are real directories, the folder tree IS the data model.
 
+pub mod entities;
 pub mod notes;
 mod store;
 mod types;
 
 pub use store::Vault;
-pub use types::{ConvMeta, Notes, NodeKind, Segment, Task, Transcript, TreeNode};
+pub use types::{ConvMeta, Suggested, Notes, NodeKind, Segment, Task, Transcript, TreeNode};

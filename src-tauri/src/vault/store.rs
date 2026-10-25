@@ -67,8 +67,8 @@ impl Vault {
                 continue;
             }
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') {
-                continue; // .memosa, dotdirs
+            if name.starts_with('.') || (top && super::entities::is_entity_dir(&name)) {
+                continue; // .memosa, dotdirs, and the People/Accounts notes
             }
             let child_rel = if rel.is_empty() {
                 name.clone()
@@ -97,6 +97,24 @@ impl Vault {
         }
         nodes.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         Ok(nodes)
+    }
+
+    /// Every conversation's meta in the vault (any depth, newest first).
+    pub fn all_metas(&self) -> Vec<ConvMeta> {
+        fn walk(v: &Vault, n: &TreeNode, out: &mut Vec<ConvMeta>) {
+            if n.kind == NodeKind::Conversation {
+                if let Ok(m) = v.read_meta(&n.path) {
+                    out.push(m);
+                }
+            }
+            n.children.iter().for_each(|c| walk(v, c, out));
+        }
+        let mut out = Vec::new();
+        if let Ok(t) = self.tree() {
+            walk(self, &t, &mut out);
+        }
+        out.sort_by(|a, b| b.created.cmp(&a.created));
+        out
     }
 
     /// Conversations directly inside `folder` (newest first).
@@ -343,7 +361,7 @@ fn slugify(title: &str, created: &str) -> String {
     }
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
+pub(super) fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }

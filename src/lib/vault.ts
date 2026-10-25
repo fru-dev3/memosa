@@ -20,10 +20,37 @@ export interface ConvMeta {
   created: string;
   duration_sec: number;
   people: string[];
+  accounts: string[];
   tags: string[];
+  suggested?: Suggested;
   source: string;
   audio: string;
   updated?: string;
+}
+
+// People and accounts are notes in the vault (People/<Name>.md, Accounts/<Name>.md).
+export type LinkKind = "person" | "account" | "tag";
+export interface Suggested {
+  people: string[];
+  accounts: string[];
+  tags: string[];
+  dismissed: string[];
+}
+export interface Entity {
+  kind: "person" | "account";
+  name: string;
+  aliases: string[];
+  account?: string | null;
+  body: string;
+}
+export interface Directory {
+  entities: (Entity & { count: number })[];
+  tags: { name: string; count: number }[];
+}
+export interface Links {
+  people: string[];
+  accounts: string[];
+  tags: string[];
 }
 
 export interface Segment {
@@ -133,9 +160,19 @@ export const vault = {
   defaultPath: () => invoke<string>("vault_default_path"),
   resetPath: () => invoke<string>("vault_reset_path"),
   audioPath: (id: string) => invoke<string | null>("vault_audio_path", { id }),
-  setCaptureTarget: (target: { folder: string; people?: string[]; eventId?: string } | null) =>
+  setCaptureTarget: (target: { folder: string; people?: string[]; accounts?: string[]; tags?: string[]; eventId?: string } | null) =>
     invoke<void>("vault_set_capture_target", { target }),
   onChanged: (cb: () => void) => listen("vault_changed", () => cb()),
+  directory: () => invoke<Directory>("vault_directory"),
+  linked: (kind: LinkKind, name: string) => invoke<ConvMeta[]>("vault_linked", { kind, name }),
+  setLinks: (id: string, l: Links) => invoke<ConvMeta>("vault_set_links", { id, ...l }),
+  answerSuggestion: (id: string, kind: LinkKind, name: string, accept: boolean) =>
+    invoke<ConvMeta>("vault_answer_suggestion", { id, kind, name, accept }),
+  saveEntity: (entity: Entity, oldName?: string) => invoke<void>("vault_save_entity", { entity, oldName: oldName ?? null }),
+  suggest: (id: string) => invoke<ConvMeta>("vault_suggest", { id }),
+  setCaptureLinks: (l: Links) => invoke<void>("vault_set_capture_links", { ...l }),
+  captureLinks: () =>
+    invoke<[string[], string[], string[]]>("vault_capture_links").then(([people, accounts, tags]) => ({ people, accounts, tags })),
   mcpInfo: () => invoke<{ binaryPath: string; config: string }>("mcp_connect_info"),
   reveal: (id?: string) => invoke<void>("vault_reveal", { id }),
   exportMarkdown: (id: string) => invoke<string>("vault_export_markdown", { id }),

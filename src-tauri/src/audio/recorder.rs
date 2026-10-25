@@ -898,7 +898,10 @@ pub fn finalize_recording_session(
         }
     };
 
-    if let Some(error) = transcription_error {
+    // 3.0: Apple's speech recognition transcribes the vault copy; no Whisper model needed.
+    if let Some(id) = vault_conv {
+        crate::vault_capture::transcribe_filed(id);
+    } else if let Some(error) = transcription_error {
         app_handle
             .emit(
                 "transcription-failed",

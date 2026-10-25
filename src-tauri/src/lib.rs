@@ -26,6 +26,8 @@ pub mod vault_migrate;
 pub mod vault_search;
 pub mod vault_ai;
 pub mod vault_capture;
+pub mod vault_links;
+pub mod pill;
 pub mod vault_summarize;
 pub mod vault_embed;
 pub mod vault_calendar;
@@ -33,7 +35,6 @@ pub mod vault_sync;
 pub mod mcp_vault;
 
 use audio::AudioRecorder;
-use std::sync::atomic::{AtomicBool, Ordering};
 use storage::{Database, SettingsManager};
 use tauri::{Manager, RunEvent};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder};
@@ -69,11 +70,6 @@ fn open_external_url(url: String) -> Result<(), String> {
     }
 }
 
-#[derive(Default)]
-struct ShutdownState {
-    closing: AtomicBool,
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     diagnostics::install_panic_hook();
@@ -103,7 +99,6 @@ pub fn run() {
         .manage(transcription_manager.clone())
         .manage(live_transcriber)
         .manage(database.clone())
-        .manage(ShutdownState::default())
         .manage(calendar::CalendarState::new())
         .manage(calendar::scheduler::AutoRecordScheduler::new())
         .setup(move |app| {
@@ -246,38 +241,11 @@ pub fn run() {
             }
         })
         .on_window_event(|window, event| {
+            // Closing the main window hides it, also while recording: the floating
+            // recorder keeps the call going and the dock icon brings the window back.
+            // Quitting (Cmd+Q) still finalizes a running recording (RunEvent::ExitRequested).
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let recorder = window.state::<AudioRecorder>();
-                if recorder.get_status().is_recording {
-                    // Recording in progress — finalize it, then actually close.
-                    let shutdown = window.state::<ShutdownState>();
-                    if shutdown.closing.swap(true, Ordering::SeqCst) {
-                        return;
-                    }
-
-                    api.prevent_close();
-
-                    let app_handle = window.app_handle().clone();
-                    let db = window.state::<Database>();
-                    let transcription = window.state::<TranscriptionManager>();
-
-                    if let Err(error) = audio::recorder::finalize_recording_session(
-                        recorder.inner(),
-                        db.inner(),
-                        transcription.inner(),
-                        &app_handle,
-                    ) {
-                        eprintln!("[app] Failed to finalize recording during shutdown: {error}");
-                    }
-
-                    if let Err(error) = window.close() {
-                        eprintln!("[app] Failed to close window after finalizing recording: {error}");
-                        shutdown.closing.store(false, Ordering::SeqCst);
-                    }
-                } else {
-                    // Not recording — hide window to tray instead of quitting.
-                    // User can re-show via tray icon click or "Show Memosa" menu.
-                    // Use "Quit Memosa" from the tray menu to actually exit.
+                if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
                 }
@@ -385,6 +353,17 @@ pub fn run() {
             vault_cmds::vault_audio_path,
             vault_capture::vault_transcribe,
             vault_capture::vault_set_capture_target,
+            vault_capture::vault_set_capture_links,
+            vault_capture::vault_capture_links,
+            vault_links::vault_directory,
+            vault_links::vault_linked,
+            vault_links::vault_set_links,
+            vault_links::vault_answer_suggestion,
+            vault_links::vault_save_entity,
+            vault_links::vault_suggest,
+            pill::pill_show,
+            pill::pill_close,
+            pill::pill_resize,
             vault_search::vault_search,
             vault_search::vault_tasks,
             vault_ai::vault_ask,

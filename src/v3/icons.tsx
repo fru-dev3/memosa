@@ -61,7 +61,13 @@ const P: Record<string, React.ReactNode> = {
       <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" />
     </>
   ),
-  logo: <path d="M4 7v10M9 4v16M14 8v8M19 6v12" />,
+  // The Memosa mark (memosa.dev): a voice line ending in a dot.
+  logo: (
+    <>
+      <path d="M2.5 17.5c3.1 0 4.8-10 6.2-10s2.6 8.6 4 8.6 2.4-6.2 3.9-6.2 1.9 5.5 2.9 5.5 2.1-1.2 3.5-1.2" strokeWidth={2.2} />
+      <circle cx="19.2" cy="5.2" r="1.7" fill="currentColor" stroke="none" />
+    </>
+  ),
   plus: <path d="M12 5v14M5 12h14" />,
   stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
   reveal: (
@@ -124,6 +130,29 @@ const P: Record<string, React.ReactNode> = {
     <>
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
+  person: (
+    <>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
+    </>
+  ),
+  account: (
+    <>
+      <path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16" />
+      <path d="M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 8h3M8 12h3M8 16h3" />
+    </>
+  ),
+  tag: <path d="M9 4L7 20M17 4l-2 16M4 9h16M3 15h16" />,
+  grip: (
+    <>
+      <circle cx="9" cy="7" r="0.6" fill="currentColor" />
+      <circle cx="15" cy="7" r="0.6" fill="currentColor" />
+      <circle cx="9" cy="12" r="0.6" fill="currentColor" />
+      <circle cx="15" cy="12" r="0.6" fill="currentColor" />
+      <circle cx="9" cy="17" r="0.6" fill="currentColor" />
+      <circle cx="15" cy="17" r="0.6" fill="currentColor" />
     </>
   ),
 };

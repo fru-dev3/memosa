@@ -4,6 +4,7 @@
 //!
 //! - `N.js`    JavaScript evaluated in the main webview; its return value (or
 //!             error) comes back as `res-N.json`.
+//! - `N.pjs`   the same in the floating recorder window (`pill`).
 //! - `N.size`  "WIDTH HEIGHT" in logical pixels: resizes the main window.
 //! - `N.theme` "dark", "light" or "auto": the window appearance, which the
 //!             webview's prefers-color-scheme follows.
@@ -69,20 +70,25 @@ pub fn start(app: &tauri::AppHandle) {
         let mut cmds: Vec<PathBuf> = entries
             .flatten()
             .map(|e| e.path())
-            .filter(|p| matches!(p.extension().and_then(|e| e.to_str()), Some("js" | "size" | "theme" | "vis")))
+            .filter(|p| matches!(p.extension().and_then(|e| e.to_str()), Some("js" | "pjs" | "size" | "theme" | "vis")))
             .collect();
         cmds.sort();
         for p in cmds {
             let n = p.file_stem().and_then(|s| s.to_str()).unwrap_or("0").to_string();
             let body = std::fs::read_to_string(&p).unwrap_or_default();
             let _ = std::fs::remove_file(&p);
-            let Some(w) = app.get_webview_window("main") else { continue };
-            match p.extension().and_then(|e| e.to_str()) {
-                Some("js") => {
+            let ext = p.extension().and_then(|e| e.to_str());
+            let label = if ext == Some("pjs") { "pill" } else { "main" };
+            let Some(w) = app.get_webview_window(label) else {
+                write_result(&d, &n, false, serde_json::json!(format!("no {label} window")));
+                continue;
+            };
+            match ext {
+                Some("js" | "pjs") => {
                     let script = format!(
                         "(async () => {{ const done = (ok, value) => window.__TAURI_INTERNALS__.invoke('plugin:event|emit', {{ event: 'e2e-result', payload: {{ n: '{n}', ok, value }} }}); \
                          try {{ const r = await (async () => {{ {body} }})(); await done(true, r === undefined ? null : r); }} \
-                         catch (e) {{ await done(false, String((e && e.stack) || e)); }} }})();"
+                         catch (e) {{ await done(false, String(e && e.message ? e.message + ' | ' + e.stack : e)); }} }})();"
                     );
                     if let Err(e) = w.eval(&script) {
                         write_result(&d, &n, false, serde_json::json!(e.to_string()));

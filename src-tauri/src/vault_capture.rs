@@ -65,6 +65,67 @@ fn place_audio(src: &Path, dest_dir: &Path) -> Result<PathBuf, String> {
     }
 }
 
+/// Transcribe with Apple's speech recognition (built into macOS, on this Mac).
+/// Known people and accounts are passed along so their names come out right.
+fn apple_transcribe(audio_path: &Path) -> Result<Vec<TranscriptSegment>, String> {
+    #[derive(serde::Deserialize)]
+    struct Line {
+        start: f64,
+        end: f64,
+        text: String,
+    }
+    let names: Vec<String> = crate::vault::entities::list(&vault_root())
+        .into_iter()
+        .flat_map(|e| std::iter::once(e.name).chain(e.aliases))
+        .take(200)
+        .collect();
+    let out = std::process::Command::new(crate::insights::ai_helper()?)
+        .arg("transcribe")
+        .arg(audio_path)
+        .args(&names)
+        .output()
+        .map_err(|e| format!("Speech recognition didn't start: {e}"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    let lines: Vec<Line> = serde_json::from_slice(&out.stdout).map_err(|e| format!("Speech recognition output: {e}"))?;
+    Ok(lines
+        .into_iter()
+        .map(|l| TranscriptSegment { start_ms: (l.start * 1000.0) as i64, end_ms: (l.end * 1000.0) as i64, text: l.text })
+        .collect())
+}
+
+/// Apple's speech recognition first; Whisper only if that fails and a Whisper
+/// model is already on this Mac.
+fn transcribe_any(audio_path: &Path) -> Result<(Transcript, u64), String> {
+    match apple_transcribe(audio_path) {
+        Ok(segments) => Ok(segments_to_transcript(&segments, "apple-speech")),
+        Err(e) => {
+            crate::diagnostics::log(format!("apple speech failed: {e}"));
+            transcribe_to_vault_transcript(audio_path).map_err(|_| e)
+        }
+    }
+}
+
+/// Transcribe a just-filed recording in the background, then summarize and suggest.
+pub fn transcribe_filed(id: String) {
+    tauri::async_runtime::spawn(async move {
+        let audio = vault_root().join(&id).join("audio.m4a");
+        match tokio::task::spawn_blocking(move || transcribe_any(&audio)).await {
+            Ok(Ok((transcript, _))) => {
+                let segments: Vec<TranscriptSegment> = transcript
+                    .segments
+                    .iter()
+                    .map(|s| TranscriptSegment { start_ms: (s.start * 1000.0) as i64, end_ms: (s.end * 1000.0) as i64, text: s.text.clone() })
+                    .collect();
+                complete_from_segments(id, segments, transcript.model).await;
+            }
+            Ok(Err(e)) => crate::diagnostics::log(format!("vault: kept {id} without a transcript: {e}")),
+            Err(e) => crate::diagnostics::log(format!("transcription task failed: {e}")),
+        }
+    });
+}
+
 /// Run whisper.cpp over `audio_path` and assemble a vault [`Transcript`].
 ///
 /// Reuses [`WhisperTranscriber`], no reimplementation of inference or audio decoding.
@@ -130,6 +191,10 @@ pub struct CaptureTarget {
     #[serde(default)]
     pub people: Vec<String>,
     #[serde(default)]
+    pub accounts: Vec<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
     pub event_id: Option<String>,
 }
 
@@ -137,14 +202,30 @@ static NEXT_TARGET: std::sync::Mutex<Option<CaptureTarget>> = std::sync::Mutex::
 
 #[tauri::command]
 pub fn vault_set_capture_target(target: Option<CaptureTarget>) {
-    *NEXT_TARGET.lock().unwrap() = target.filter(|t| !t.folder.trim().is_empty());
+    *NEXT_TARGET.lock().unwrap() = target;
+}
+
+/// People, accounts and tags added while the recording runs (the floating recorder).
+#[tauri::command]
+pub fn vault_set_capture_links(people: Vec<String>, accounts: Vec<String>, tags: Vec<String>) {
+    let mut t = NEXT_TARGET.lock().unwrap();
+    let t = t.get_or_insert_with(CaptureTarget::default);
+    (t.people, t.accounts, t.tags) = (people, accounts, tags);
+}
+
+/// The links the next recording will carry, for the floating recorder to show.
+#[tauri::command]
+pub fn vault_capture_links() -> (Vec<String>, Vec<String>, Vec<String>) {
+    let t = NEXT_TARGET.lock().unwrap().clone().unwrap_or_default();
+    (t.people, t.accounts, t.tags)
 }
 
 pub fn take_capture_target() -> CaptureTarget {
-    NEXT_TARGET.lock().unwrap().take().unwrap_or(CaptureTarget {
-        folder: "Recordings".into(),
-        ..Default::default()
-    })
+    let mut t = NEXT_TARGET.lock().unwrap().take().unwrap_or_default();
+    if t.folder.trim().is_empty() {
+        t.folder = "Recordings".into();
+    }
+    t
 }
 
 /// File a just-finished recording into the vault right away (folder, meta, audio),
@@ -156,15 +237,15 @@ pub fn file_recording(audio_path: &Path, title: &str, created: &str, target: &Ca
     let id = vault
         .create_conversation(&target.folder, title, created)
         .map_err(|e| e.to_string())?;
-    if !target.people.is_empty() || target.event_id.is_some() {
+    if target.event_id.is_some() {
         if let Ok(mut meta) = vault.read_meta(&id) {
-            meta.people = target.people.clone();
-            if target.event_id.is_some() {
-                meta.calendar_event_id = target.event_id.clone();
-                meta.source = "calendar".into();
-            }
+            meta.calendar_event_id = target.event_id.clone();
+            meta.source = "calendar".into();
             vault.write_meta(&meta).map_err(|e| e.to_string())?;
         }
+    }
+    if !(target.people.is_empty() && target.accounts.is_empty() && target.tags.is_empty()) {
+        crate::vault_links::vault_set_links(id.clone(), target.people.clone(), target.accounts.clone(), target.tags.clone())?;
     }
     place_audio(audio_path, &vault.root().join(&id))?;
     Ok(id)
@@ -187,6 +268,9 @@ pub async fn complete_from_segments(id: String, segments: Vec<TranscriptSegment>
     match result {
         Ok(()) => {
             let _ = crate::vault_summarize::summarize(&id).await;
+            if let Err(e) = crate::vault_links::suggest(&id).await {
+                crate::diagnostics::log(format!("suggest {id}: {e}"));
+            }
             let _ = crate::vault_embed::vault_reindex().await;
         }
         Err(e) => crate::diagnostics::log(format!("vault transcript not written for {id}: {e}")),
@@ -227,7 +311,7 @@ pub async fn finalize_to_vault(
     // conversation and its audio stay in the vault, without a transcript, and the
     // reason is logged. The user can download a model and import again.
     let conv_audio = conv_dir.join("audio.m4a");
-    let result = tokio::task::spawn_blocking(move || transcribe_to_vault_transcript(&conv_audio))
+    let result = tokio::task::spawn_blocking(move || transcribe_any(&conv_audio))
         .await
         .map_err(|e| format!("transcription task panicked: {e}"))
         .and_then(|r| r);
@@ -286,7 +370,7 @@ pub async fn vault_transcribe(id: String) -> Result<(), String> {
         return Err("This conversation has no audio to transcribe.".into());
     }
     let (transcript, duration_sec) =
-        tokio::task::spawn_blocking(move || transcribe_to_vault_transcript(&audio))
+        tokio::task::spawn_blocking(move || transcribe_any(&audio))
             .await
             .map_err(|e| format!("transcription task panicked: {e}"))??;
     vault.write_transcript(&id, &transcript).map_err(|e| e.to_string())?;
@@ -317,11 +401,15 @@ mod tests {
 
     #[test]
     fn capture_target_defaults_to_recordings_and_is_taken_once() {
-        vault_set_capture_target(Some(CaptureTarget { folder: "Work/Acme".into(), people: vec!["Sam Lee".into()], event_id: Some("ev".into()) }));
+        vault_set_capture_target(Some(CaptureTarget { folder: "Work/Acme".into(), people: vec!["Sam Lee".into()], event_id: Some("ev".into()), ..Default::default() }));
         let t = take_capture_target();
         assert_eq!((t.folder.as_str(), t.people.len()), ("Work/Acme", 1));
         assert_eq!(take_capture_target().folder, "Recordings");
         vault_set_capture_target(Some(CaptureTarget { folder: "  ".into(), ..Default::default() }));
         assert_eq!(take_capture_target().folder, "Recordings", "blank folder ignored");
+        vault_set_capture_links(vec!["Kim Park".into()], vec!["Globex".into()], vec!["pricing".into()]);
+        assert_eq!(vault_capture_links().1, vec!["Globex"], "links added mid-recording are kept");
+        let t = take_capture_target();
+        assert_eq!((t.folder.as_str(), t.people.len(), t.tags.len()), ("Recordings", 1, 1));
     }
 }

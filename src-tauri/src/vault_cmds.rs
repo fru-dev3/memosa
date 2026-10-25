@@ -84,7 +84,7 @@ pub fn vault_root() -> PathBuf {
     default_vault()
 }
 
-fn vault() -> Result<Vault, String> {
+pub(crate) fn vault() -> Result<Vault, String> {
     let root = vault_root();
     let v = Vault::new(&root);
     v.ensure().map_err(|e| unreachable_vault(&root, e))?;
