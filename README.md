@@ -1,3 +1,7 @@
+> **Memosa is now Glyph Record: https://glyph.fru.dev/record (code: https://github.com/fru-dev3/glyph-record)**
+>
+> This repository is archived and kept read-only for its history and releases.
+
 <div align="center">
 
 <img src="assets/icon.png" alt="Memosa" width="84" />
